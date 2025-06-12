@@ -126,17 +126,17 @@ const PlatformPreview = ({
     }
   };
 
-  // Determinar la imagen a mostrar según el tipo de contenido y plataforma
+  // FIXED: Determinar la imagen a mostrar según el tipo de contenido y plataforma
   const getPreviewImage = () => {
     const isSlidePost = contentType === 'Slide Post';
     const hasSlideImages = slideImages && slideImages.length > 0;
 
-    // Para Slide Posts en Instagram y LinkedIn, mostrar la primera slide si está disponible, sino vacío
+    // Para Slide Posts en Instagram y LinkedIn, mostrar la primera slide si está disponible
     if (isSlidePost && (platform === 'instagram' || platform === 'linkedin')) {
       return hasSlideImages ? slideImages[0] : '';
     }
 
-    // Para otros casos, usar la imagen del contenido si no es placeholder
+    // Para Simple Posts, usar la imagen del contenido si no es placeholder
     return content.images && content.images.length > 0 && content.images[0] !== "/placeholder.svg" 
       ? content.images[0] 
       : '';
@@ -175,7 +175,7 @@ const PlatformPreview = ({
               </span>
             </div>
             <div className="flex items-center space-x-1">
-              {/* Download Slides Button - solo para Slide Posts que tengan slidesURL */}
+              {/* FIXED: Download Slides Button - solo para Slide Posts que tengan slidesURL y no tengan slides descargadas */}
               {isSlidePost && content.slidesURL && !hasSlideImages && (
                 <Button
                   variant="ghost"
@@ -208,7 +208,7 @@ const PlatformPreview = ({
             </p>
           </div>
 
-          {/* Slides Carousel - mostrar solo si es Slide Post y hay slides descargadas */}
+          {/* FIXED: Slides Carousel - mostrar solo si es Slide Post y hay slides descargadas */}
           {isSlidePost && hasSlideImages && (
             <div className="space-y-2">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -238,7 +238,7 @@ const PlatformPreview = ({
             </div>
           )}
 
-          {/* Image Preview - mostrar solo si hay imagen y no es un Slide Post con slides descargadas */}
+          {/* FIXED: Image Preview - mostrar solo si hay imagen y NO es un Slide Post con slides descargadas */}
           {previewImage && !(isSlidePost && hasSlideImages) && (
             <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
               <img 

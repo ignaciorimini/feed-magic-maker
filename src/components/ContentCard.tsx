@@ -95,9 +95,10 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     onDeleteEntry(entry.id);
   };
 
-  // Verificar si hay slides descargadas
+  // FIXED: Verificar si hay slides descargadas Y es un Slide Post
   const hasDownloadedSlides = localEntry.slideImages && localEntry.slideImages.length > 0;
   const isSlidePost = localEntry.type === 'Slide Post';
+  const shouldShowSlides = isSlidePost && hasDownloadedSlides;
 
   // Handler for status changes
   const handleStatusChange = (platform: string, newStatus: 'published' | 'pending' | 'error') => {
@@ -173,8 +174,8 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
               </p>
             </div>
 
-            {/* Slides Carousel - Show if we have slide images AND it's a Slide Post */}
-            {isSlidePost && hasDownloadedSlides && (
+            {/* FIXED: Slides Carousel - Show only if we have slide images AND it's a Slide Post */}
+            {shouldShowSlides && (
               <div className="space-y-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Slides Descargadas ({localEntry.slideImages!.length} imágenes)

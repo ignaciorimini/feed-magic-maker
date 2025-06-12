@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X } from 'lucide-react';
@@ -161,17 +160,25 @@ const Index = () => {
 
       console.log('Download response:', data);
 
-      // Verificar si el webhook devuelve URLs de imágenes - Revisar si viene en formato array anidado
-      let slideImages = [];
+      // Mejorar la extracción de slideImages del response
+      let slideImages: string[] = [];
       
-      if (data && Array.isArray(data)) {
-        // Si data es un array, buscar el campo slideImages en el primer elemento
-        if (data.length > 0 && data[0].slideImages && Array.isArray(data[0].slideImages)) {
-          slideImages = data[0].slideImages;
+      if (data) {
+        // Si data es un array, verificar el primer elemento
+        if (Array.isArray(data) && data.length > 0) {
+          const firstItem = data[0];
+          if (firstItem && firstItem.slideImages && Array.isArray(firstItem.slideImages)) {
+            slideImages = firstItem.slideImages;
+          }
+        } 
+        // Si data es un objeto directo con slideImages
+        else if (data.slideImages && Array.isArray(data.slideImages)) {
+          slideImages = data.slideImages;
         }
-      } else if (data && data.slideImages && Array.isArray(data.slideImages)) {
-        // Si data es un objeto con slideImages
-        slideImages = data.slideImages;
+        // Si data tiene una estructura diferente, log para debug
+        else {
+          console.log('Unexpected data structure:', data);
+        }
       }
 
       console.log('Extracted slideImages:', slideImages);
@@ -258,11 +265,22 @@ const Index = () => {
     window.location.reload();
   };
 
+  // Función para manejar nueva entrada con mapeo correcto de tipos
   const handleNewEntry = async (entryData: any) => {
     console.log("Datos recibidos para nueva entrada:", entryData);
     
-    // Determinar el tipo correcto basado en el contentType
-    const contentType = entryData.type === 'simple' ? 'Simple Post' : 'Slide Post';
+    // FIXED: Corregir el mapeo del tipo de contenido
+    let contentType: string;
+    if (entryData.type === 'simple') {
+      contentType = 'Simple Post';
+    } else if (entryData.type === 'slide') {
+      contentType = 'Slide Post';
+    } else {
+      // Fallback para casos edge
+      contentType = entryData.type || 'Simple Post';
+    }
+    
+    console.log('Content type mapped to:', contentType);
     
     // Process content generated from webhook
     let platformContent = {
@@ -326,7 +344,7 @@ const Index = () => {
     const { data, error } = await contentService.createContentEntry({
       topic: entryData.topic,
       description: entryData.description,
-      type: contentType, // Usar el tipo correcto
+      type: contentType, // Usar el tipo mapeado correctamente
       platform_content: platformContent
     });
 
