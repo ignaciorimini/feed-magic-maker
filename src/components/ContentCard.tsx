@@ -1,86 +1,331 @@
 
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Eye, Heart, Share2, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import StatusBadge from './StatusBadge';
+import PlatformPreview from './PlatformPreview';
+import PublishingSettings from './PublishingSettings';
 
 interface ContentCardProps {
-  title: string;
-  content: string;
-  platform: string;
-  scheduledFor?: string;
-  engagement?: {
-    views: number;
-    likes: number;
-    shares: number;
+  entry: {
+    id: string;
+    topic: string;
+    description: string;
+    type: string;
+    createdDate: string;
+    status: {
+      instagram: 'published' | 'pending' | 'error';
+      linkedin: 'published' | 'pending' | 'error';
+      wordpress: 'published' | 'pending' | 'error';
+    };
+    platformContent: {
+      instagram: {
+        text: string;
+        images: string[];
+        publishDate?: string;
+        slidesURL?: string;
+      };
+      linkedin: {
+        text: string;
+        images: string[];
+        publishDate?: string;
+        slidesURL?: string;
+      };
+      wordpress: {
+        text: string;
+        images: string[];
+        publishDate?: string;
+        title?: string;
+        description?: string;
+        slug?: string;
+        slidesURL?: string;
+      };
+    };
+    slideImages?: string[];
+    publishedLinks?: {
+      instagram?: string;
+      linkedin?: string;
+      wordpress?: string;
+    };
   };
-  status: 'draft' | 'scheduled' | 'published';
+  selectedPlatforms: string[];
+  onUpdateContent: (entryId: string, platform: string, content: any) => void;
+  onUpdatePublishSettings: (entryId: string, settings: any) => void;
+  onDeleteEntry: (entryId: string) => void;
+  onDownloadSlides: (entryId: string, slidesURL: string) => void;
 }
 
-const ContentCard = ({ title, content, platform, scheduledFor, engagement, status }: ContentCardProps) => {
-  const statusColors = {
-    draft: 'bg-gray-100 text-gray-700',
-    scheduled: 'bg-yellow-100 text-yellow-700',
-    published: 'bg-green-100 text-green-700'
+const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublishSettings, onDeleteEntry, onDownloadSlides }: ContentCardProps) => {
+  const [showPublishSettings, setShowPublishSettings] = useState(false);
+  const [localEntry, setLocalEntry] = useState(entry);
+
+  // Update local entry when prop changes
+  useEffect(() => {
+    setLocalEntry(entry);
+  }, [entry]);
+
+  const getTypeIcon = (type: string) => {
+    return type === 'Simple Post' ? FileText : Presentation;
   };
 
-  const platformColors = {
-    Instagram: 'bg-gradient-to-r from-purple-500 to-pink-500',
-    Facebook: 'bg-blue-600',
-    Twitter: 'bg-sky-500',
-    LinkedIn: 'bg-blue-700'
+  const getTypeColor = (type: string) => {
+    return type === 'Simple Post' ? 'bg-blue-500' : 'bg-indigo-500';
+  };
+
+  // Usar el tipo real del entry, no una función que puede devolver algo incorrecto
+  const TypeIcon = getTypeIcon(localEntry.type);
+
+  // Función para truncar texto
+  const truncateText = (text: string, maxLength: number = 100) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Filter platforms based on user selection
+  const availablePlatforms = ['instagram', 'linkedin', 'wordpress'].filter(platform => 
+    selectedPlatforms.includes(platform)
+  );
+
+  const handleDelete = () => {
+    console.log('Deleting entry with ID:', entry.id, 'Type:', typeof entry.id);
+    onDeleteEntry(entry.id);
+  };
+
+  // Verificar si hay slides descargadas
+  const hasDownloadedSlides = localEntry.slideImages && localEntry.slideImages.length > 0;
+  const isSlidePost = localEntry.type === 'Slide Post';
+
+  // Handler for status changes
+  const handleStatusChange = (platform: string, newStatus: 'published' | 'pending' | 'error') => {
+    setLocalEntry(prev => ({
+      ...prev,
+      status: {
+        ...prev.status,
+        [platform]: newStatus
+      }
+    }));
+  };
+
+  // Handler for link updates
+  const handleLinkUpdate = (platform: string, link: string) => {
+    setLocalEntry(prev => ({
+      ...prev,
+      publishedLinks: {
+        ...prev.publishedLinks,
+        [platform]: link
+      }
+    }));
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 animate-scale-in">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className={`w-3 h-3 rounded-full ${platformColors[platform as keyof typeof platformColors] || 'bg-gray-400'}`} />
-          <span className="text-sm font-medium text-gray-600">{platform}</span>
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
-            {status === 'draft' ? 'Borrador' : status === 'scheduled' ? 'Programado' : 'Publicado'}
-          </span>
+    <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
+      {/* Horizontal Layout */}
+      <div className="flex flex-col lg:flex-row">
+        {/* Left Side - Main Info */}
+        <div className="lg:w-1/3 p-4">
+          <CardHeader className="p-0 pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-8 h-8 ${getTypeColor(localEntry.type)} rounded-lg flex items-center justify-center`}>
+                  <TypeIcon className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight">
+                    {localEntry.topic}
+                  </h3>
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {localEntry.type}
+                  </Badge>
+                </div>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <DropdownMenuItem 
+                    onClick={handleDelete}
+                    className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Eliminar contenido
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0 space-y-3">
+            {/* Description Preview */}
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                Descripción
+              </span>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {truncateText(localEntry.description, 80)}
+              </p>
+            </div>
+
+            {/* Slides Carousel - Show if we have slide images AND it's a Slide Post */}
+            {isSlidePost && hasDownloadedSlides && (
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Slides Descargadas ({localEntry.slideImages!.length} imágenes)
+                </span>
+                <Carousel className="w-full max-w-xs mx-auto">
+                  <CarouselContent>
+                    {localEntry.slideImages!.map((imageUrl, index) => (
+                      <CarouselItem key={index}>
+                        <div className="p-1">
+                          <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden">
+                            <img 
+                              src={imageUrl} 
+                              alt={`Slide ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Error loading slide image:', imageUrl);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
+              </div>
+            )}
+
+            {/* Publication Status - Only show selected platforms */}
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                Estado de publicación
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {availablePlatforms.map(platform => (
+                  <StatusBadge 
+                    key={platform}
+                    platform={platform as 'instagram' | 'linkedin' | 'wordpress'} 
+                    status={localEntry.status[platform as keyof typeof localEntry.status]} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Published Links - Show if any links exist */}
+            {localEntry.publishedLinks && Object.keys(localEntry.publishedLinks).length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Enlaces publicados
+                </span>
+                <div className="space-y-1">
+                  {Object.entries(localEntry.publishedLinks).map(([platform, link]) => {
+                    if (!link || !availablePlatforms.includes(platform)) return null;
+                    
+                    return (
+                      <div key={platform} className="flex items-center justify-between text-xs">
+                        <span className="capitalize text-gray-600 dark:text-gray-400">{platform}:</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1 text-blue-600 hover:text-blue-800"
+                          onClick={() => window.open(link, '_blank')}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          Ver publicación
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+
+          <CardFooter className="p-0 pt-3 border-t border-gray-100/50 dark:border-gray-700/50">
+            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <Calendar className="w-3 h-3 mr-1" />
+              <span>Creado {localEntry.createdDate}</span>
+            </div>
+          </CardFooter>
         </div>
-        <Button variant="ghost" size="sm">
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
+
+        {/* Right Side - Platform Previews - Only show selected platforms */}
+        <div className="lg:w-2/3 p-4 border-l border-gray-100/50 dark:border-gray-700/50">
+          <div className="space-y-3">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Vista previa por plataforma
+            </span>
+            
+            <div className={`grid grid-cols-1 ${availablePlatforms.length === 2 ? 'md:grid-cols-2' : availablePlatforms.length === 3 ? 'md:grid-cols-3' : ''} gap-3`}>
+              {availablePlatforms.includes('instagram') && (
+                <PlatformPreview
+                  platform="instagram"
+                  content={localEntry.platformContent.instagram}
+                  status={localEntry.status.instagram}
+                  contentType={localEntry.type}
+                  onUpdateContent={(content) => onUpdateContent(localEntry.id, 'instagram', content)}
+                  entryId={localEntry.id}
+                  topic={localEntry.topic}
+                  slideImages={localEntry.slideImages}
+                  onStatusChange={(newStatus) => handleStatusChange('instagram', newStatus)}
+                  onLinkUpdate={(link) => handleLinkUpdate('instagram', link)}
+                />
+              )}
+              
+              {availablePlatforms.includes('linkedin') && (
+                <PlatformPreview
+                  platform="linkedin"
+                  content={localEntry.platformContent.linkedin}
+                  status={localEntry.status.linkedin}
+                  contentType={localEntry.type}
+                  onUpdateContent={(content) => onUpdateContent(localEntry.id, 'linkedin', content)}
+                  entryId={localEntry.id}
+                  topic={localEntry.topic}
+                  slideImages={localEntry.slideImages}
+                  onStatusChange={(newStatus) => handleStatusChange('linkedin', newStatus)}
+                  onLinkUpdate={(link) => handleLinkUpdate('linkedin', link)}
+                />
+              )}
+              
+              {availablePlatforms.includes('wordpress') && (
+                <PlatformPreview
+                  platform="wordpress"
+                  content={localEntry.platformContent.wordpress}
+                  status={localEntry.status.wordpress}
+                  contentType={localEntry.type}
+                  onUpdateContent={(content) => onUpdateContent(localEntry.id, 'wordpress', content)}
+                  entryId={localEntry.id}
+                  topic={localEntry.topic}
+                  slideImages={localEntry.slideImages}
+                  publishedLink={localEntry.publishedLinks?.wordpress}
+                  onStatusChange={(newStatus) => handleStatusChange('wordpress', newStatus)}
+                  onLinkUpdate={(link) => handleLinkUpdate('wordpress', link)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-600 text-sm mb-4 line-clamp-3">{content}</p>
-
-      {scheduledFor && (
-        <div className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-          <Calendar className="w-4 h-4" />
-          <span>{scheduledFor}</span>
-        </div>
+      {/* Publishing Settings Modal */}
+      {showPublishSettings && (
+        <PublishingSettings
+          entry={entry}
+          onClose={() => setShowPublishSettings(false)}
+          onUpdateSettings={onUpdatePublishSettings}
+        />
       )}
-
-      {engagement && (
-        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-          <div className="flex items-center space-x-1">
-            <Eye className="w-4 h-4" />
-            <span>{engagement.views}</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Heart className="w-4 h-4" />
-            <span>{engagement.likes}</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Share2 className="w-4 h-4" />
-            <span>{engagement.shares}</span>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center space-x-2">
-        <Button size="sm" variant="outline" className="flex-1">
-          Editar
-        </Button>
-        <Button size="sm" className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
-          {status === 'draft' ? 'Programar' : status === 'scheduled' ? 'Ver' : 'Analizar'}
-        </Button>
-      </div>
-    </div>
+    </Card>
   );
 };
 
