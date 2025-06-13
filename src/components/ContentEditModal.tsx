@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { X, Save, Upload, ImageIcon, Calendar, Send, ChevronLeft, ChevronRight, ExternalLink, Download, Presentation } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +27,7 @@ interface ContentEditModalProps {
   onSave: (content: any) => void;
   entryId: string;
   topic?: string;
-  slideImages?: string[]; // Add slideImages prop
+  slideImages?: string[];
 }
 
 const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onSave, entryId, topic, slideImages }: ContentEditModalProps) => {
@@ -121,19 +120,19 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
         description: "Procesando las slides, esto puede tomar unos momentos...",
       });
 
-      // Pass the topic (content name) as the second parameter
       const { data, error } = await contentService.downloadSlidesWithUserWebhook(content.slidesURL, topic || 'Contenido sin nombre');
       
       if (error) {
         throw error;
       }
 
-      if (data && data.slideImages && Array.isArray(data.slideImages)) {
-        setDownloadedSlides(data.slideImages);
+      if (Array.isArray(data) && data.length > 0 && data[0].slideImages && Array.isArray(data[0].slideImages)) {
+        const slideImages = data[0].slideImages;
+        setDownloadedSlides(slideImages);
         
         toast({
           title: "Slides descargadas exitosamente",
-          description: `Se descargaron ${data.slideImages.length} slides como imágenes.`,
+          description: `Se descargaron ${slideImages.length} slides como imágenes.`,
         });
       } else {
         throw new Error('No se recibieron URLs de imágenes válidas');
@@ -371,8 +370,8 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
             <div className="space-y-4">
               <Label>Imagen{showSlideCarousel ? 's' : ''}</Label>
               
-              {showSlideCarousel && imagesToShow.length > 1 ? (
-                /* Slide Carousel for Instagram/LinkedIn Slide Posts */
+              {showSlideCarousel && downloadedSlides.length > 1 ? (
+                /* Slide Carousel for Downloaded Slides */
                 <div className="space-y-4">
                   <div className="relative">
                     <div className="w-full h-64 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center relative overflow-hidden">
@@ -381,7 +380,7 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
                         variant="ghost"
                         onClick={prevSlide}
                         className="absolute left-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-black/20 hover:bg-black/40 text-white z-10"
-                        disabled={imagesToShow.length <= 1}
+                        disabled={downloadedSlides.length <= 1}
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
@@ -397,7 +396,7 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
                         <div className="text-center">
                           <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            Slide {currentSlideIndex + 1} de {imagesToShow.length}
+                            Slide {currentSlideIndex + 1} de {downloadedSlides.length}
                           </span>
                         </div>
                       )}
@@ -407,14 +406,14 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
                         variant="ghost"
                         onClick={nextSlide}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-black/20 hover:bg-black/40 text-white z-10"
-                        disabled={imagesToShow.length <= 1}
+                        disabled={downloadedSlides.length <= 1}
                       >
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
                     
                     <div className="flex justify-center mt-2 space-x-1">
-                      {imagesToShow.map((_, index) => (
+                      {downloadedSlides.map((_, index) => (
                         <button
                           key={index}
                           onClick={() => setCurrentSlideIndex(index)}
@@ -433,7 +432,7 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {downloadedSlides.length > 0 ? 'Imagen descargada' : 'Imagen actual (IA)'}
+                      {downloadedSlides.length > 0 ? 'Primera slide' : 'Imagen actual (IA)'}
                     </span>
                     <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden">
                       {currentAIImage && isRealImage(currentAIImage) ? (
@@ -447,14 +446,14 @@ const ContentEditModal = ({ isOpen, onClose, platform, content, contentType, onS
                         <div className="text-center">
                           <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {downloadedSlides.length > 0 ? 'Imagen descargada' : 'Imagen generada por IA'}
+                            {downloadedSlides.length > 0 ? 'Primera slide' : 'Imagen generada por IA'}
                           </span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Custom Image Upload */}
+                  {/* Custom Image Upload - solo para Simple Posts */}
                   {!isSlidePost && (
                     <div className="space-y-2">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Imagen personalizada</span>

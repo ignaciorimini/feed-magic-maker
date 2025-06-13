@@ -100,10 +100,12 @@ const PlatformPreview = ({
         throw error;
       }
 
-      if (data && data.slideImages && Array.isArray(data.slideImages)) {
+      // FIXED: Extraer slideImages del formato correcto
+      if (Array.isArray(data) && data.length > 0 && data[0].slideImages && Array.isArray(data[0].slideImages)) {
+        const slideImages = data[0].slideImages;
         toast({
           title: "¡Slides descargadas exitosamente!",
-          description: `Se descargaron ${data.slideImages.length} imágenes de las slides.`,
+          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
         });
         
         // Trigger a page refresh to show the updated slides
@@ -126,14 +128,14 @@ const PlatformPreview = ({
     }
   };
 
-  // FIXED: Determinar la imagen a mostrar según el tipo de contenido y plataforma
+  // FIXED: Determinar la imagen a mostrar - para Slide Posts usar la primera slide descargada
   const getPreviewImage = () => {
     const isSlidePost = contentType === 'Slide Post';
     const hasSlideImages = slideImages && slideImages.length > 0;
 
-    // Para Slide Posts en Instagram y LinkedIn, mostrar la primera slide si está disponible
-    if (isSlidePost && (platform === 'instagram' || platform === 'linkedin')) {
-      return hasSlideImages ? slideImages[0] : '';
+    // Para Slide Posts, mostrar la primera slide descargada
+    if (isSlidePost && hasSlideImages) {
+      return slideImages[0];
     }
 
     // Para Simple Posts, usar la imagen del contenido si no es placeholder
@@ -175,7 +177,7 @@ const PlatformPreview = ({
               </span>
             </div>
             <div className="flex items-center space-x-1">
-              {/* FIXED: Download Slides Button - solo para Slide Posts que tengan slidesURL y no tengan slides descargadas */}
+              {/* Download Slides Button - solo para Slide Posts que tengan slidesURL y no tengan slides descargadas */}
               {isSlidePost && content.slidesURL && !hasSlideImages && (
                 <Button
                   variant="ghost"
@@ -238,8 +240,8 @@ const PlatformPreview = ({
             </div>
           )}
 
-          {/* FIXED: Image Preview - mostrar solo si hay imagen y NO es un Slide Post con slides descargadas */}
-          {previewImage && !(isSlidePost && hasSlideImages) && (
+          {/* FIXED: Image Preview - para Simple Posts o Slide Posts sin slides descargadas */}
+          {previewImage && !hasSlideImages && (
             <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
               <img 
                 src={previewImage} 
@@ -308,6 +310,8 @@ const PlatformPreview = ({
           contentType={contentType}
           onSave={onUpdateContent}
           entryId={entryId || ''}
+          topic={topic}
+          slideImages={slideImages}
         />
       )}
     </>
