@@ -158,32 +158,43 @@ const Index = () => {
         throw error;
       }
 
-      console.log('Download response:', data);
+      console.log('Download response received:', data);
+      console.log('Data type:', typeof data);
+      console.log('Data is array:', Array.isArray(data));
 
-      // Mejorar la extracción de slideImages del response
+      // FIXED: Mejorar la extracción de slideImages del response
       let slideImages: string[] = [];
       
       if (data) {
-        // Si data es un array, verificar el primer elemento
-        if (Array.isArray(data) && data.length > 0) {
+        console.log('Processing data...', data);
+        
+        // FIXED: Si data.slideImages existe directamente (respuesta normalizada por contentService)
+        if (data.slideImages && Array.isArray(data.slideImages)) {
+          slideImages = data.slideImages;
+          console.log('Found slideImages directly in data:', slideImages.length);
+        }
+        // Si es la respuesta original del webhook (array con objeto)
+        else if (Array.isArray(data) && data.length > 0) {
+          console.log('Data is array, checking first element:', data[0]);
           const firstItem = data[0];
           if (firstItem && firstItem.slideImages && Array.isArray(firstItem.slideImages)) {
             slideImages = firstItem.slideImages;
+            console.log('Found slideImages in first array element:', slideImages.length);
           }
-        } 
-        // Si data es un objeto directo con slideImages
-        else if (data.slideImages && Array.isArray(data.slideImages)) {
+        }
+        // Si data es un objeto con slideImages
+        else if (typeof data === 'object' && data.slideImages && Array.isArray(data.slideImages)) {
           slideImages = data.slideImages;
+          console.log('Found slideImages in object:', slideImages.length);
         }
-        // Si data tiene una estructura diferente, log para debug
-        else {
-          console.log('Unexpected data structure:', data);
-        }
+        
+        console.log('Final extracted slideImages:', slideImages);
+        console.log('Number of slide images:', slideImages.length);
       }
 
-      console.log('Extracted slideImages:', slideImages);
-
       if (slideImages.length > 0) {
+        console.log('Saving', slideImages.length, 'slide images to database...');
+        
         // Guardar las slide images en la base de datos
         const { error: saveError } = await contentService.saveSlideImages(entryId, slideImages);
         
@@ -197,6 +208,8 @@ const Index = () => {
           return;
         }
 
+        console.log('Slide images saved successfully, updating local state...');
+
         // Actualizar el estado local para mostrar las imágenes en el carousel
         setEntries(prev => prev.map(entry => {
           if (entry.id === entryId) {
@@ -205,6 +218,7 @@ const Index = () => {
             // Actualizar la imagen de Instagram y LinkedIn con la primera slide
             if (slideImages.length > 0) {
               const firstSlideImage = slideImages[0];
+              console.log('Updating platform content with first slide:', firstSlideImage);
               
               if (updatedPlatformContent.instagram) {
                 updatedPlatformContent.instagram = {
@@ -221,11 +235,14 @@ const Index = () => {
               }
             }
 
-            return {
+            const updatedEntry = {
               ...entry,
               slideImages: slideImages,
               platformContent: updatedPlatformContent
             };
+            
+            console.log('Updated entry:', updatedEntry);
+            return updatedEntry;
           }
           return entry;
         }));
@@ -235,10 +252,12 @@ const Index = () => {
           description: `Se descargaron y guardaron ${slideImages.length} imágenes de las slides.`,
         });
       } else {
-        console.log('No slideImages found in response, full response:', data);
+        console.log('No slideImages found in response. Full response structure:');
+        console.log(JSON.stringify(data, null, 2));
         toast({
-          title: "Descarga completada",
-          description: "Las slides han sido procesadas por tu webhook, pero no se encontraron imágenes.",
+          title: "Error en la descarga",
+          description: "No se encontraron imágenes de slides en la respuesta del webhook.",
+          variant: "destructive",
         });
       }
     } catch (error) {

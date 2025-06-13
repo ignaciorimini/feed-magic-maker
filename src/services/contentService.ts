@@ -477,16 +477,14 @@ export const contentService = {
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log('Download successful:', data);
+      const rawData = await response.json();
+      console.log('Raw webhook response:', rawData);
+      console.log('Raw data type:', typeof rawData);
+      console.log('Raw data is array:', Array.isArray(rawData));
       
-      // El webhook puede devolver slideImages o slidesImages, normalizamos a slideImages
-      const slideImages = data.slideImages || data.slidesImages || [];
-      
+      // FIXED: Devolver la respuesta original sin normalizar para que handleDownloadSlides pueda procesarla correctamente
       return { 
-        data: { 
-          slideImages: slideImages 
-        }, 
+        data: rawData, 
         error: null 
       };
     } catch (error) {
