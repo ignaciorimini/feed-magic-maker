@@ -698,10 +698,11 @@ const Index = () => {
               ) : (
                 <div
                   className="
-                  grid gap-6
-                  grid-cols-1
-                  sm:grid-cols-2
-                  xl:grid-cols-4
+                    grid w-full
+                    gap-x-4 gap-y-6
+                    grid-cols-1
+                    sm:grid-cols-2
+                    xl:grid-cols-4
                   "
                   style={{ alignItems: "stretch" }}
                 >
@@ -717,7 +718,11 @@ const Index = () => {
                       targetPlatform = 'wordpress';
                     }
                     return (
-                      <div key={`${entry.id}-${targetPlatform}`} className="flex h-full">
+                      <div 
+                        key={`${entry.id}-${targetPlatform}`} 
+                        className="flex h-full"
+                        // removemos w-full aquí, el padre ya lo controla
+                      >
                         <PlatformCard
                           entry={entry}
                           platform={targetPlatform}
