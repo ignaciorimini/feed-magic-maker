@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ContentForm from '@/components/ContentForm';
-import ContentCard from '@/components/ContentCard';
+import PlatformCard from '@/components/PlatformCard';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,11 +40,16 @@ const parseSlideImages = (platformContent: any): string[] => {
   return [];
 };
 
+// Extended ContentEntry interface to include targetPlatform
+interface ExtendedContentEntry extends ContentEntry {
+  targetPlatform?: 'instagram' | 'linkedin' | 'wordpress';
+}
+
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
-  const [entries, setEntries] = useState<ContentEntry[]>([]);
+  const [entries, setEntries] = useState<ExtendedContentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -102,8 +107,8 @@ const Index = () => {
           });
         } else if (data) {
           // Transform the data to match the expected format
-          const transformedEntries: ContentEntry[] = data.map(entry => ({
-            id: entry.id, // Keep as string UUID
+          const transformedEntries: ExtendedContentEntry[] = data.map(entry => ({
+            id: entry.id,
             topic: entry.topic,
             description: entry.description || '',
             type: entry.type,
@@ -270,7 +275,7 @@ const Index = () => {
     console.log('Content type mapped to:', contentType);
     
     // Para cada plataforma seleccionada, crear una entrada separada
-    const newEntries: ContentEntry[] = [];
+    const newEntries: ExtendedContentEntry[] = [];
     
     for (const platform of entryData.selectedPlatforms) {
       // Process content generated from webhook
@@ -330,13 +335,12 @@ const Index = () => {
         };
       }
 
-      // Save to Supabase - Una entrada por plataforma con targetPlatform
+      // Save to Supabase - Una entrada por plataforma sin target_platform
       const { data, error } = await contentService.createContentEntry({
         topic: `${entryData.topic} - ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
         description: entryData.description,
         type: contentType,
-        platform_content: platformContent,
-        target_platform: platform // Nuevo campo para identificar la plataforma objetivo
+        platform_content: platformContent
       });
 
       if (error) {
@@ -347,7 +351,7 @@ const Index = () => {
           variant: "destructive",
         });
       } else if (data) {
-        const newEntry: ContentEntry = {
+        const newEntry: ExtendedContentEntry = {
           id: data.id,
           topic: data.topic,
           description: data.description || '',
@@ -361,7 +365,7 @@ const Index = () => {
           platformContent: data.platform_content,
           publishedLinks: parsePublishedLinks(data.published_links),
           slideImages: parseSlideImages(data.platform_content),
-          targetPlatform: platform // Agregar la plataforma objetivo
+          targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' // Agregar la plataforma objetivo
         };
 
         newEntries.push(newEntry);
@@ -453,7 +457,7 @@ const Index = () => {
     }
     acc[baseKey].push(entry);
     return acc;
-  }, {} as Record<string, ContentEntry[]>);
+  }, {} as Record<string, ExtendedContentEntry[]>);
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -714,7 +718,7 @@ const Index = () => {
                             // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
                             let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
                             if (entry.targetPlatform) {
-                              targetPlatform = entry.targetPlatform as 'instagram' | 'linkedin' | 'wordpress';
+                              targetPlatform = entry.targetPlatform;
                             } else if (entry.topic.includes('Instagram')) {
                               targetPlatform = 'instagram';
                             } else if (entry.topic.includes('LinkedIn')) {
