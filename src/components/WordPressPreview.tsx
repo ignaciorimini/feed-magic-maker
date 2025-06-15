@@ -18,7 +18,7 @@ interface WordPressPreviewProps {
   };
   status: 'published' | 'pending' | 'error';
   contentType: string;
-  onUpdateContent: (content: any) => void;
+  onUpdateContent: (content: any) => Promise<void>;
   entryId?: string;
   publishedLink?: string;
   onStatusChange?: (newStatus: 'published' | 'pending' | 'error') => void;

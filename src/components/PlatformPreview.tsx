@@ -24,7 +24,7 @@ interface PlatformPreviewProps {
   };
   status: 'published' | 'pending' | 'error';
   contentType: string;
-  onUpdateContent: (content: any) => void;
+  onUpdateContent: (content: any) => Promise<void>;
   entryId?: string;
   topic?: string;
   slideImages?: string[];

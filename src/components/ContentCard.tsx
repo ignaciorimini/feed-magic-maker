@@ -53,7 +53,7 @@ interface ContentCardProps {
     };
   };
   selectedPlatforms: string[];
-  onUpdateContent: (entryId: string, platform: string, content: any) => void;
+  onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
   onUpdatePublishSettings: (entryId: string, settings: any) => void;
   onDeleteEntry: (entryId: string) => void;
   onDownloadSlides: (entryId: string, slidesURL: string) => void;
