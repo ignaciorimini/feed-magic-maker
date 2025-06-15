@@ -696,7 +696,15 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div
+                  className="
+                  grid gap-6
+                  grid-cols-1
+                  sm:grid-cols-2
+                  xl:grid-cols-4
+                  "
+                  style={{ alignItems: "stretch" }}
+                >
                   {entries.map((entry) => {
                     let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
                     if (entry.targetPlatform) {
@@ -709,9 +717,8 @@ const Index = () => {
                       targetPlatform = 'wordpress';
                     }
                     return (
-                      <div className="flex h-full">
+                      <div key={`${entry.id}-${targetPlatform}`} className="flex h-full">
                         <PlatformCard
-                          key={`${entry.id}-${targetPlatform}`}
                           entry={entry}
                           platform={targetPlatform}
                           onUpdateContent={handleUpdateContent}
