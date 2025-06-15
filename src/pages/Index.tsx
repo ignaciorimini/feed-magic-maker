@@ -699,7 +699,7 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                   {entries.map((entry) => {
                     // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
                     let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';

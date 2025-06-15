@@ -88,7 +88,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
   return (
     <>
-      <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group aspect-square flex flex-col`}>
+      <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group flex flex-col h-full`}>
         {/* Header */}
         <CardHeader className="p-4 pb-2 flex-shrink-0">
           <div className="flex items-start justify-between">

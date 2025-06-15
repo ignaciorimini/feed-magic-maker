@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save, Send } from 'lucide-react';
+import { Calendar, Download, Save } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
+import { Switch } from '@/components/ui/switch';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -46,8 +46,10 @@ const ContentEditModal = ({
   const [editedContent, setEditedContent] = useState(content);
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+  const [imagesForPreview, setImagesForPreview] = useState<string[]>([]);
+  const [previewStartIndex, setPreviewStartIndex] = useState(0);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [publishNow, setPublishNow] = useState(false);
 
   useEffect(() => {
     setEditedContent(content);
@@ -59,8 +61,9 @@ const ContentEditModal = ({
     onClose();
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setSelectedImageUrl(imageUrl);
+  const handleImageClick = (images: string[], index: number) => {
+    setImagesForPreview(images);
+    setPreviewStartIndex(index);
     setShowImagePreview(true);
   };
 
@@ -109,13 +112,18 @@ const ContentEditModal = ({
     }
   };
 
-  const handlePublishNow = () => {
-    const now = new Date().toISOString().slice(0, 16);
-    setEditedContent({ ...editedContent, publishDate: now });
-    toast({
-      title: "Fecha de publicación establecida",
-      description: "El contenido se marcó para publicar ahora.",
-    });
+  const handlePublishNowToggle = (checked: boolean) => {
+    setPublishNow(checked);
+    if (checked) {
+      const now = new Date().toISOString().slice(0, 16);
+      setEditedContent({ ...editedContent, publishDate: now });
+      toast({
+        title: "Publicación Inmediata Activada",
+        description: "El contenido se publicará al guardar los cambios.",
+      });
+    } else {
+      setEditedContent({ ...editedContent, publishDate: '' });
+    }
   };
 
   const isSlidePost = contentType === 'Slide Post';
@@ -210,7 +218,7 @@ const ContentEditModal = ({
                             <div className="p-1">
                               <div 
                                 className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => handleImageClick(imageUrl)}
+                                onClick={() => handleImageClick(downloadedSlides, index)}
                               >
                                 <img 
                                   src={imageUrl} 
@@ -239,7 +247,7 @@ const ContentEditModal = ({
                   <Label>Imagen principal</Label>
                   <div 
                     className="w-full h-64 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => handleImageClick(editedContent.images[0])}
+                    onClick={() => handleImageClick(editedContent.images, 0)}
                   >
                     <img 
                       src={editedContent.images[0]} 
@@ -255,25 +263,26 @@ const ContentEditModal = ({
             <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuración de Publicación</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="publishDate">Fecha de publicación</Label>
-                  <Input
-                    id="publishDate"
-                    type="datetime-local"
-                    value={editedContent.publishDate || ''}
-                    onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="publish-now"
+                    checked={publishNow}
+                    onCheckedChange={handlePublishNowToggle}
                   />
+                  <Label htmlFor="publish-now">Publicar inmediatamente al guardar</Label>
                 </div>
-                <div className="flex items-end">
-                  <Button 
-                    onClick={handlePublishNow}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>Publicar ahora</span>
-                  </Button>
-                </div>
+                {!publishNow && (
+                  <div className="space-y-2">
+                    <Label htmlFor="publishDate">O programar para una fecha futura:</Label>
+                    <Input
+                      id="publishDate"
+                      type="datetime-local"
+                      value={editedContent.publishDate || ''}
+                      onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -294,7 +303,8 @@ const ContentEditModal = ({
       <ImagePreviewModal
         isOpen={showImagePreview}
         onClose={() => setShowImagePreview(false)}
-        imageUrl={selectedImageUrl}
+        images={imagesForPreview}
+        startIndex={previewStartIndex}
         alt="Vista previa de imagen"
       />
     </>
