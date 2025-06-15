@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { Edit, Instagram, Linkedin, FileText, ExternalLink, Calendar, Download } from 'lucide-react';
+import { Edit, Instagram, Linkedin, FileText, ExternalLink, Calendar, Download, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -210,7 +209,7 @@ const PlatformPreview = ({
             </p>
           </div>
 
-          {/* FIXED: Slides Carousel - mostrar solo si es Slide Post y hay slides descargadas */}
+          {/* Slides Carousel - mostrar solo si es Slide Post y hay slides descargadas */}
           {isSlidePost && hasSlideImages && (
             <div className="space-y-2">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -240,14 +239,22 @@ const PlatformPreview = ({
             </div>
           )}
 
-          {/* FIXED: Image Preview - para Simple Posts o Slide Posts que usen la primera slide como preview */}
-          {previewImage && (
-            <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-              <img 
-                src={previewImage} 
-                alt="Content preview"
-                className="w-full h-full object-cover"
-              />
+          {/* Image Preview for Simple Posts, or for Slide Posts before slides are downloaded */}
+          {!hasSlideImages && previewImage && (
+             <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+               <img 
+                 src={previewImage} 
+                 alt="Content preview"
+                 className="w-full h-full object-cover"
+               />
+             </div>
+          )}
+
+          {/* Placeholder for posts without any image */}
+          {!hasSlideImages && !previewImage && (
+            <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                <span>Sin imagen de previsualización</span>
             </div>
           )}
 
