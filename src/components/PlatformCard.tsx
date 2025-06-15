@@ -88,11 +88,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
   return (
     <>
-      {/* Ajustamos el alto de la card y sus hijos para ser consistentes */}
-      <Card className={`
-        bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group
-        aspect-[4/5] flex flex-col min-h-[400px] h-full 
-      `}>
+      <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group aspect-square flex flex-col`}>
         {/* Header */}
         <CardHeader className="p-4 pb-2 flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -128,7 +124,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
         </CardHeader>
 
         {/* Content */}
-        <CardContent className="flex-1 flex flex-col p-4 pt-2 space-y-3 min-h-[250px] overflow-hidden">
+        <CardContent className="p-4 pt-2 flex-1 flex flex-col space-y-3">
           {/* Description */}
           <p className="text-xs text-gray-600 line-clamp-2">
             {truncateText(entry.description, 80)}
@@ -136,42 +132,38 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
           {/* Slides Carousel */}
           {isSlidePost && hasSlides && (
-            <div className="flex-1 min-h-0 flex flex-col justify-center">
+            <div className="flex-1">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
                 Slides ({entry.slideImages!.length})
               </span>
-              <div className="w-full aspect-video bg-white rounded-md overflow-hidden border relative">
-                <Carousel className="w-full h-full">
-                  <CarouselContent className="h-full">
-                    {entry.slideImages!.map((imageUrl, index) => (
-                      <CarouselItem key={index} className="h-full">
-                        <div className="w-full h-full">
-                          <img 
-                            src={imageUrl} 
-                            alt={`Slide ${index + 1}`}
-                            className="w-full h-full object-cover aspect-video"
-                            style={{ maxHeight: '180px', maxWidth: '100%' }}
-                          />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="h-7 w-7 top-1/2 -translate-y-1/2 left-2 bg-black/70 hover:bg-black/90 text-white" />
-                  <CarouselNext className="h-7 w-7 top-1/2 -translate-y-1/2 right-2 bg-black/70 hover:bg-black/90 text-white" />
-                </Carousel>
-              </div>
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {entry.slideImages!.map((imageUrl, index) => (
+                    <CarouselItem key={index}>
+                      <div className="aspect-video bg-white rounded-md overflow-hidden border">
+                        <img 
+                          src={imageUrl} 
+                          alt={`Slide ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="h-6 w-6" />
+                <CarouselNext className="h-6 w-6" />
+              </Carousel>
             </div>
           )}
 
           {/* Single Image */}
           {(!isSlidePost || !hasSlides) && content?.images?.[0] && content.images[0] !== "/placeholder.svg" && (
-            <div className="flex-1 flex flex-col justify-center">
-              <div className="w-full aspect-video bg-white rounded-md overflow-hidden border relative">
+            <div className="flex-1">
+              <div className="aspect-video bg-white rounded-md overflow-hidden border">
                 <img 
                   src={content.images[0]} 
                   alt="Content preview"
-                  className="w-full h-full object-cover aspect-video"
-                  style={{ maxHeight: '180px', maxWidth: '100%' }}
+                  className="w-full h-full object-cover"
                 />
               </div>
             </div>

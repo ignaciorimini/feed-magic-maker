@@ -658,6 +658,7 @@ const Index = () => {
             <div>
               <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
             </div>
+
             {/* Content Grid */}
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
@@ -665,12 +666,14 @@ const Index = () => {
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Contenido Creado</h2>
                   <p className="text-sm sm:text-base text-gray-600">Gestiona tu contenido por red social</p>
                 </div>
+                
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
                     {entries.length} tarjetas
                   </Badge>
                 </div>
               </div>
+
               {loading ? (
                 <div className="text-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
@@ -696,17 +699,9 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div
-                  className="
-                    grid w-full
-                    gap-x-4 gap-y-6
-                    grid-cols-1
-                    sm:grid-cols-2
-                    xl:grid-cols-4
-                  "
-                  style={{ alignItems: "stretch" }}
-                >
+                <div className="grid grid-cols-4 gap-6">
                   {entries.map((entry) => {
+                    // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
                     let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
                     if (entry.targetPlatform) {
                       targetPlatform = entry.targetPlatform;
@@ -717,20 +712,16 @@ const Index = () => {
                     } else if (entry.topic.includes('WordPress')) {
                       targetPlatform = 'wordpress';
                     }
+
                     return (
-                      <div 
-                        key={`${entry.id}-${targetPlatform}`} 
-                        className="flex h-full"
-                        // removemos w-full aquí, el padre ya lo controla
-                      >
-                        <PlatformCard
-                          entry={entry}
-                          platform={targetPlatform}
-                          onUpdateContent={handleUpdateContent}
-                          onDeleteEntry={handleDeleteEntry}
-                          onDownloadSlides={handleDownloadSlides}
-                        />
-                      </div>
+                      <PlatformCard
+                        key={`${entry.id}-${targetPlatform}`}
+                        entry={entry}
+                        platform={targetPlatform}
+                        onUpdateContent={handleUpdateContent}
+                        onDeleteEntry={handleDeleteEntry}
+                        onDownloadSlides={handleDownloadSlides}
+                      />
                     );
                   })}
                 </div>
