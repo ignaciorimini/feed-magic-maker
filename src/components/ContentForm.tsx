@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { FileText, Presentation, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { profileService } from '@/services/profileService';
@@ -31,18 +33,33 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
   const [formData, setFormData] = useState({
     topic: '',
     description: '',
-    contentType: 'simple'
+    contentType: 'simple',
+    selectedPlatforms: [] as string[]
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handlePlatformChange = (platform: string, checked: boolean) => {
+    if (checked) {
+      setFormData(prev => ({
+        ...prev,
+        selectedPlatforms: [...prev.selectedPlatforms, platform]
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        selectedPlatforms: prev.selectedPlatforms.filter(p => p !== platform)
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.topic || !formData.description) {
+    if (!formData.topic || !formData.description || formData.selectedPlatforms.length === 0) {
       toast({
         title: "Campos requeridos",
-        description: "Por favor completa todos los campos obligatorios",
+        description: "Por favor completa todos los campos y selecciona al menos una red social",
         variant: "destructive",
       });
       return;
@@ -62,7 +79,6 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
     try {
       console.log("Obteniendo webhook del perfil del usuario...");
       
-      // Obtener el webhook URL del perfil del usuario
       const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
       
       if (profileError || !profile?.webhook_url) {
@@ -76,7 +92,6 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
 
       console.log("Enviando datos al webhook personalizado:", profile.webhook_url, formData);
       
-      // Enviar datos al webhook personalizado del usuario (ahora incluye el action y correo)
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -87,6 +102,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
           topic: formData.topic,
           description: formData.description,
           contentType: formData.contentType,
+          selectedPlatforms: formData.selectedPlatforms,
           userEmail: user.email
         }),
       });
@@ -98,11 +114,11 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
       const generatedContent: WebhookResponse = await response.json();
       console.log("Contenido generado recibido:", generatedContent);
 
-      // Crear entrada con el contenido generado
       const newEntry = {
         topic: formData.topic,
         description: formData.description,
         type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
+        selectedPlatforms: formData.selectedPlatforms,
         generatedContent: generatedContent
       };
 
@@ -139,7 +155,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         </Button>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Crear Nuevo Contenido</h2>
-          <p className="text-gray-600">Completa los datos y el sistema generará el contenido automáticamente</p>
+          <p className="text-gray-600">Selecciona las redes sociales y completa los datos para generar contenido automáticamente</p>
         </div>
       </div>
 
@@ -148,13 +164,50 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         <CardHeader className="pb-6">
           <CardTitle className="text-xl">Detalles del Contenido</CardTitle>
           <CardDescription>
-            Proporciona la información básica para generar contenido automáticamente. 
-            El sistema enviará los datos a tu webhook personalizado configurado en el perfil.
+            Selecciona las redes sociales y proporciona la información básica para generar contenido automáticamente.
           </CardDescription>
         </CardHeader>
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Selección de redes sociales */}
+            <div className="space-y-4">
+              <Label className="text-sm font-medium text-gray-700">
+                Redes sociales *
+              </Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-pink-50 to-rose-50">
+                  <Checkbox
+                    id="instagram"
+                    checked={formData.selectedPlatforms.includes('instagram')}
+                    onCheckedChange={(checked) => handlePlatformChange('instagram', checked as boolean)}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="instagram" className="cursor-pointer font-medium">Instagram</Label>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50">
+                  <Checkbox
+                    id="linkedin"
+                    checked={formData.selectedPlatforms.includes('linkedin')}
+                    onCheckedChange={(checked) => handlePlatformChange('linkedin', checked as boolean)}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="linkedin" className="cursor-pointer font-medium">LinkedIn</Label>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50">
+                  <Checkbox
+                    id="wordpress"
+                    checked={formData.selectedPlatforms.includes('wordpress')}
+                    onCheckedChange={(checked) => handlePlatformChange('wordpress', checked as boolean)}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="wordpress" className="cursor-pointer font-medium">WordPress</Label>
+                </div>
+              </div>
+            </div>
+
             {/* Tema del artículo */}
             <div className="space-y-2">
               <Label htmlFor="topic" className="text-sm font-medium text-gray-700">
@@ -185,49 +238,51 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
               />
             </div>
 
-            {/* Tipo de contenido */}
-            <div className="space-y-4">
-              <Label className="text-sm font-medium text-gray-700">
-                Tipo de contenido *
-              </Label>
-              <RadioGroup
-                value={formData.contentType}
-                onValueChange={(value) => setFormData({ ...formData, contentType: value })}
-                className="space-y-3"
-                disabled={isSubmitting}
-              >
-                <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
-                  <RadioGroupItem value="simple" id="simple" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="simple" className="flex items-center space-x-2 cursor-pointer">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="font-medium">Simple Post</span>
-                    </Label>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Genera artículo completo + imagen con IA
-                    </p>
+            {/* Tipo de contenido - Solo para Instagram y LinkedIn */}
+            {(formData.selectedPlatforms.includes('instagram') || formData.selectedPlatforms.includes('linkedin')) && (
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-gray-700">
+                  Tipo de contenido (Instagram y LinkedIn) *
+                </Label>
+                <RadioGroup
+                  value={formData.contentType}
+                  onValueChange={(value) => setFormData({ ...formData, contentType: value })}
+                  className="space-y-3"
+                  disabled={isSubmitting}
+                >
+                  <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
+                    <RadioGroupItem value="simple" id="simple" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="simple" className="flex items-center space-x-2 cursor-pointer">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">Simple Post</span>
+                      </Label>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Genera artículo completo + imagen con IA
+                      </p>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
-                  <RadioGroupItem value="slide" id="slide" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="slide" className="flex items-center space-x-2 cursor-pointer">
-                      <Presentation className="w-4 h-4 text-indigo-600" />
-                      <span className="font-medium">Slide Post</span>
-                    </Label>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Duplica plantilla de Google Slides y reemplaza textos
-                    </p>
+                  
+                  <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
+                    <RadioGroupItem value="slide" id="slide" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="slide" className="flex items-center space-x-2 cursor-pointer">
+                        <Presentation className="w-4 h-4 text-indigo-600" />
+                        <span className="font-medium">Slide Post</span>
+                      </Label>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Duplica plantilla de Google Slides y reemplaza textos
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </RadioGroup>
-            </div>
+                </RadioGroup>
+              </div>
+            )}
 
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-800">
-                🤖 <strong>Generación automática:</strong> Una vez enviado, el sistema enviará los datos
-                a tu webhook personalizado configurado en el perfil. Asegúrate de que tu webhook esté funcionando correctamente.
+                🤖 <strong>Generación automática:</strong> Una vez enviado, el sistema generará contenido 
+                específico para cada red social seleccionada.
               </p>
             </div>
 

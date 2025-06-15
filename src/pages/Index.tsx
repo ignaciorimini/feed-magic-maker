@@ -258,111 +258,119 @@ const Index = () => {
   const handleNewEntry = async (entryData: any) => {
     console.log("Datos recibidos para nueva entrada:", entryData);
     
-    // FIXED: Corregir el mapeo del tipo de contenido
     let contentType: string;
     if (entryData.type === 'simple') {
       contentType = 'Simple Post';
     } else if (entryData.type === 'slide') {
       contentType = 'Slide Post';
     } else {
-      // Fallback para casos edge
       contentType = entryData.type || 'Simple Post';
     }
     
     console.log('Content type mapped to:', contentType);
     
-    // Process content generated from webhook
-    let platformContent = {
-      instagram: {
-        text: "Generando contenido automáticamente para Instagram...",
-        images: ["/placeholder.svg"],
-        publishDate: "",
-        slidesURL: ""
-      },
-      linkedin: {
-        text: "Generando contenido automáticamente para LinkedIn...",
-        images: ["/placeholder.svg"],
-        publishDate: "",
-        slidesURL: ""
-      },
-      wordpress: {
-        text: "Generando contenido automáticamente para WordPress...",
-        images: ["/placeholder.svg"],
-        publishDate: "",
-        title: "",
-        description: "",
-        slug: "",
-        slidesURL: ""
-      }
-    };
-
-    // If there's generated content from webhook, use it
-    if (entryData.generatedContent) {
-      const generated = entryData.generatedContent;
-      
-      // Use AI generated image if available, otherwise use placeholder
-      const imageToUse = generated.imageURL || "/placeholder.svg";
-      const slidesURL = generated.slidesURL || "";
-      
-      platformContent = {
+    // Para cada plataforma seleccionada, crear una entrada separada
+    const newEntries: ContentEntry[] = [];
+    
+    for (const platform of entryData.selectedPlatforms) {
+      // Process content generated from webhook
+      let platformContent = {
         instagram: {
-          text: generated.instagramContent || platformContent.instagram.text,
-          images: [imageToUse],
+          text: "Generando contenido automáticamente para Instagram...",
+          images: ["/placeholder.svg"],
           publishDate: "",
-          slidesURL: slidesURL
+          slidesURL: ""
         },
         linkedin: {
-          text: generated.linkedinContent || platformContent.linkedin.text,
-          images: [imageToUse],
+          text: "Generando contenido automáticamente para LinkedIn...",
+          images: ["/placeholder.svg"],
           publishDate: "",
-          slidesURL: slidesURL
+          slidesURL: ""
         },
         wordpress: {
-          text: generated.wordpressContent || platformContent.wordpress.text,
-          images: [imageToUse],
+          text: "Generando contenido automáticamente para WordPress...",
+          images: ["/placeholder.svg"],
           publishDate: "",
-          title: generated.wordpressTitle || "",
-          description: generated.wordpressDescription || "",
-          slug: generated.wordpressSlug || "",
-          slidesURL: slidesURL
+          title: "",
+          description: "",
+          slug: "",
+          slidesURL: ""
         }
       };
+
+      // If there's generated content from webhook, use it
+      if (entryData.generatedContent) {
+        const generated = entryData.generatedContent;
+        
+        const imageToUse = generated.imageURL || "/placeholder.svg";
+        const slidesURL = generated.slidesURL || "";
+        
+        platformContent = {
+          instagram: {
+            text: generated.instagramContent || platformContent.instagram.text,
+            images: [imageToUse],
+            publishDate: "",
+            slidesURL: slidesURL
+          },
+          linkedin: {
+            text: generated.linkedinContent || platformContent.linkedin.text,
+            images: [imageToUse],
+            publishDate: "",
+            slidesURL: slidesURL
+          },
+          wordpress: {
+            text: generated.wordpressContent || platformContent.wordpress.text,
+            images: [imageToUse],
+            publishDate: "",
+            title: generated.wordpressTitle || "",
+            description: generated.wordpressDescription || "",
+            slug: generated.wordpressSlug || "",
+            slidesURL: slidesURL
+          }
+        };
+      }
+
+      // Save to Supabase - Una entrada por plataforma con targetPlatform
+      const { data, error } = await contentService.createContentEntry({
+        topic: `${entryData.topic} - ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
+        description: entryData.description,
+        type: contentType,
+        platform_content: platformContent,
+        target_platform: platform // Nuevo campo para identificar la plataforma objetivo
+      });
+
+      if (error) {
+        console.error('Error creating entry for', platform, ':', error);
+        toast({
+          title: "Error al crear contenido",
+          description: `No se pudo guardar el contenido para ${platform}. Inténtalo nuevamente.`,
+          variant: "destructive",
+        });
+      } else if (data) {
+        const newEntry: ContentEntry = {
+          id: data.id,
+          topic: data.topic,
+          description: data.description || '',
+          type: data.type,
+          createdDate: data.created_date,
+          status: {
+            instagram: data.status_instagram as 'published' | 'pending' | 'error',
+            linkedin: data.status_linkedin as 'published' | 'pending' | 'error',
+            wordpress: data.status_wordpress as 'published' | 'pending' | 'error'
+          },
+          platformContent: data.platform_content,
+          publishedLinks: parsePublishedLinks(data.published_links),
+          slideImages: parseSlideImages(data.platform_content),
+          targetPlatform: platform // Agregar la plataforma objetivo
+        };
+
+        newEntries.push(newEntry);
+      }
     }
 
-    // Save to Supabase with correct content type
-    const { data, error } = await contentService.createContentEntry({
-      topic: entryData.topic,
-      description: entryData.description,
-      type: contentType, // Usar el tipo mapeado correctamente
-      platform_content: platformContent
-    });
-
-    if (error) {
-      console.error('Error creating entry:', error);
-      toast({
-        title: "Error al crear contenido",
-        description: "No se pudo guardar el contenido. Inténtalo nuevamente.",
-        variant: "destructive",
-      });
-    } else if (data) {
-      // Transform the new entry and add to state - using string ID instead of parseInt
-      const newEntry: ContentEntry = {
-        id: data.id, // Keep as string UUID
-        topic: data.topic,
-        description: data.description || '',
-        type: data.type,
-        createdDate: data.created_date,
-        status: {
-          instagram: data.status_instagram as 'published' | 'pending' | 'error',
-          linkedin: data.status_linkedin as 'published' | 'pending' | 'error',
-          wordpress: data.status_wordpress as 'published' | 'pending' | 'error'
-        },
-        platformContent: data.platform_content,
-        publishedLinks: parsePublishedLinks(data.published_links),
-        slideImages: parseSlideImages(data.platform_content)
-      };
-
-      setEntries([newEntry, ...entries]);
+    // Add all new entries to state
+    if (newEntries.length > 0) {
+      setEntries([...newEntries, ...entries]);
       setShowForm(false);
     }
   };
@@ -407,10 +415,9 @@ const Index = () => {
     }));
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
-    console.log('Attempting to delete entry:', entryId, 'Type:', typeof entryId);
+  const handleDeleteEntry = async (entryId: string, platform?: string) => {
+    console.log('Attempting to delete entry:', entryId, 'Platform:', platform);
     
-    // Validate that we have a valid ID
     if (!entryId || entryId === 'undefined' || entryId === 'null') {
       toast({
         title: "Error al eliminar contenido",
@@ -437,6 +444,16 @@ const Index = () => {
       });
     }
   };
+
+  // Agrupar entries por tema/descripción para mostrar cards por plataforma
+  const groupedEntries = entries.reduce((acc, entry) => {
+    const baseKey = entry.description + '|' + entry.type;
+    if (!acc[baseKey]) {
+      acc[baseKey] = [];
+    }
+    acc[baseKey].push(entry);
+    return acc;
+  }, {} as Record<string, ContentEntry[]>);
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -633,7 +650,7 @@ const Index = () => {
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
-            {/* Stats Overview - Pass selectedPlatforms */}
+            {/* Stats Overview */}
             <div>
               <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
             </div>
@@ -643,12 +660,12 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Contenido Creado</h2>
-                  <p className="text-sm sm:text-base text-gray-600">Gestiona y supervisa tu contenido automatizado</p>
+                  <p className="text-sm sm:text-base text-gray-600">Gestiona tu contenido por red social</p>
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
-                    {entries.length} entradas
+                    {entries.length} tarjetas
                   </Badge>
                 </div>
               </div>
@@ -658,7 +675,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : entries.length === 0 ? (
+              ) : Object.keys(groupedEntries).length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -666,7 +683,7 @@ const Index = () => {
                       No hay contenido aún
                     </h3>
                     <p className="text-gray-600 mb-6">
-                      Comienza creando tu primer contenido automatizado
+                      Comienza creando tu primer contenido para redes sociales
                     </p>
                     <Button 
                       onClick={() => setShowForm(true)}
@@ -678,18 +695,49 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-6">
-                  {entries.map((entry) => (
-                    <ContentCard 
-                      key={entry.id} 
-                      entry={entry}
-                      selectedPlatforms={selectedPlatforms}
-                      onUpdateContent={handleUpdateContent}
-                      onUpdatePublishSettings={handleUpdatePublishSettings}
-                      onDeleteEntry={handleDeleteEntry}
-                      onDownloadSlides={handleDownloadSlides}
-                    />
-                  ))}
+                <div className="space-y-8">
+                  {Object.entries(groupedEntries).map(([groupKey, groupEntries]) => {
+                    const firstEntry = groupEntries[0];
+                    return (
+                      <div key={groupKey} className="space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {firstEntry.topic.replace(/ - (Instagram|LinkedIn|WordPress)$/, '')}
+                          </h3>
+                          <Badge variant="outline" className="text-xs">
+                            {firstEntry.type}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {groupEntries.map((entry) => {
+                            // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
+                            let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
+                            if (entry.targetPlatform) {
+                              targetPlatform = entry.targetPlatform as 'instagram' | 'linkedin' | 'wordpress';
+                            } else if (entry.topic.includes('Instagram')) {
+                              targetPlatform = 'instagram';
+                            } else if (entry.topic.includes('LinkedIn')) {
+                              targetPlatform = 'linkedin';
+                            } else if (entry.topic.includes('WordPress')) {
+                              targetPlatform = 'wordpress';
+                            }
+
+                            return (
+                              <PlatformCard
+                                key={`${entry.id}-${targetPlatform}`}
+                                entry={entry}
+                                platform={targetPlatform}
+                                onUpdateContent={handleUpdateContent}
+                                onDeleteEntry={handleDeleteEntry}
+                                onDownloadSlides={handleDownloadSlides}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
