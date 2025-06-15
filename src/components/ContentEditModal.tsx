@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { Calendar, Download, Save, Send } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
+import { Switch } from '@/components/ui/switch';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -48,6 +48,8 @@ const ContentEditModal = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [publishNow, setPublishNow] = useState(false);
+  const [previewSlideIndex, setPreviewSlideIndex] = useState<number>(0);
 
   useEffect(() => {
     setEditedContent(content);
@@ -59,9 +61,15 @@ const ContentEditModal = ({
     onClose();
   };
 
-  const handleImageClick = (imageUrl: string) => {
+  const handleImageClick = (imageUrl: string, index: number = 0, imagesForPreview?: string[]) => {
     setSelectedImageUrl(imageUrl);
-    setShowImagePreview(true);
+    setPreviewSlideIndex(index);
+    // Si es parte de un slider, pasar images y el index inicial
+    if (imagesForPreview && imagesForPreview.length > 1) {
+      setShowImagePreview(true);
+    } else {
+      setShowImagePreview(true);
+    }
   };
 
   const handleDownloadSlides = async () => {
@@ -109,13 +117,13 @@ const ContentEditModal = ({
     }
   };
 
-  const handlePublishNow = () => {
-    const now = new Date().toISOString().slice(0, 16);
-    setEditedContent({ ...editedContent, publishDate: now });
-    toast({
-      title: "Fecha de publicación establecida",
-      description: "El contenido se marcó para publicar ahora.",
-    });
+  const handlePublishNowToggle = (checked: boolean) => {
+    setPublishNow(checked);
+    if (checked) {
+      // Set publishDate as now
+      const now = new Date().toISOString().slice(0, 16);
+      setEditedContent({ ...editedContent, publishDate: now });
+    }
   };
 
   const isSlidePost = contentType === 'Slide Post';
@@ -123,7 +131,7 @@ const ContentEditModal = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[1100px] max-h-[96vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <span>Editar contenido - {platform}</span>
@@ -131,10 +139,10 @@ const ContentEditModal = ({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* SECCIÓN 1: CONTENIDO DE TEXTO (MÁS GRANDE) */}
-            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Contenido del Post</h3>
+          <div className="space-y-8">
+            {/* SECCIÓN 1: CONTENIDO DE TEXTO */}
+            <div className="space-y-4 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Contenido del Post</h3>
               
               {/* WordPress specific fields */}
               {platform === 'wordpress' && (
@@ -165,23 +173,23 @@ const ContentEditModal = ({
                   </div>
                 </div>
               )}
-
-              {/* Text Content */}
+              
+              {/* Texto */}
               <div className="space-y-2">
-                <Label htmlFor="text">Texto del contenido</Label>
+                <Label htmlFor="text" className="font-bold">Texto del contenido</Label>
                 <Textarea
                   id="text"
                   value={editedContent.text}
                   onChange={(e) => setEditedContent({ ...editedContent, text: e.target.value })}
-                  rows={12}
-                  className="resize-none text-base"
+                  rows={16}
+                  className="resize-none text-base min-h-[200px]"
                 />
               </div>
             </div>
 
             {/* SECCIÓN 2: SLIDES E IMÁGENES */}
-            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Imágenes y Slides</h3>
+            <div className="space-y-4 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Imágenes y Slides</h3>
               
               {/* Download Slides Button - solo para Slide Posts que tengan slidesURL */}
               {isSlidePost && content.slidesURL && (
@@ -198,26 +206,25 @@ const ContentEditModal = ({
                 </div>
               )}
 
-              {/* Slides carousel with navigation - only show if there are downloaded slides */}
+              {/* Slides carousel con navegación y visor de slides */}
               {isSlidePost && downloadedSlides.length > 0 && (
                 <div className="space-y-2">
                   <Label>Slides descargadas ({downloadedSlides.length} imágenes)</Label>
                   <div className="relative">
-                    <Carousel className="w-full" showNavigation={true}>
+                    <Carousel className="w-full max-w-3xl mx-auto" showNavigation={true}>
                       <CarouselContent className="-ml-2 md:-ml-4">
                         {downloadedSlides.map((imageUrl, index) => (
                           <CarouselItem key={index} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
                             <div className="p-1">
                               <div 
                                 className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => handleImageClick(imageUrl)}
+                                onClick={() => handleImageClick(imageUrl, index, downloadedSlides)}
                               >
                                 <img 
                                   src={imageUrl} 
                                   alt={`Slide ${index + 1}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
-                                    console.error('Error loading slide image:', imageUrl);
                                     (e.target as HTMLImageElement).style.display = 'none';
                                   }}
                                 />
@@ -252,31 +259,44 @@ const ContentEditModal = ({
             </div>
 
             {/* SECCIÓN 3: PUBLICACIÓN */}
-            <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuración de Publicación</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="publishDate">Fecha de publicación</Label>
-                  <Input
-                    id="publishDate"
-                    type="datetime-local"
-                    value={editedContent.publishDate || ''}
-                    onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
-                  />
+            <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-lg space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Configuración de Publicación</h3>
+              <div className="flex items-center space-x-3 mb-4">
+                <Switch
+                  checked={publishNow}
+                  onCheckedChange={handlePublishNowToggle}
+                  id="publish-now-toggle"
+                />
+                <Label htmlFor="publish-now-toggle" className="text-base font-medium select-none">
+                  Publicar ahora
+                </Label>
+              </div>
+              {!publishNow && (
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="publishDate">Fecha de publicación</Label>
+                    <Input
+                      id="publishDate"
+                      type="datetime-local"
+                      value={editedContent.publishDate || ''}
+                      onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
+                      className="max-w-xs"
+                    />
+                  </div>
                 </div>
+              )}
+              {publishNow && (
                 <div className="flex items-end">
                   <Button 
-                    onClick={handlePublishNow}
+                    onClick={() => handlePublishNowToggle(true)}
                     className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
                   >
                     <Send className="w-4 h-4" />
                     <span>Publicar ahora</span>
                   </Button>
                 </div>
-              </div>
+              )}
             </div>
-
             <div className="flex justify-end space-x-2 pt-4 border-t">
               <Button variant="outline" onClick={onClose}>
                 Cancelar
@@ -290,12 +310,14 @@ const ContentEditModal = ({
         </DialogContent>
       </Dialog>
 
-      {/* Image Preview Modal */}
+      {/* Image Preview Modal (sólo se incluyen props de slides si hay varias imágenes) */}
       <ImagePreviewModal
         isOpen={showImagePreview}
         onClose={() => setShowImagePreview(false)}
         imageUrl={selectedImageUrl}
         alt="Vista previa de imagen"
+        images={downloadedSlides.length > 1 ? downloadedSlides : undefined}
+        initialIndex={previewSlideIndex}
       />
     </>
   );
