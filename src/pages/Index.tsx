@@ -679,7 +679,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : Object.keys(groupedEntries).length === 0 ? (
+              ) : entries.length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -699,47 +699,29 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedEntries).map(([groupKey, groupEntries]) => {
-                    const firstEntry = groupEntries[0];
-                    return (
-                      <div key={groupKey} className="space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {firstEntry.topic.replace(/ - (Instagram|LinkedIn|WordPress)$/, '')}
-                          </h3>
-                          <Badge variant="outline" className="text-xs">
-                            {firstEntry.type}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-4 gap-6">
-                          {groupEntries.map((entry) => {
-                            // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
-                            let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
-                            if (entry.targetPlatform) {
-                              targetPlatform = entry.targetPlatform;
-                            } else if (entry.topic.includes('Instagram')) {
-                              targetPlatform = 'instagram';
-                            } else if (entry.topic.includes('LinkedIn')) {
-                              targetPlatform = 'linkedin';
-                            } else if (entry.topic.includes('WordPress')) {
-                              targetPlatform = 'wordpress';
-                            }
+                <div className="grid grid-cols-4 gap-6">
+                  {entries.map((entry) => {
+                    // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
+                    let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
+                    if (entry.targetPlatform) {
+                      targetPlatform = entry.targetPlatform;
+                    } else if (entry.topic.includes('Instagram')) {
+                      targetPlatform = 'instagram';
+                    } else if (entry.topic.includes('LinkedIn')) {
+                      targetPlatform = 'linkedin';
+                    } else if (entry.topic.includes('WordPress')) {
+                      targetPlatform = 'wordpress';
+                    }
 
-                            return (
-                              <PlatformCard
-                                key={`${entry.id}-${targetPlatform}`}
-                                entry={entry}
-                                platform={targetPlatform}
-                                onUpdateContent={handleUpdateContent}
-                                onDeleteEntry={handleDeleteEntry}
-                                onDownloadSlides={handleDownloadSlides}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
+                    return (
+                      <PlatformCard
+                        key={`${entry.id}-${targetPlatform}`}
+                        entry={entry}
+                        platform={targetPlatform}
+                        onUpdateContent={handleUpdateContent}
+                        onDeleteEntry={handleDeleteEntry}
+                        onDownloadSlides={handleDownloadSlides}
+                      />
                     );
                   })}
                 </div>
