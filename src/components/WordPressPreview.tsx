@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Globe, Edit2, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -48,8 +47,8 @@ const WordPressPreview = ({
     return text.substring(0, maxLength) + '...';
   };
 
-  const isRealImage = (imageUrl: string) => {
-    return imageUrl && !imageUrl.includes('/placeholder.svg') && !imageUrl.includes('placeholder');
+  const isRealImage = (imageUrl: string | null): imageUrl is string => {
+    return !!imageUrl && !imageUrl.includes('/placeholder.svg') && !imageUrl.includes('placeholder');
   };
 
   const currentImage = content.images && content.images.length > 0 ? content.images[0] : null;
@@ -114,25 +113,23 @@ const WordPressPreview = ({
           </div>
 
           {/* Images Preview */}
-          {currentImage && (
-            <div className="space-y-1">
-              <div className="w-full h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden">
-                {isRealImage(currentImage) && !imageError ? (
-                  <img 
-                    src={currentImage} 
-                    alt="Contenido generado"
-                    className="w-full h-full object-cover rounded-md"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
-                    <ImageIcon className="w-3 h-3 mr-1" />
-                    <span>{imageError ? 'Error al cargar' : 'Imagen'}</span>
-                  </div>
-                )}
-              </div>
+          <div className="space-y-1">
+            <div className="w-full h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden">
+              {isRealImage(currentImage) && !imageError ? (
+                <img 
+                  src={currentImage} 
+                  alt="Contenido generado"
+                  className="w-full h-full object-cover rounded-md"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  <span>{imageError ? 'Error al cargar' : 'Sin imagen'}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Published Link Display - Blue clickable link */}
           {publishedLink && (

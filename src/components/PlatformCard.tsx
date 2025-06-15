@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [entry.platformContent[platform]?.images]);
 
   const platformConfig = {
     instagram: {
@@ -161,14 +166,22 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           )}
 
           {/* Single Image */}
-          {(!isSlidePost || !hasSlides) && content?.images?.[0] && content.images[0] !== "/placeholder.svg" && (
+          {(!isSlidePost || !hasSlides) && (
             <div className="flex-1">
-              <div className="aspect-video bg-white rounded-md overflow-hidden border">
-                <img 
-                  src={content.images[0]} 
-                  alt="Content preview"
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
+                {content?.images?.[0] && content.images[0] !== "/placeholder.svg" && !imageError ? (
+                  <img 
+                    src={content.images[0]} 
+                    alt="Previsualización de contenido"
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="text-center text-xs text-gray-500 p-2">
+                    <ImageIcon className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                    <span>{imageError ? 'Error al cargar imagen' : 'Sin imagen'}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
