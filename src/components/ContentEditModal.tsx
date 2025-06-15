@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save } from 'lucide-react';
+import { Calendar, Download, Save, Send } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
+import ImagePreviewModal from './ImagePreviewModal';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -44,6 +46,8 @@ const ContentEditModal = ({
   const [editedContent, setEditedContent] = useState(content);
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   useEffect(() => {
     setEditedContent(content);
@@ -53,6 +57,11 @@ const ContentEditModal = ({
   const handleSave = () => {
     onSave(editedContent);
     onClose();
+  };
+
+  const handleImageClick = (imageUrl: string) => {
+    setSelectedImageUrl(imageUrl);
+    setShowImagePreview(true);
   };
 
   const handleDownloadSlides = async () => {
@@ -100,143 +109,195 @@ const ContentEditModal = ({
     }
   };
 
+  const handlePublishNow = () => {
+    const now = new Date().toISOString().slice(0, 16);
+    setEditedContent({ ...editedContent, publishDate: now });
+    toast({
+      title: "Fecha de publicación establecida",
+      description: "El contenido se marcó para publicar ahora.",
+    });
+  };
+
   const isSlidePost = contentType === 'Slide Post';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <span>Editar contenido - {platform}</span>
-            <Badge variant="outline">{contentType}</Badge>
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <span>Editar contenido - {platform}</span>
+              <Badge variant="outline">{contentType}</Badge>
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Slides carousel with navigation - only show if there are downloaded slides */}
-          {isSlidePost && downloadedSlides.length > 0 && (
-            <div className="space-y-2">
-              <Label>Slides descargadas ({downloadedSlides.length} imágenes)</Label>
-              <Carousel className="w-full" showNavigation={true}>
-                <CarouselContent>
-                  {downloadedSlides.map((imageUrl, index) => (
-                    <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
-                      <div className="p-1">
-                        <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden">
-                          <img 
-                            src={imageUrl} 
-                            alt={`Slide ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              console.error('Error loading slide image:', imageUrl);
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
-              </Carousel>
+          <div className="space-y-6">
+            {/* SECCIÓN 1: CONTENIDO DE TEXTO (MÁS GRANDE) */}
+            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Contenido del Post</h3>
+              
+              {/* WordPress specific fields */}
+              {platform === 'wordpress' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Título</Label>
+                    <Input
+                      id="title"
+                      value={editedContent.title || ''}
+                      onChange={(e) => setEditedContent({ ...editedContent, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="slug">Slug</Label>
+                    <Input
+                      id="slug"
+                      value={editedContent.slug || ''}
+                      onChange={(e) => setEditedContent({ ...editedContent, slug: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="description">Descripción</Label>
+                    <Input
+                      id="description"
+                      value={editedContent.description || ''}
+                      onChange={(e) => setEditedContent({ ...editedContent, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Text Content */}
+              <div className="space-y-2">
+                <Label htmlFor="text">Texto del contenido</Label>
+                <Textarea
+                  id="text"
+                  value={editedContent.text}
+                  onChange={(e) => setEditedContent({ ...editedContent, text: e.target.value })}
+                  rows={12}
+                  className="resize-none text-base"
+                />
+              </div>
             </div>
-          )}
 
-          {/* Download Slides Button - solo para Slide Posts que tengan slidesURL */}
-          {isSlidePost && content.slidesURL && (
-            <div className="flex justify-center">
-              <Button
-                onClick={handleDownloadSlides}
-                disabled={isDownloading}
-                className="flex items-center space-x-2"
-                variant="outline"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isDownloading ? 'Descargando...' : 'Descargar slides'}</span>
+            {/* SECCIÓN 2: SLIDES E IMÁGENES */}
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Imágenes y Slides</h3>
+              
+              {/* Download Slides Button - solo para Slide Posts que tengan slidesURL */}
+              {isSlidePost && content.slidesURL && (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleDownloadSlides}
+                    disabled={isDownloading}
+                    className="flex items-center space-x-2"
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{isDownloading ? 'Descargando...' : 'Descargar slides'}</span>
+                  </Button>
+                </div>
+              )}
+
+              {/* Slides carousel with navigation - only show if there are downloaded slides */}
+              {isSlidePost && downloadedSlides.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Slides descargadas ({downloadedSlides.length} imágenes)</Label>
+                  <div className="relative">
+                    <Carousel className="w-full" showNavigation={true}>
+                      <CarouselContent className="-ml-2 md:-ml-4">
+                        {downloadedSlides.map((imageUrl, index) => (
+                          <CarouselItem key={index} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
+                            <div className="p-1">
+                              <div 
+                                className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => handleImageClick(imageUrl)}
+                              >
+                                <img 
+                                  src={imageUrl} 
+                                  alt={`Slide ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    console.error('Error loading slide image:', imageUrl);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <CarouselPrevious className="left-2" />
+                      <CarouselNext className="right-2" />
+                    </Carousel>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Image - Para Simple Posts o cuando no hay slides */}
+              {(!isSlidePost || downloadedSlides.length === 0) && editedContent.images[0] && editedContent.images[0] !== "/placeholder.svg" && (
+                <div className="space-y-2">
+                  <Label>Imagen principal</Label>
+                  <div 
+                    className="w-full h-64 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleImageClick(editedContent.images[0])}
+                  >
+                    <img 
+                      src={editedContent.images[0]} 
+                      alt="Content preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SECCIÓN 3: PUBLICACIÓN */}
+            <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuración de Publicación</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="publishDate">Fecha de publicación</Label>
+                  <Input
+                    id="publishDate"
+                    type="datetime-local"
+                    value={editedContent.publishDate || ''}
+                    onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button 
+                    onClick={handlePublishNow}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Publicar ahora</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} className="flex items-center space-x-2">
+                <Save className="w-4 h-4" />
+                <span>Guardar cambios</span>
               </Button>
             </div>
-          )}
-
-          {/* Main Image - Para Simple Posts o cuando no hay slides */}
-          {(!isSlidePost || downloadedSlides.length === 0) && editedContent.images[0] && editedContent.images[0] !== "/placeholder.svg" && (
-            <div className="space-y-2">
-              <Label>Imagen</Label>
-              <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden">
-                <img 
-                  src={editedContent.images[0]} 
-                  alt="Content preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Text Content */}
-          <div className="space-y-2">
-            <Label htmlFor="text">Texto del contenido</Label>
-            <Textarea
-              id="text"
-              value={editedContent.text}
-              onChange={(e) => setEditedContent({ ...editedContent, text: e.target.value })}
-              rows={6}
-              className="resize-none"
-            />
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* WordPress specific fields */}
-          {platform === 'wordpress' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="title">Título</Label>
-                <Input
-                  id="title"
-                  value={editedContent.title || ''}
-                  onChange={(e) => setEditedContent({ ...editedContent, title: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Input
-                  id="description"
-                  value={editedContent.description || ''}
-                  onChange={(e) => setEditedContent({ ...editedContent, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={editedContent.slug || ''}
-                  onChange={(e) => setEditedContent({ ...editedContent, slug: e.target.value })}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Publish Date */}
-          <div className="space-y-2">
-            <Label htmlFor="publishDate">Fecha de publicación (opcional)</Label>
-            <Input
-              id="publishDate"
-              type="datetime-local"
-              value={editedContent.publishDate || ''}
-              onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
-            />
-          </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} className="flex items-center space-x-2">
-              <Save className="w-4 h-4" />
-              <span>Guardar cambios</span>
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        isOpen={showImagePreview}
+        onClose={() => setShowImagePreview(false)}
+        imageUrl={selectedImageUrl}
+        alt="Vista previa de imagen"
+      />
+    </>
   );
 };
 
