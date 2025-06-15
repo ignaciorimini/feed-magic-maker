@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save } from 'lucide-react';
+import { Calendar, Download, Save, Send, Loader2 } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
 import { Switch } from '@/components/ui/switch';
+import PublishButton from './PublishButton';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -26,7 +27,7 @@ interface ContentEditModalProps {
     slidesURL?: string;
   };
   contentType: string;
-  onSave: (content: any) => void;
+  onSave: (content: any) => Promise<void>;
   entryId: string;
   topic?: string;
   slideImages?: string[];
@@ -50,6 +51,7 @@ const ContentEditModal = ({
   const [previewStartIndex, setPreviewStartIndex] = useState(0);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [publishNow, setPublishNow] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   useEffect(() => {
     setEditedContent(content);
@@ -112,17 +114,34 @@ const ContentEditModal = ({
     }
   };
 
-  const handlePublishNowToggle = (checked: boolean) => {
-    setPublishNow(checked);
-    if (checked) {
-      const now = new Date().toISOString().slice(0, 16);
-      setEditedContent({ ...editedContent, publishDate: now });
+  const handlePublishAndSave = async () => {
+    setIsPublishing(true);
+    try {
+      await onSave(editedContent);
+
+      const postType = contentType === 'Simple Post' ? 'simple' : 'slide';
+      const { data, error } = await contentService.publishContent(entryId, platform, postType);
+
+      if (error) {
+        throw error;
+      }
+
       toast({
-        title: "Publicación Inmediata Activada",
-        description: "El contenido se publicará al guardar los cambios.",
+        title: "¡Publicación enviada!",
+        description: `Tu contenido para ${platform} se está procesando.`,
       });
-    } else {
-      setEditedContent({ ...editedContent, publishDate: '' });
+      onClose();
+      setTimeout(() => window.location.reload(), 1500);
+
+    } catch (error) {
+      console.error('Error al publicar:', error);
+      toast({
+        title: "Error al publicar",
+        description: "Hubo un problema al publicar el contenido.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -268,11 +287,23 @@ const ContentEditModal = ({
                   <Switch
                     id="publish-now"
                     checked={publishNow}
-                    onCheckedChange={handlePublishNowToggle}
+                    onCheckedChange={setPublishNow}
                   />
-                  <Label htmlFor="publish-now">Publicar inmediatamente al guardar</Label>
+                  <Label htmlFor="publish-now">Publicar ahora</Label>
                 </div>
-                {!publishNow && (
+
+                {publishNow ? (
+                  <div className="pt-2">
+                    <Button onClick={handlePublishAndSave} disabled={isPublishing} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      {isPublishing ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-2 h-4 w-4" />
+                      )}
+                      Publicar Ahora y Guardar
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     <Label htmlFor="publishDate">O programar para una fecha futura:</Label>
                     <Input

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import StatusBadge from './StatusBadge';
 import ContentEditModal from './ContentEditModal';
+import PublishButton from './PublishButton';
 
 interface PlatformCardProps {
   entry: {
@@ -34,13 +34,17 @@ interface PlatformCardProps {
     };
   };
   platform: 'instagram' | 'linkedin' | 'wordpress';
-  onUpdateContent: (entryId: string, platform: string, content: any) => void;
+  onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
   onDeleteEntry: (entryId: string, platform: string) => void;
   onDownloadSlides?: (entryId: string, slidesURL: string) => void;
+  onUpdateStatus?: (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => void;
+  onUpdateLink?: (entryId: string, platform: string, link: string) => void;
 }
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
 
   const platformConfig = {
     instagram: {
@@ -172,9 +176,22 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           {/* Status and Actions */}
           <div className="space-y-2 mt-auto">
             <StatusBadge platform={platform} status={status} />
+
+            {status === 'pending' && onUpdateStatus && onUpdateLink && (
+              <div className="pt-2">
+                <PublishButton
+                  entryId={entry.id}
+                  platform={platform}
+                  currentStatus={status}
+                  contentType={entry.type}
+                  onStatusChange={(newStatus) => onUpdateStatus(entry.id, platform, newStatus)}
+                  onLinkUpdate={(link) => onUpdateLink(entry.id, platform, link)}
+                />
+              </div>
+            )}
             
             {/* Action Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 pt-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -225,7 +242,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           platform={platform}
           content={content}
           contentType={entry.type}
-          onSave={(updatedContent) => onUpdateContent(entry.id, platform, updatedContent)}
+          onSave={async (updatedContent) => onUpdateContent(entry.id, platform, updatedContent)}
           entryId={entry.id}
           topic={entry.topic}
           slideImages={entry.slideImages}

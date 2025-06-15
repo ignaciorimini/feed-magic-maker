@@ -379,7 +379,37 @@ const Index = () => {
     }
   };
 
-  const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
+  const handleUpdateStatus = (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
+    setEntries(prev => prev.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          status: {
+            ...entry.status,
+            [platform]: newStatus
+          }
+        };
+      }
+      return entry;
+    }));
+  };
+
+  const handleUpdateLink = (entryId: string, platform: string, link: string) => {
+    setEntries(prev => prev.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          publishedLinks: {
+            ...entry.publishedLinks,
+            [platform]: link
+          }
+        };
+      }
+      return entry;
+    }));
+  };
+
+  const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
     const { error } = await contentService.updatePlatformContent(entryId, platform, content);
     
     if (error) {
@@ -391,19 +421,27 @@ const Index = () => {
     } else {
       setEntries(prev => prev.map(entry => {
         if (entry.id === entryId) {
-          return {
-            ...entry,
-            platformContent: {
-              ...entry.platformContent,
-              [platform]: content
-            }
+          const updatedPlatformContent = {
+            ...entry.platformContent,
+            [platform]: content
           };
+          
+          // If content being updated includes slide images, update the root slideImages property too
+          if (content.slideImages && Array.isArray(content.slideImages)) {
+            return { ...entry, platformContent: updatedPlatformContent, slideImages: content.slideImages };
+          }
+          
+          return { ...entry, platformContent: updatedPlatformContent };
         }
         return entry;
       }));
+      toast({
+        title: "Contenido actualizado",
+        description: "Los cambios se han guardado correctamente.",
+      });
     }
   };
-
+  
   const handleUpdatePublishSettings = (entryId: string, settings: any) => {
     setEntries(prev => prev.map(entry => {
       if (entry.id === entryId) {
@@ -699,7 +737,7 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {entries.map((entry) => {
                     // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
                     let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
@@ -721,6 +759,8 @@ const Index = () => {
                         onUpdateContent={handleUpdateContent}
                         onDeleteEntry={handleDeleteEntry}
                         onDownloadSlides={handleDownloadSlides}
+                        onUpdateStatus={handleUpdateStatus}
+                        onUpdateLink={handleUpdateLink}
                       />
                     );
                   })}
