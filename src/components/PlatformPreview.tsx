@@ -133,7 +133,7 @@ const PlatformPreview = ({
     const isSlidePost = contentType === 'Slide Post';
     const hasSlideImages = slideImages && slideImages.length > 0;
 
-    // Para Slide Posts, mostrar la primera slide descargada
+    // Para Slide Posts, mostrar la primera slide descargada si está disponible
     if (isSlidePost && hasSlideImages) {
       return slideImages[0];
     }
@@ -240,8 +240,8 @@ const PlatformPreview = ({
             </div>
           )}
 
-          {/* FIXED: Image Preview - para Simple Posts o Slide Posts sin slides descargadas */}
-          {previewImage && !hasSlideImages && (
+          {/* FIXED: Image Preview - para Simple Posts o Slide Posts que usen la primera slide como preview */}
+          {previewImage && (
             <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
               <img 
                 src={previewImage} 

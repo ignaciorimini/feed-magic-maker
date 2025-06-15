@@ -174,7 +174,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
               </p>
             </div>
 
-            {/* FIXED: Slides Carousel - Show only if we have slide images AND it's a Slide Post */}
+            {/* FIXED: Slides Carousel - Show when we have slide images AND it's a Slide Post */}
             {shouldShowSlides && (
               <div className="space-y-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">

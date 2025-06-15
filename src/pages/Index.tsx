@@ -186,7 +186,7 @@ const Index = () => {
 
         console.log('Slide images saved successfully, updating local state...');
 
-        // FIXED: Actualizar el estado local correctamente
+        // FIXED: Actualizar el estado local correctamente para que se reflejen en la UI
         setEntries(prev => prev.map(currentEntry => {
           if (currentEntry.id === entryId) {
             const updatedPlatformContent = { ...currentEntry.platformContent };
@@ -208,9 +208,10 @@ const Index = () => {
               };
             }
 
+            // FIXED: Asegurar que slideImages se actualice en el entry
             return {
               ...currentEntry,
-              slideImages: slideImages,
+              slideImages: slideImages, // Esto es crucial para que se vean en la UI
               platformContent: updatedPlatformContent
             };
           }
