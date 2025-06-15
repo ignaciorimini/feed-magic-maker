@@ -68,6 +68,24 @@ export const contentService = {
     type: string;
     platform_content: any;
   }) {
+    const { platform_content } = entryData;
+    const imageURL = platform_content.imageURL; // Asumimos que el webhook devuelve una imageURL dentro de platform_content
+
+    if (imageURL) {
+      // La distribuimos a cada plataforma seleccionada
+      if (platform_content.instagram) {
+        platform_content.instagram.images = [imageURL];
+      }
+      if (platform_content.linkedin) {
+        platform_content.linkedin.images = [imageURL];
+      }
+      if (platform_content.wordpress) {
+        platform_content.wordpress.images = [imageURL];
+      }
+      // Eliminamos la imageURL del nivel raíz para no guardarla duplicada
+      delete platform_content.imageURL;
+    }
+
     const { data, error } = await supabase
       .from('content_entries')
       .insert([
