@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Globe, Edit2, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,11 @@ const WordPressPreview = ({
   onLinkUpdate 
 }: WordPressPreviewProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [content.images]);
 
   // Función para truncar texto
   const truncateText = (text: string, maxLength: number = 40) => {
@@ -112,16 +117,17 @@ const WordPressPreview = ({
           {currentImage && (
             <div className="space-y-1">
               <div className="w-full h-16 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden">
-                {isRealImage(currentImage) ? (
+                {isRealImage(currentImage) && !imageError ? (
                   <img 
                     src={currentImage} 
-                    alt="Generated content"
+                    alt="Contenido generado"
                     className="w-full h-full object-cover rounded-md"
+                    onError={() => setImageError(true)}
                   />
                 ) : (
                   <div className="flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
                     <ImageIcon className="w-3 h-3 mr-1" />
-                    <span>Imagen</span>
+                    <span>{imageError ? 'Error al cargar' : 'Imagen'}</span>
                   </div>
                 )}
               </div>

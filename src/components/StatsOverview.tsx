@@ -1,3 +1,4 @@
+
 import { TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -9,9 +10,8 @@ interface StatsOverviewProps {
 const StatsOverview = ({ entries, selectedPlatforms }: StatsOverviewProps) => {
   // Add defensive checks to prevent undefined errors
   const safeEntries = entries || [];
-  const safePlatforms = selectedPlatforms || [];
   
-  const totalEntries = safeEntries.length * safePlatforms.length;
+  const totalEntries = safeEntries.length;
   const publishedCount = safeEntries.filter(entry => 
     entry.status?.instagram === 'published' || 
     entry.status?.linkedin === 'published' || 

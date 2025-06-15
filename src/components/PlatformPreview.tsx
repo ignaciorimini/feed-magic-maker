@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Edit, Instagram, Linkedin, FileText, ExternalLink, Calendar, Download, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,11 @@ const PlatformPreview = ({
 }: PlatformPreviewProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [content.images]);
 
   const getPlatformConfig = (platform: string) => {
     switch (platform) {
@@ -137,10 +143,14 @@ const PlatformPreview = ({
       return slideImages[0];
     }
 
-    // Para Simple Posts, usar la imagen del contenido si no es placeholder
-    return content.images && content.images.length > 0 && content.images[0] !== "/placeholder.svg" 
-      ? content.images[0] 
-      : '';
+    const imageUrl = content.images && content.images.length > 0 ? content.images[0] : '';
+
+    // Para Simple Posts, usar la imagen del contenido si no es un placeholder
+    if (imageUrl && !imageUrl.includes('/placeholder.svg') && !imageUrl.includes('placeholder')) {
+      return imageUrl;
+    }
+    
+    return '';
   };
 
   if (platform === 'wordpress') {
@@ -240,22 +250,24 @@ const PlatformPreview = ({
           )}
 
           {/* Image Preview for Simple Posts, or for Slide Posts before slides are downloaded */}
-          {!hasSlideImages && previewImage && (
-             <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-               <img 
-                 src={previewImage} 
-                 alt="Content preview"
-                 className="w-full h-full object-cover"
-               />
-             </div>
-          )}
-
-          {/* Placeholder for posts without any image */}
-          {!hasSlideImages && !previewImage && (
-            <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
-                <ImageIcon className="w-4 h-4 mr-2" />
-                <span>Sin imagen de previsualización</span>
-            </div>
+          {!hasSlideImages && (
+            <>
+              {previewImage && !imageError ? (
+                <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                  <img
+                    src={previewImage}
+                    alt="Previsualización de contenido"
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  <span>{imageError ? 'Error al cargar imagen' : 'Sin imagen de previsualización'}</span>
+                </div>
+              )}
+            </>
           )}
 
           {/* Publish Date */}
