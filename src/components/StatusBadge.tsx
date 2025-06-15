@@ -50,20 +50,6 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
     }
   };
 
-  const getPlatformName = (platform: string) => {
-    switch (platform) {
-      case 'instagram':
-        return 'IG';
-      case 'linkedin':
-        return 'LI';
-      case 'wordpress':
-        return 'WP';
-      default:
-        return platform;
-    }
-  };
-
-  const PlatformIcon = getPlatformIcon(platform);
   const statusConfig = getStatusConfig(status);
   const StatusIcon = statusConfig.icon;
 
@@ -72,9 +58,8 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
       variant="outline" 
       className={`${statusConfig.color} text-xs flex items-center space-x-1 px-2 py-1`}
     >
-      <PlatformIcon className="w-3 h-3" />
-      <span>{getPlatformName(platform)}</span>
       <StatusIcon className="w-3 h-3" />
+      <span>{statusConfig.label}</span>
     </Badge>
   );
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -114,11 +113,11 @@ const ContentEditModal = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* FIXED: Mostrar carrusel de slides si hay slides descargadas (>= 1) */}
+          {/* Slides carousel with navigation - only show if there are downloaded slides */}
           {isSlidePost && downloadedSlides.length > 0 && (
             <div className="space-y-2">
               <Label>Slides descargadas ({downloadedSlides.length} imágenes)</Label>
-              <Carousel className="w-full">
+              <Carousel className="w-full" showNavigation={true}>
                 <CarouselContent>
                   {downloadedSlides.map((imageUrl, index) => (
                     <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
