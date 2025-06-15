@@ -1,4 +1,5 @@
 
+import React from "react";
 import { useState } from "react";
 import { X, ArrowLeft, ArrowRight } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
