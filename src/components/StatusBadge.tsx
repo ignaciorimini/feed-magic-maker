@@ -3,7 +3,7 @@ import { Instagram, Linkedin, Globe, Clock, CheckCircle, XCircle } from 'lucide-
 import { Badge } from '@/components/ui/badge';
 
 interface StatusBadgeProps {
-  platform: 'instagram' | 'linkedin' | 'wordpress';
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   status: 'published' | 'pending' | 'error';
 }
 
@@ -16,6 +16,8 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
         return Linkedin;
       case 'wordpress':
         return Globe;
+      case 'twitter':
+        return Globe; // Using Globe icon for Twitter since we don't have a Twitter icon in lucide-react
       default:
         return Globe;
     }

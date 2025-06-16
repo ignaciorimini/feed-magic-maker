@@ -131,7 +131,7 @@ const CalendarView = () => {
                     <div className="flex items-center space-x-2 text-xs text-gray-500">
                       <Clock className="w-3 h-3" />
                       <span>{formatTime(content.publishDate)}</span>
-                      <Badge variant="outline" size="sm">
+                      <Badge variant="outline">
                         {content.status}
                       </Badge>
                     </div>

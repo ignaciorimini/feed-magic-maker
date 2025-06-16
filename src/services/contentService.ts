@@ -11,12 +11,14 @@ export interface ContentEntry {
     instagram: 'published' | 'pending' | 'error';
     linkedin: 'published' | 'pending' | 'error';
     wordpress: 'published' | 'pending' | 'error';
+    twitter: 'published' | 'pending' | 'error';
   };
   platformContent: any;
   publishedLinks?: {
     instagram?: string;
     linkedin?: string;
     wordpress?: string;
+    twitter?: string;
   };
   slideImages?: string[];
 }
@@ -43,18 +45,24 @@ interface PlatformContentStructure {
     slug?: string;
     slidesURL?: string;
   };
+  twitter?: {
+    text: string;
+    images: string[];
+    publishDate?: string;
+    threadPosts?: string[];
+  };
   slideImages?: string[];
 }
 
 // Helper function to safely parse publishedLinks from database
-const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; } => {
+const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; } => {
   if (!publishedLinks || typeof publishedLinks !== 'object') {
     return {};
   }
   
   // If it's already the right type, return it
   if (typeof publishedLinks === 'object' && !Array.isArray(publishedLinks)) {
-    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; };
+    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; };
   }
   
   return {};
@@ -81,6 +89,9 @@ export const contentService = {
       }
       if (platform_content.wordpress) {
         platform_content.wordpress.images = [imageURL];
+      }
+      if (platform_content.twitter) {
+        platform_content.twitter.images = [imageURL];
       }
       // Eliminamos la imageURL del nivel raíz para no guardarla duplicada
       delete platform_content.imageURL;
@@ -550,13 +561,17 @@ export const contentService = {
         ['instagram', 'linkedin', 'wordpress', 'twitter'].includes(platform)
       );
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('webhook_url, email')
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
 
-      if (!profile?.webhook_url) {
-        throw new Error('No hay URL de webhook configurada');
+      // Obtener el webhook URL del perfil del usuario
+      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
+      
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook no configurado en el perfil del usuario');
       }
 
       const webhookData = {
@@ -565,7 +580,7 @@ export const contentService = {
         description,
         contentType,
         selectedPlatforms: validPlatforms,
-        userEmail: profile.email
+        userEmail: user.email
       };
 
       console.log('Sending to webhook:', webhookData);
@@ -585,18 +600,20 @@ export const contentService = {
       const webhookResponse = await response.json();
       console.log('Webhook response:', webhookResponse);
 
-      // Crear entrada en la base de datos
-      const entryData = {
+      // Crear entrada en la base de datos con las columnas correctas
+      const entryData: any = {
         topic,
         description,
         type: contentType,
-        status: validPlatforms.reduce((acc, platform) => {
-          acc[platform] = 'pending';
-          return acc;
-        }, {} as Record<string, string>),
         platform_content: {},
-        published_links: {}
+        published_links: {},
+        user_id: user.id
       };
+
+      // Agregar estados individuales por plataforma
+      validPlatforms.forEach(platform => {
+        entryData[`status_${platform}`] = 'pending';
+      });
 
       // Procesar contenido de cada plataforma incluyendo Twitter
       validPlatforms.forEach(platform => {
@@ -641,69 +658,6 @@ export const contentService = {
 
     } catch (error) {
       console.error('Error generating content:', error);
-      return { data: null, error };
-    }
-  },
-
-  async publishContent(entryId: string, platform: string, postType: 'simple' | 'slide' | 'thread' = 'simple') {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('webhook_url, email')
-        .single();
-
-      if (!profile?.webhook_url) {
-        throw new Error('No hay URL de webhook configurada');
-      }
-
-      // Actualizar estado a 'processing' mientras se publica
-      await supabase
-        .from('content_entries')
-        .update({ 
-          status: { 
-            ...((await supabase.from('content_entries').select('status').eq('id', entryId).single()).data?.status || {}),
-            [platform]: 'pending'
-          }
-        })
-        .eq('id', entryId);
-
-      const webhookData = {
-        action: 'publish_content',
-        entryId,
-        platform,
-        postType,
-        userEmail: profile.email
-      };
-
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return { data: result, error: null };
-
-    } catch (error) {
-      console.error('Error publishing content:', error);
-      
-      // Revertir estado en caso de error
-      await supabase
-        .from('content_entries')
-        .update({ 
-          status: { 
-            ...((await supabase.from('content_entries').select('status').eq('id', entryId).single()).data?.status || {}),
-            [platform]: 'error'
-          }
-        })
-        .eq('id', entryId);
-
       return { data: null, error };
     }
   }
