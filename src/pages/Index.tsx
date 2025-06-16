@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X } from 'lucide-react';
@@ -8,20 +9,21 @@ import ContentForm from '@/components/ContentForm';
 import PlatformCard from '@/components/PlatformCard';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
+import CalendarView from '@/components/CalendarView';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService, ContentEntry } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
 
 // Helper function to safely parse publishedLinks from database Json type
-const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; } => {
+const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; } => {
   if (!publishedLinks || typeof publishedLinks !== 'object') {
     return {};
   }
   
   // If it's already the right type, return it
   if (typeof publishedLinks === 'object' && !Array.isArray(publishedLinks)) {
-    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; };
+    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; };
   }
   
   return {};
@@ -42,7 +44,7 @@ const parseSlideImages = (platformContent: any): string[] => {
 
 // Extended ContentEntry interface to include targetPlatform
 interface ExtendedContentEntry extends ContentEntry {
-  targetPlatform?: 'instagram' | 'linkedin' | 'wordpress';
+  targetPlatform?: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
 }
 
 const Index = () => {
@@ -53,7 +55,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress']);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -116,7 +118,8 @@ const Index = () => {
             status: {
               instagram: entry.status_instagram as 'published' | 'pending' | 'error',
               linkedin: entry.status_linkedin as 'published' | 'pending' | 'error',
-              wordpress: entry.status_wordpress as 'published' | 'pending' | 'error'
+              wordpress: entry.status_wordpress as 'published' | 'pending' | 'error',
+              twitter: entry.status_twitter as 'published' | 'pending' | 'error'
             },
             platformContent: entry.platform_content || {},
             publishedLinks: parsePublishedLinks(entry.published_links),
@@ -300,6 +303,12 @@ const Index = () => {
           description: "",
           slug: "",
           slidesURL: ""
+        },
+        twitter: {
+          text: "Generando contenido automáticamente para Twitter...",
+          images: ["/placeholder.svg"],
+          publishDate: "",
+          threadPosts: []
         }
       };
 
@@ -331,6 +340,12 @@ const Index = () => {
             description: generated.wordpressDescription || "",
             slug: generated.wordpressSlug || "",
             slidesURL: slidesURL
+          },
+          twitter: {
+            text: generated.twitterContent || platformContent.twitter.text,
+            images: [imageToUse],
+            publishDate: "",
+            threadPosts: generated.twitterThreadPosts || []
           }
         };
       }
@@ -360,12 +375,13 @@ const Index = () => {
           status: {
             instagram: data.status_instagram as 'published' | 'pending' | 'error',
             linkedin: data.status_linkedin as 'published' | 'pending' | 'error',
-            wordpress: data.status_wordpress as 'published' | 'pending' | 'error'
+            wordpress: data.status_wordpress as 'published' | 'pending' | 'error',
+            twitter: data.status_twitter as 'published' | 'pending' | 'error'
           },
           platformContent: data.platform_content,
           publishedLinks: parsePublishedLinks(data.published_links),
           slideImages: parseSlideImages(data.platform_content),
-          targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' // Agregar la plataforma objetivo
+          targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter' // Agregar la plataforma objetivo
         };
 
         newEntries.push(newEntry);
