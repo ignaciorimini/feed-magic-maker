@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import PublishButton from './PublishButton';
 interface ContentEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  platform: 'instagram' | 'linkedin' | 'wordpress';
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   content: {
     text: string;
     images: string[];
@@ -30,6 +31,7 @@ interface ContentEditModalProps {
   onSave: (content: any) => Promise<void>;
   entryId: string;
   topic?: string;
+  description?: string;
   slideImages?: string[];
 }
 
@@ -42,6 +44,7 @@ const ContentEditModal = ({
   onSave, 
   entryId, 
   topic,
+  description,
   slideImages 
 }: ContentEditModalProps) => {
   const [editedContent, setEditedContent] = useState(content);
@@ -159,6 +162,27 @@ const ContentEditModal = ({
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* SECCIÓN 0: INFORMACIÓN DEL CONTENIDO (NO EDITABLE) */}
+            <div className="space-y-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Contenido</h3>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Tema</Label>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-amber-200 dark:border-amber-700">
+                    <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">{topic || 'Sin tema especificado'}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Descripción breve</Label>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-amber-200 dark:border-amber-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{description || 'Sin descripción especificada'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* SECCIÓN 1: CONTENIDO DE TEXTO (MÁS GRANDE) */}
             <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Contenido del Post</h3>

@@ -541,5 +541,170 @@ export const contentService = {
       console.error('Error downloading slides:', error);
       return { data: null, error };
     }
+  },
+
+  async generateContent(topic: string, description: string, contentType: string, selectedPlatforms: string[]) {
+    try {
+      // Asegurar que twitter esté incluido si está seleccionado
+      const validPlatforms = selectedPlatforms.filter(platform => 
+        ['instagram', 'linkedin', 'wordpress', 'twitter'].includes(platform)
+      );
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('webhook_url, email')
+        .single();
+
+      if (!profile?.webhook_url) {
+        throw new Error('No hay URL de webhook configurada');
+      }
+
+      const webhookData = {
+        action: 'generate_content',
+        topic,
+        description,
+        contentType,
+        selectedPlatforms: validPlatforms,
+        userEmail: profile.email
+      };
+
+      console.log('Sending to webhook:', webhookData);
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status} ${response.statusText}`);
+      }
+
+      const webhookResponse = await response.json();
+      console.log('Webhook response:', webhookResponse);
+
+      // Crear entrada en la base de datos
+      const entryData = {
+        topic,
+        description,
+        type: contentType,
+        status: validPlatforms.reduce((acc, platform) => {
+          acc[platform] = 'pending';
+          return acc;
+        }, {} as Record<string, string>),
+        platform_content: {},
+        published_links: {}
+      };
+
+      // Procesar contenido de cada plataforma incluyendo Twitter
+      validPlatforms.forEach(platform => {
+        if (webhookResponse[platform]) {
+          const platformData = webhookResponse[platform];
+          
+          // Para Twitter, manejar diferentes tipos de contenido
+          if (platform === 'twitter') {
+            entryData.platform_content[platform] = {
+              text: platformData.text || '',
+              images: webhookResponse.imageURL ? [webhookResponse.imageURL] : [],
+              threadPosts: platformData.threadPosts || [],
+              publishDate: platformData.publishDate || null
+            };
+          } else {
+            // Para otras plataformas mantener la lógica existente
+            entryData.platform_content[platform] = {
+              text: platformData.text || '',
+              images: webhookResponse.imageURL ? [webhookResponse.imageURL] : [],
+              title: platformData.title || null,
+              description: platformData.description || null,
+              slug: platformData.slug || null,
+              publishDate: platformData.publishDate || null
+            };
+
+            if (webhookResponse.slidesURL) {
+              entryData.platform_content[platform].slidesURL = webhookResponse.slidesURL;
+            }
+          }
+        }
+      });
+
+      const { data: newEntry, error } = await supabase
+        .from('content_entries')
+        .insert([entryData])
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      return { data: newEntry, error: null };
+
+    } catch (error) {
+      console.error('Error generating content:', error);
+      return { data: null, error };
+    }
+  },
+
+  async publishContent(entryId: string, platform: string, postType: 'simple' | 'slide' | 'thread' = 'simple') {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('webhook_url, email')
+        .single();
+
+      if (!profile?.webhook_url) {
+        throw new Error('No hay URL de webhook configurada');
+      }
+
+      // Actualizar estado a 'processing' mientras se publica
+      await supabase
+        .from('content_entries')
+        .update({ 
+          status: { 
+            ...((await supabase.from('content_entries').select('status').eq('id', entryId).single()).data?.status || {}),
+            [platform]: 'pending'
+          }
+        })
+        .eq('id', entryId);
+
+      const webhookData = {
+        action: 'publish_content',
+        entryId,
+        platform,
+        postType,
+        userEmail: profile.email
+      };
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return { data: result, error: null };
+
+    } catch (error) {
+      console.error('Error publishing content:', error);
+      
+      // Revertir estado en caso de error
+      await supabase
+        .from('content_entries')
+        .update({ 
+          status: { 
+            ...((await supabase.from('content_entries').select('status').eq('id', entryId).single()).data?.status || {}),
+            [platform]: 'error'
+          }
+        })
+        .eq('id', entryId);
+
+      return { data: null, error };
+    }
   }
 };

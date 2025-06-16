@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -20,20 +21,23 @@ interface PlatformCardProps {
       instagram: 'published' | 'pending' | 'error';
       linkedin: 'published' | 'pending' | 'error';
       wordpress: 'published' | 'pending' | 'error';
+      twitter: 'published' | 'pending' | 'error';
     };
     platformContent: {
       instagram: any;
       linkedin: any;
       wordpress: any;
+      twitter: any;
     };
     slideImages?: string[];
     publishedLinks?: {
       instagram?: string;
       linkedin?: string;
       wordpress?: string;
+      twitter?: string;
     };
   };
-  platform: 'instagram' | 'linkedin' | 'wordpress';
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
   onDeleteEntry: (entryId: string, platform: string) => void;
   onDownloadSlides?: (entryId: string, slidesURL: string) => void;
@@ -69,6 +73,12 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
       gradient: 'from-gray-500 to-slate-500',
       bgGradient: 'from-gray-50 to-slate-50',
       borderColor: 'border-gray-200'
+    },
+    twitter: {
+      name: 'X (Twitter)',
+      gradient: 'from-black to-gray-800',
+      bgGradient: 'from-gray-50 to-black-50',
+      borderColor: 'border-gray-300'
     }
   };
 
@@ -258,6 +268,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           onSave={async (updatedContent) => onUpdateContent(entry.id, platform, updatedContent)}
           entryId={entry.id}
           topic={entry.topic}
+          description={entry.description}
           slideImages={entry.slideImages}
         />
       )}
