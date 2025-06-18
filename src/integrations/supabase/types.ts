@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -20,6 +21,7 @@ export type Database = {
           status_instagram: string | null
           status_linkedin: string | null
           status_wordpress: string | null
+          status_twitter: string | null
           topic: string
           type: string
           updated_at: string
@@ -35,6 +37,7 @@ export type Database = {
           status_instagram?: string | null
           status_linkedin?: string | null
           status_wordpress?: string | null
+          status_twitter?: string | null
           topic: string
           type: string
           updated_at?: string
@@ -50,6 +53,7 @@ export type Database = {
           status_instagram?: string | null
           status_linkedin?: string | null
           status_wordpress?: string | null
+          status_twitter?: string | null
           topic?: string
           type?: string
           updated_at?: string
