@@ -24,6 +24,8 @@ interface WebhookResponse {
   wordpressDescription: string;
   wordpressSlug: string;
   wordpressContent: string;
+  twitterContent: string;
+  twitterThreadPosts: string[];
   imageURL: string;
   slidesURL: string;
 }
@@ -90,43 +92,68 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         return;
       }
 
-      console.log("Enviando datos al webhook personalizado:", profile.webhook_url, formData);
+      // Crear una entrada separada para cada plataforma seleccionada
+      const allEntries = [];
       
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'generate_content',
+      for (const platform of formData.selectedPlatforms) {
+        // Determinar el contentType específico para cada plataforma
+        let platformContentType = 'simple post'; // valor por defecto
+        
+        if (platform === 'instagram' || platform === 'linkedin') {
+          platformContentType = formData.contentType === 'simple' ? 'simple post' : 'slide post';
+        } else if (platform === 'wordpress') {
+          platformContentType = 'blog post';
+        } else if (platform === 'twitter') {
+          platformContentType = 'thread post';
+        }
+
+        console.log(`Enviando datos al webhook para ${platform}:`, profile.webhook_url, {
+          platform,
+          contentType: platformContentType
+        });
+        
+        const response = await fetch(profile.webhook_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'generate_content',
+            platform: platform, // Especificar la plataforma
+            topic: formData.topic,
+            description: formData.description,
+            contentType: platformContentType, // Tipo específico por plataforma
+            userEmail: user.email
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error del servidor para ${platform}: ${response.status}`);
+        }
+
+        const generatedContent: WebhookResponse = await response.json();
+        console.log(`Contenido generado para ${platform}:`, generatedContent);
+
+        const newEntry = {
           topic: formData.topic,
           description: formData.description,
-          contentType: formData.contentType,
-          selectedPlatforms: formData.selectedPlatforms,
-          userEmail: user.email
-        }),
-      });
+          type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
+          selectedPlatforms: [platform], // Solo esta plataforma
+          generatedContent: generatedContent,
+          targetPlatform: platform
+        };
 
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+        allEntries.push(newEntry);
       }
 
-      const generatedContent: WebhookResponse = await response.json();
-      console.log("Contenido generado recibido:", generatedContent);
-
-      const newEntry = {
-        topic: formData.topic,
-        description: formData.description,
-        type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
-        selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: generatedContent
-      };
-
-      onSubmit(newEntry);
+      // Enviar todas las entradas creadas
+      for (const entry of allEntries) {
+        onSubmit(entry);
+      }
       
       toast({
         title: "¡Contenido generado exitosamente!",
-        description: "El contenido ha sido creado y está listo para publicar",
+        description: `Se ha creado contenido para ${formData.selectedPlatforms.length} plataforma(s)`,
       });
       
     } catch (error) {
@@ -175,7 +202,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
               <Label className="text-sm font-medium text-gray-700">
                 Redes sociales *
               </Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-pink-50 to-rose-50">
                   <Checkbox
                     id="instagram"
@@ -204,6 +231,16 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
                     disabled={isSubmitting}
                   />
                   <Label htmlFor="wordpress" className="cursor-pointer font-medium">WordPress</Label>
+                </div>
+
+                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-800 to-black">
+                  <Checkbox
+                    id="twitter"
+                    checked={formData.selectedPlatforms.includes('twitter')}
+                    onCheckedChange={(checked) => handlePlatformChange('twitter', checked as boolean)}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="twitter" className="cursor-pointer font-medium text-white">X (Twitter)</Label>
                 </div>
               </div>
             </div>
@@ -282,7 +319,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-800">
                 🤖 <strong>Generación automática:</strong> Una vez enviado, el sistema generará contenido 
-                específico para cada red social seleccionada.
+                específico para cada red social seleccionada con el tipo de contenido apropiado.
               </p>
             </div>
 
