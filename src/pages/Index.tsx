@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -149,19 +148,35 @@ const Index = () => {
   };
 
   const handleDeleteEntry = async (entryId: string) => {
-    const { error } = await contentService.deleteContentEntry(entryId);
+    console.log('Attempting to delete entry:', entryId);
     
-    if (error) {
+    try {
+      const { error } = await contentService.deleteContentEntry(entryId);
+      
+      if (error) {
+        console.error('Delete error:', error);
+        toast({
+          title: "Error al eliminar contenido",
+          description: "No se pudo eliminar el contenido. Inténtalo nuevamente.",
+          variant: "destructive",
+        });
+      } else {
+        // Remove from local state immediately for better UX
+        setEntries(prev => prev.filter(entry => entry.id !== entryId));
+        
+        toast({
+          title: "Contenido eliminado",
+          description: "El contenido ha sido eliminado exitosamente.",
+        });
+        
+        console.log('Entry deleted successfully');
+      }
+    } catch (error) {
+      console.error('Unexpected error during deletion:', error);
       toast({
-        title: "Error al eliminar contenido",
-        description: "No se pudo eliminar el contenido.",
+        title: "Error inesperado",
+        description: "Ocurrió un error inesperado al eliminar el contenido.",
         variant: "destructive",
-      });
-    } else {
-      setEntries(prev => prev.filter(entry => entry.id !== entryId));
-      toast({
-        title: "Contenido eliminado",
-        description: "El contenido ha sido eliminado exitosamente.",
       });
     }
   };

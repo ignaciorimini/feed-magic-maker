@@ -25,24 +25,26 @@ const DashboardContent = ({
   onDeleteEntry,
   onDownloadSlides
 }: DashboardContentProps) => {
-  // Transform entries to create individual platform cards
+  // Transform entries to create individual platform cards only for platforms that have content
   const platformCards = entries.flatMap(entry => {
     const cards = [];
     
-    // Create a card for each selected platform that has content
-    selectedPlatforms.forEach(platform => {
-      const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-      const hasContent = entry.platformContent && entry.platformContent[platformKey];
-      const hasStatus = entry.status && entry.status[platformKey] !== null;
-      
-      if (hasContent || hasStatus) {
-        cards.push({
-          ...entry,
-          platform: platformKey,
-          id: `${entry.id}-${platform}` // Unique ID for each platform card
-        });
-      }
-    });
+    // Only create cards for platforms that actually have content in this entry
+    if (entry.platformContent) {
+      Object.keys(entry.platformContent).forEach(platform => {
+        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+        const platformContent = entry.platformContent[platformKey];
+        
+        // Only create a card if this platform has actual content (not empty)
+        if (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0))) {
+          cards.push({
+            ...entry,
+            platform: platformKey,
+            id: `${entry.id}-${platform}` // Unique ID for each platform card
+          });
+        }
+      });
+    }
     
     return cards;
   });
@@ -64,6 +66,7 @@ const DashboardContent = ({
   const handleDeleteEntry = (entryId: string, platform: string) => {
     // Extract the original entry ID (remove platform suffix)
     const originalEntryId = entryId.split('-')[0];
+    console.log('Deleting entry:', originalEntryId);
     onDeleteEntry(originalEntryId);
   };
 
