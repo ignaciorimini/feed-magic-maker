@@ -53,7 +53,7 @@ const PublishButton = ({
       }
     } catch (error) {
       console.error('Error al publicar contenido:', error);
-      onStatusChange('error');
+      onStatusChange('pending');
       toast({
         title: "Error al publicar contenido",
         description: "Hubo un problema al publicar el contenido. Inténtalo nuevamente.",

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -20,15 +21,19 @@ interface PlatformPreviewProps {
     slug?: string;
     slidesURL?: string;
   };
-  status: 'published' | 'pending' | 'error';
+  status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
   onUpdateContent: (content: any) => Promise<void>;
   entryId?: string;
+  platformId?: string;
   topic?: string;
   slideImages?: string[];
   publishedLink?: string;
-  onStatusChange?: (newStatus: 'published' | 'pending' | 'error') => void;
+  onStatusChange?: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
   onLinkUpdate?: (link: string) => void;
+  onDeleteEntry?: () => void;
+  onDownloadSlides?: () => void;
+  onUpdateImage?: () => void;
 }
 
 const PlatformPreview = ({ 
@@ -38,11 +43,15 @@ const PlatformPreview = ({
   contentType, 
   onUpdateContent, 
   entryId, 
+  platformId,
   topic, 
   slideImages,
   publishedLink,
   onStatusChange,
-  onLinkUpdate 
+  onLinkUpdate,
+  onDeleteEntry,
+  onDownloadSlides,
+  onUpdateImage
 }: PlatformPreviewProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -227,7 +236,7 @@ const PlatformPreview = ({
         status={status}
         contentType={contentType}
         onUpdateContent={onUpdateContent}
-        entryId={entryId}
+        platformId={platformId || ''}
         publishedLink={publishedLink}
         onStatusChange={onStatusChange}
         onLinkUpdate={onLinkUpdate}

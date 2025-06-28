@@ -8,11 +8,11 @@ import ContentForm from '@/components/ContentForm';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
 import CalendarView from '@/components/CalendarView';
+import PlatformPreview from '@/components/PlatformPreview';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService, ContentEntry, ContentPlatform } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
-import PlatformPreview from '@/components/platform-preview';
 
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
@@ -89,12 +89,12 @@ const Index = () => {
   };
 
   const handleNewEntry = async (entryData: any) => {
-    const { data, error } = await contentService.generateContent(
-      entryData.topic,
-      entryData.description,
-      entryData.type,
-      entryData.selectedPlatforms
-    );
+    const { data, error } = await contentService.createContentEntry({
+      topic: entryData.topic,
+      description: entryData.description,
+      type: entryData.type,
+      selectedPlatforms: entryData.selectedPlatforms
+    });
 
     if (error) {
       toast({
@@ -188,7 +188,7 @@ const Index = () => {
     }
   };
 
-  const handleUpdateStatus = async (platformId: string, newStatus: 'published' | 'pending' | 'error') => {
+  const handleUpdateStatus = async (platformId: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
     await contentService.updatePlatformStatus(platformId, newStatus);
     
     // Update local state

@@ -5,12 +5,12 @@ import PublishButton from '@/components/PublishButton';
 
 interface PublishInfoProps {
   publishDate?: string;
-  status: 'published' | 'pending' | 'error';
+  status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   publishedLink?: string;
   entryId?: string;
   platform: 'instagram' | 'linkedin' | 'wordpress';
   contentType: string;
-  onStatusChange?: (newStatus: 'published' | 'pending' | 'error') => void;
+  onStatusChange?: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
   onLinkUpdate?: (link: string) => void;
 }
 
@@ -66,7 +66,7 @@ const PublishInfo = ({
       {entryId && (platform === 'instagram' || platform === 'linkedin') && (
         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
           <PublishButton
-            entryId={entryId}
+            platformId={entryId}
             platform={platform}
             currentStatus={status}
             contentType={contentType}
