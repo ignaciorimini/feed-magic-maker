@@ -83,7 +83,7 @@ const PlatformPreview = ({
     return text.substring(0, maxLength) + '...';
   };
 
-  // Convert new status to old status for WordPressPreview
+  // Convert new status to old status for PlatformHeader component
   const convertToOldStatus = (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published'): 'pending' | 'published' | 'error' => {
     switch (newStatus) {
       case 'published':
@@ -94,15 +94,6 @@ const PlatformPreview = ({
       case 'scheduled':
       default:
         return 'pending';
-    }
-  };
-
-  // Handle status changes from WordPressPreview (old status) to parent (new status)
-  const handleWordPressStatusChange = (oldStatus: 'pending' | 'published' | 'error') => {
-    if (onStatusChange) {
-      const newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' = 
-        oldStatus === 'published' ? 'published' : 'pending';
-      onStatusChange(newStatus);
     }
   };
 
@@ -255,12 +246,12 @@ const PlatformPreview = ({
     return (
       <WordPressPreview
         content={content}
-        status={convertToOldStatus(status)}
+        status={status}
         contentType={contentType}
         onUpdateContent={onUpdateContent}
         platformId={platformId || ''}
         publishedLink={publishedLink}
-        onStatusChange={handleWordPressStatusChange}
+        onStatusChange={onStatusChange}
         onLinkUpdate={onLinkUpdate}
       />
     );
