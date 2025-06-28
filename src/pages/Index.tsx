@@ -59,6 +59,12 @@ const determinePlatformFromStatus = (entry: any): 'instagram' | 'linkedin' | 'wo
 // Extended ContentEntry interface to include targetPlatform
 interface ExtendedContentEntry extends ContentEntry {
   targetPlatform?: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+  status: {
+    instagram: 'published' | 'pending' | 'error' | null;
+    linkedin: 'published' | 'pending' | 'error' | null;
+    wordpress: 'published' | 'pending' | 'error' | null;
+    twitter: 'published' | 'pending' | 'error' | null;
+  };
 }
 
 const Index = () => {
@@ -134,10 +140,10 @@ const Index = () => {
               type: entry.type,
               createdDate: entry.created_date,
               status: {
-                instagram: entry.status_instagram as 'published' | 'pending' | 'error' | null,
-                linkedin: entry.status_linkedin as 'published' | 'pending' | 'error' | null,
-                wordpress: entry.status_wordpress as 'published' | 'pending' | 'error' | null,
-                twitter: entry.status_twitter as 'published' | 'pending' | 'error' | null
+                instagram: (entry.status_instagram as 'published' | 'pending' | 'error') || null,
+                linkedin: (entry.status_linkedin as 'published' | 'pending' | 'error') || null,
+                wordpress: (entry.status_wordpress as 'published' | 'pending' | 'error') || null,
+                twitter: (entry.status_twitter as 'published' | 'pending' | 'error') || null
               },
               platformContent: entry.platform_content || {},
               publishedLinks: parsePublishedLinks(entry.published_links),
@@ -192,7 +198,7 @@ const Index = () => {
       // FIXED: Extraer slideImages correctamente del formato [{ slideImages: [...] }]
       let slideImages: string[] = [];
       
-      if (Array.isArray(data) && data.length > 0 && data[0].slideImages) {
+      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
         slideImages = data[0].slideImages;
         console.log('Extracted slideImages:', slideImages.length, 'slides');
       }

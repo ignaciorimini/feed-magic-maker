@@ -389,9 +389,11 @@ export const contentService = {
       // Preparar el payload del webhook incluyendo el post_type si está disponible
       const webhookPayload: any = {
         action: 'publish',
-        platform: platform,
+        platform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter',
         entryId: entryId,
-        content: entry.platform_content[platform],
+        content: entry.platform_content && typeof entry.platform_content === 'object' 
+          ? (entry.platform_content as any)[platform] 
+          : null,
         userEmail: user.email
       };
 
@@ -566,8 +568,8 @@ export const contentService = {
 
   async generateContent(topic: string, description: string, contentType: string, selectedPlatforms: string[]) {
     try {
-      // Asegurar que twitter esté incluido si está seleccionado
-      const validPlatforms = selectedPlatforms.filter(platform => 
+      // Asegurar que twitter esté incluido si está seleccionado y validar tipos
+      const validPlatforms = selectedPlatforms.filter((platform): platform is 'instagram' | 'linkedin' | 'wordpress' | 'twitter' => 
         ['instagram', 'linkedin', 'wordpress', 'twitter'].includes(platform)
       );
 
