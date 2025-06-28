@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { profileService } from './profileService';
 
@@ -92,15 +93,17 @@ export const contentService = {
       topic: entryData.topic,
       description: entryData.description,
       type: entryData.type,
-      platform_content: entryData.platform_content,
       user_id: (await supabase.auth.getUser()).data.user?.id,
       image_url: imageURL // NEW: Store image in separate column
     };
 
+    // Add platform_content and status fields using type assertion
+    (insertData as any).platform_content = entryData.platform_content;
+
     // Solo establecer estados para plataformas seleccionadas
     selectedPlatforms.forEach(platform => {
       const statusField = `status_${platform}`;
-      insertData[statusField] = 'pending';
+      (insertData as any)[statusField] = 'pending';
     });
 
     const { data, error } = await supabase
@@ -201,14 +204,14 @@ export const contentService = {
     // Primero obtenemos el contenido actual
     const { data: currentEntry } = await supabase
       .from('content_entries')
-      .select('platform_content')
+      .select('*')
       .eq('id', entryId)
       .single();
 
     if (currentEntry) {
-      // Ensure platform_content is an object before spreading
-      const currentPlatformContent = currentEntry.platform_content && typeof currentEntry.platform_content === 'object' 
-        ? currentEntry.platform_content 
+      // Use type assertion to access platform_content
+      const currentPlatformContent = (currentEntry as any).platform_content && typeof (currentEntry as any).platform_content === 'object' 
+        ? (currentEntry as any).platform_content 
         : {};
 
       const updatedPlatformContent = {
@@ -216,9 +219,12 @@ export const contentService = {
         [platform]: content
       };
 
+      const updateData: any = {};
+      (updateData as any).platform_content = updatedPlatformContent;
+
       const { data, error } = await supabase
         .from('content_entries')
-        .update({ platform_content: updatedPlatformContent })
+        .update(updateData)
         .eq('id', entryId)
         .select()
         .single();
@@ -235,7 +241,7 @@ export const contentService = {
       // Obtener el contenido actual
       const { data: currentEntry, error: fetchError } = await supabase
         .from('content_entries')
-        .select('platform_content')
+        .select('*')
         .eq('id', entryId)
         .single();
 
@@ -244,12 +250,12 @@ export const contentService = {
       }
 
       if (currentEntry) {
-        // Asegurar que platform_content es un objeto y hacer type assertion
+        // Use type assertion to access platform_content
         const currentPlatformContent: PlatformContentStructure = 
-          currentEntry.platform_content && 
-          typeof currentEntry.platform_content === 'object' &&
-          !Array.isArray(currentEntry.platform_content)
-            ? currentEntry.platform_content as PlatformContentStructure
+          (currentEntry as any).platform_content && 
+          typeof (currentEntry as any).platform_content === 'object' &&
+          !Array.isArray((currentEntry as any).platform_content)
+            ? (currentEntry as any).platform_content as PlatformContentStructure
             : {};
 
         // Actualizar el contenido con las slide images
@@ -277,9 +283,12 @@ export const contentService = {
           }
         }
 
+        const updateData: any = {};
+        (updateData as any).platform_content = updatedPlatformContent;
+
         const { data, error } = await supabase
           .from('content_entries')
-          .update({ platform_content: updatedPlatformContent as any })
+          .update(updateData)
           .eq('id', entryId)
           .select()
           .single();
@@ -335,10 +344,12 @@ export const contentService = {
   async updatePublishStatus(entryId: string, platform: string, status: 'published' | 'pending' | 'error') {
     try {
       const statusField = `status_${platform}`;
+      const updateData: any = {};
+      (updateData as any)[statusField] = status;
       
       const { data, error } = await supabase
         .from('content_entries')
-        .update({ [statusField]: status })
+        .update(updateData)
         .eq('id', entryId)
         .select()
         .single();
@@ -386,14 +397,17 @@ export const contentService = {
       // Primero actualizamos el estado a 'pending'
       await this.updatePublishStatus(entryId, platform, 'pending');
 
+      // Use type assertion to access platform_content
+      const platformContent = (entry as any).platform_content && typeof (entry as any).platform_content === 'object' 
+        ? ((entry as any).platform_content as any)[platform] 
+        : null;
+
       // Preparar el payload del webhook incluyendo el post_type si está disponible
       const webhookPayload: any = {
         action: 'publish',
         platform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter',
         entryId: entryId,
-        content: entry.platform_content && typeof entry.platform_content === 'object' 
-          ? (entry.platform_content as any)[platform] 
-          : null,
+        content: platformContent,
         userEmail: user.email
       };
 
@@ -617,15 +631,17 @@ export const contentService = {
         topic,
         description,
         type: contentType,
-        platform_content: {},
         published_links: {},
         user_id: user.id,
         image_url: webhookResponse.imageURL || null // NEW: Store image in separate column
       };
 
+      // Use type assertion to add platform_content
+      (entryData as any).platform_content = {};
+
       // Agregar estados individuales solo para plataformas seleccionadas
       validPlatforms.forEach(platform => {
-        entryData[`status_${platform}`] = 'pending';
+        (entryData as any)[`status_${platform}`] = 'pending';
       });
 
       // Procesar contenido de cada plataforma incluyendo Twitter
@@ -635,7 +651,7 @@ export const contentService = {
           
           // Para Twitter, manejar diferentes tipos de contenido
           if (platform === 'twitter') {
-            entryData.platform_content[platform] = {
+            (entryData as any).platform_content[platform] = {
               text: platformData.text || '',
               images: [], // No store images in platform_content anymore
               threadPosts: platformData.threadPosts || [],
@@ -643,7 +659,7 @@ export const contentService = {
             };
           } else {
             // Para otras plataformas mantener la lógica existente
-            entryData.platform_content[platform] = {
+            (entryData as any).platform_content[platform] = {
               text: platformData.text || '',
               images: [], // No store images in platform_content anymore
               title: platformData.title || null,
@@ -653,7 +669,7 @@ export const contentService = {
             };
 
             if (webhookResponse.slidesURL) {
-              entryData.platform_content[platform].slidesURL = webhookResponse.slidesURL;
+              (entryData as any).platform_content[platform].slidesURL = webhookResponse.slidesURL;
             }
           }
         }

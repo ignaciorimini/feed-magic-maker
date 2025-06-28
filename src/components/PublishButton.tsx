@@ -75,8 +75,8 @@ const PublishButton = ({
       };
 
       // Para WordPress, enviar datos completos incluyendo imagen
-      if (platform === 'wordpress' && entry.platform_content) {
-        const platformContent = entry.platform_content as Record<string, any>;
+      if (platform === 'wordpress' && (entry as any).platform_content) {
+        const platformContent = (entry as any).platform_content as Record<string, any>;
         const wpContent = platformContent?.wordpress;
         
         if (wpContent && typeof wpContent === 'object') {
@@ -90,7 +90,7 @@ const PublishButton = ({
         }
       } else {
         // Para otras plataformas, enviar el contenido específico de la plataforma
-        const platformContent = entry.platform_content as Record<string, any>;
+        const platformContent = (entry as any).platform_content as Record<string, any>;
         webhookPayload.content = platformContent?.[platform] || {};
         if (entry.image_url) {
           webhookPayload.content.image = entry.image_url;

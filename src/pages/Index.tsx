@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X, Calendar } from 'lucide-react';
@@ -48,7 +49,7 @@ const determinePlatformFromStatus = (entry: any): 'instagram' | 'linkedin' | 'wo
   
   for (const platform of platforms) {
     const statusField = `status_${platform}`;
-    if (entry[statusField] !== null) {
+    if ((entry as any)[statusField] !== null) {
       return platform;
     }
   }
@@ -140,14 +141,14 @@ const Index = () => {
               type: entry.type,
               createdDate: entry.created_date,
               status: {
-                instagram: (entry.status_instagram as 'published' | 'pending' | 'error') || null,
-                linkedin: (entry.status_linkedin as 'published' | 'pending' | 'error') || null,
-                wordpress: (entry.status_wordpress as 'published' | 'pending' | 'error') || null,
-                twitter: (entry.status_twitter as 'published' | 'pending' | 'error') || null
+                instagram: ((entry as any).status_instagram as 'published' | 'pending' | 'error') || null,
+                linkedin: ((entry as any).status_linkedin as 'published' | 'pending' | 'error') || null,
+                wordpress: ((entry as any).status_wordpress as 'published' | 'pending' | 'error') || null,
+                twitter: ((entry as any).status_twitter as 'published' | 'pending' | 'error') || null
               },
-              platformContent: entry.platform_content || {},
+              platformContent: (entry as any).platform_content || {},
               publishedLinks: parsePublishedLinks(entry.published_links),
-              slideImages: parseSlideImages(entry.platform_content),
+              slideImages: parseSlideImages((entry as any).platform_content),
               imageUrl: entry.image_url, // NEW: Add image_url from database
               targetPlatform: targetPlatform
             };
@@ -409,14 +410,14 @@ const Index = () => {
           type: data.type,
           createdDate: data.created_date,
           status: {
-            instagram: data.status_instagram as 'published' | 'pending' | 'error' | null,
-            linkedin: data.status_linkedin as 'published' | 'pending' | 'error' | null,
-            wordpress: data.status_wordpress as 'published' | 'pending' | 'error' | null,
-            twitter: data.status_twitter as 'published' | 'pending' | 'error' | null
+            instagram: ((data as any).status_instagram as 'published' | 'pending' | 'error') || null,
+            linkedin: ((data as any).status_linkedin as 'published' | 'pending' | 'error') || null,
+            wordpress: ((data as any).status_wordpress as 'published' | 'pending' | 'error') || null,
+            twitter: ((data as any).status_twitter as 'published' | 'pending' | 'error') || null
           },
-          platformContent: data.platform_content,
+          platformContent: (data as any).platform_content,
           publishedLinks: parsePublishedLinks(data.published_links),
-          slideImages: parseSlideImages(data.platform_content),
+          slideImages: parseSlideImages((data as any).platform_content),
           imageUrl: data.image_url, // NEW: Add image_url from database
           targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter' // Agregar la plataforma objetivo
         };
