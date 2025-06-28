@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon } from 'lucide-react';
+import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +8,10 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import StatusBadge from './StatusBadge';
 import ContentEditModal from './ContentEditModal';
 import PublishButton from './PublishButton';
+import { useAuth } from '@/hooks/useAuth';
+import { profileService } from '@/services/profileService';
+import { contentService } from '@/services/contentService';
+import { toast } from '@/hooks/use-toast';
 
 interface PlatformCardProps {
   entry: {
@@ -36,6 +39,7 @@ interface PlatformCardProps {
       wordpress?: string;
       twitter?: string;
     };
+    imageUrl?: string;
   };
   platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
@@ -43,17 +47,22 @@ interface PlatformCardProps {
   onDownloadSlides?: (entryId: string, slidesURL: string) => void;
   onUpdateStatus?: (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => void;
   onUpdateLink?: (entryId: string, platform: string, link: string) => void;
+  onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
 }
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [localEntry, setLocalEntry] = useState(entry);
+  const { user } = useAuth();
 
   useEffect(() => {
+    setLocalEntry(entry);
     setImageError(false);
-  }, [entry.platformContent[platform]?.images]);
+  }, [entry]);
 
   const platformConfig = {
     instagram: {
@@ -77,68 +86,199 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     twitter: {
       name: 'X (Twitter)',
       gradient: 'from-black to-gray-800',
-      bgGradient: 'from-gray-50 to-black-50',
+      bgGradient: 'from-gray-50 to-gray-100',
       borderColor: 'border-gray-300'
     }
   };
 
   const config = platformConfig[platform];
-  const content = entry.platformContent[platform];
-  const status = entry.status[platform];
-  const publishedLink = entry.publishedLinks?.[platform];
+  const content = localEntry.platformContent[platform];
+  const status = localEntry.status[platform];
+  const publishedLink = localEntry.publishedLinks?.[platform];
+
+  // Only show the card if this platform has content or a status (not null)
+  if (!content && status === null) {
+    return null;
+  }
 
   const truncateText = (text: string, maxLength: number = 60) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   };
 
-  const hasSlides = entry.slideImages && entry.slideImages.length > 0;
-  const isSlidePost = entry.type === 'Slide Post';
+  const hasSlides = localEntry.slideImages && localEntry.slideImages.length > 0;
+  const isSlidePost = localEntry.type === 'Slide Post';
+
+  // Check if content is a thread for Twitter
+  const isThread = platform === 'twitter' && content?.threadPosts && content.threadPosts.length > 0;
 
   const handleDelete = () => {
-    onDeleteEntry(entry.id, platform);
+    onDeleteEntry(localEntry.id, platform);
   };
 
   const handleDownloadSlides = () => {
     if (content?.slidesURL && onDownloadSlides) {
-      onDownloadSlides(entry.id, content.slidesURL);
+      onDownloadSlides(localEntry.id, content.slidesURL);
     }
   };
+
+  // FIXED: Function to generate image with proper type handling
+  const handleGenerateImage = async () => {
+    if (!user || !localEntry.id) {
+      toast({
+        title: "Error",
+        description: "No se puede generar la imagen en este momento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      console.log("Obteniendo webhook del perfil del usuario para generar imagen...");
+      
+      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
+      
+      if (profileError || !profile?.webhook_url) {
+        toast({
+          title: "Webhook no configurado",
+          description: "Debes configurar tu webhook URL en el perfil para generar imágenes.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("Enviando solicitud de generación de imagen al webhook:", profile.webhook_url);
+      
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'generate_image',
+          topic: localEntry.topic,
+          description: localEntry.description,
+          platform: platform,
+          userEmail: user.email
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Respuesta de generación de imagen:", result);
+
+      // FIXED: Ensure imageURL is a string before using it
+      if (result.imageURL && typeof result.imageURL === 'string') {
+        // Save the image to the database using contentService
+        const { error: updateImageError } = await contentService.updateImageUrl(localEntry.id, result.imageURL);
+        
+        if (updateImageError) {
+          console.error('Error updating image in database:', updateImageError);
+          throw new Error('Error guardando la imagen en la base de datos');
+        }
+
+        // Update local state to reflect the new image
+        setLocalEntry(prev => ({
+          ...prev,
+          imageUrl: result.imageURL
+        }));
+
+        // Also update the platform content if needed (for backward compatibility)
+        const updatedContent = {
+          ...content,
+          images: [result.imageURL]
+        };
+        
+        await onUpdateContent(localEntry.id, platform, updatedContent);
+        
+        toast({
+          title: "¡Imagen generada exitosamente!",
+          description: "La imagen ha sido generada y guardada.",
+        });
+      } else {
+        throw new Error("No se recibió una URL de imagen válida");
+      }
+    } catch (error) {
+      console.error('Error al generar imagen:', error);
+      toast({
+        title: "Error al generar imagen",
+        description: "Hubo un problema al generar la imagen. Inténtalo nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // FIXED: Correct the displayImage logic to ensure it's always a string or null
+  const getValidImageUrl = (imageUrl: string | undefined): string | null => {
+    if (imageUrl && imageUrl !== "/placeholder.svg") {
+      return imageUrl;
+    }
+    return null;
+  };
+
+  const displayImage = localEntry.imageUrl || getValidImageUrl(content?.images?.[0]);
+  const hasImage = displayImage && !imageError;
+  const canGenerateImage = !isSlidePost && !hasImage;
 
   return (
     <>
       <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group flex flex-col h-full`}>
         {/* Header */}
         <CardHeader className="p-4 pb-2 flex-shrink-0">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r ${config.gradient} mb-2`}>
+          {/* Platform and Status in same flexbox - Status aligned right */}
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center space-x-2">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r ${config.gradient}`}>
                 {config.name}
               </div>
-              <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1">
-                {entry.topic}
-              </h3>
-              <Badge variant="outline" className="text-xs">
-                {entry.type}
-              </Badge>
+              {isThread && (
+                <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800">
+                  Thread
+                </Badge>
+              )}
             </div>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={handleDelete}
-                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center space-x-2">
+              {status && <StatusBadge platform={platform} status={status} />}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => setShowEditModal(true)}
+                    className="focus:bg-blue-50"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={handleDelete}
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1">
+              {localEntry.topic}
+            </h3>
+            <Badge variant="outline" className="text-xs">
+              {localEntry.type}
+            </Badge>
           </div>
         </CardHeader>
 
@@ -146,80 +286,125 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
         <CardContent className="p-4 pt-2 flex-1 flex flex-col space-y-3">
           {/* Description */}
           <p className="text-xs text-gray-600 line-clamp-2">
-            {truncateText(entry.description, 80)}
+            {truncateText(localEntry.description, 80)}
           </p>
 
-          {/* Slides Carousel */}
-          {isSlidePost && hasSlides && (
+          {/* Twitter Thread Preview */}
+          {platform === 'twitter' && isThread ? (
             <div className="flex-1">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
-                Slides ({entry.slideImages!.length})
+                Hilo ({content.threadPosts.length} tweets)
               </span>
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {entry.slideImages!.map((imageUrl, index) => (
-                    <CarouselItem key={index}>
-                      <div className="aspect-video bg-white rounded-md overflow-hidden border">
-                        <img 
-                          src={imageUrl} 
-                          alt={`Slide ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious className="h-6 w-6" />
-                <CarouselNext className="h-6 w-6" />
-              </Carousel>
-            </div>
-          )}
-
-          {/* Single Image */}
-          {(!isSlidePost || !hasSlides) && (
-            <div className="flex-1">
-              <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
-                {content?.images?.[0] && content.images[0] !== "/placeholder.svg" && !imageError ? (
-                  <img 
-                    src={content.images[0]} 
-                    alt="Previsualización de contenido"
-                    className="w-full h-full object-cover"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="text-center text-xs text-gray-500 p-2">
-                    <ImageIcon className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                    <span>{imageError ? 'Error al cargar imagen' : 'Sin imagen'}</span>
+              <div className="max-h-32 overflow-y-auto space-y-2 bg-white rounded-md p-2 border">
+                {content.threadPosts.slice(0, 3).map((tweet: string, index: number) => (
+                  <div key={index} className="text-xs text-gray-700 p-1.5 rounded border-l-2 border-gray-800">
+                    <span className="text-gray-800 font-medium">{index + 1}/</span> {truncateText(tweet, 50)}
                   </div>
+                ))}
+                {content.threadPosts.length > 3 && (
+                  <p className="text-xs text-gray-500 italic text-center">
+                    ... y {content.threadPosts.length - 3} tweets más
+                  </p>
                 )}
               </div>
             </div>
+          ) : (
+            /* Regular content preview */
+            <>
+              {/* Slides Carousel */}
+              {isSlidePost && hasSlides && (
+                <div className="flex-1">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
+                    Slides ({localEntry.slideImages!.length})
+                  </span>
+                  <Carousel className="w-full">
+                    <CarouselContent>
+                      {localEntry.slideImages!.map((imageUrl, index) => (
+                        <CarouselItem key={index}>
+                          <div className="aspect-video bg-white rounded-md overflow-hidden border">
+                            <img 
+                              src={imageUrl} 
+                              alt={`Slide ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="h-6 w-6" />
+                    <CarouselNext className="h-6 w-6" />
+                  </Carousel>
+                </div>
+              )}
+
+              {/* Single Image - FIXED: Use imageUrl from database first */}
+              {(!isSlidePost || !hasSlides) && (
+                <div className="flex-1">
+                  <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
+                    {hasImage ? (
+                      <img 
+                        src={displayImage!} 
+                        alt="Previsualización de contenido"
+                        className="w-full h-full object-cover"
+                        onError={() => setImageError(true)}
+                      />
+                    ) : (
+                      <div className="text-center text-xs text-gray-500 p-2 flex flex-col items-center justify-center h-full">
+                        <ImageIcon className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                        <span className="mb-2">{imageError ? 'Error al cargar imagen' : 'Sin imagen'}</span>
+                        {/* Generate Image Button inside the image container */}
+                        {canGenerateImage && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateImage}
+                            disabled={isGeneratingImage}
+                            className="h-7 px-3 text-xs"
+                          >
+                            {isGeneratingImage ? (
+                              <>
+                                <Sparkles className="w-3 h-3 mr-1 animate-spin" />
+                                Generando...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                Generar Imagen
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Status and Actions */}
           <div className="space-y-2 mt-auto">
-            <StatusBadge platform={platform} status={status} />
-
+            {/* Publish Button with full width */}
             {status === 'pending' && onUpdateStatus && onUpdateLink && (
               <div className="pt-2">
                 <PublishButton
-                  entryId={entry.id}
+                  entryId={localEntry.id}
                   platform={platform}
                   currentStatus={status}
-                  contentType={entry.type}
-                  onStatusChange={(newStatus) => onUpdateStatus(entry.id, platform, newStatus)}
-                  onLinkUpdate={(link) => onUpdateLink(entry.id, platform, link)}
+                  contentType={isThread ? 'Thread' : localEntry.type}
+                  onStatusChange={(newStatus) => onUpdateStatus(localEntry.id, platform, newStatus)}
+                  onLinkUpdate={(link) => onUpdateLink(localEntry.id, platform, link)}
                 />
               </div>
             )}
             
-            {/* Action Buttons */}
+            {/* Action Buttons - Always visible */}
             <div className="flex space-x-2 pt-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowEditModal(true)}
-                className="flex-1 text-xs"
+                className="text-xs flex-1"
               >
                 <Edit className="w-3 h-3 mr-1" />
                 Editar
@@ -246,12 +431,29 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                   <ExternalLink className="w-3 h-3" />
                 </Button>
               )}
+
+              {/* Generate Image Button - Always visible for simple posts without image */}
+              {canGenerateImage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateImage}
+                  disabled={isGeneratingImage}
+                  className="text-xs"
+                >
+                  {isGeneratingImage ? (
+                    <Sparkles className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                </Button>
+              )}
             </div>
 
             {/* Date */}
             <div className="flex items-center text-xs text-gray-500">
               <Calendar className="w-3 h-3 mr-1" />
-              <span>{entry.createdDate}</span>
+              <span>{localEntry.createdDate}</span>
             </div>
           </div>
         </CardContent>
@@ -264,12 +466,14 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           onClose={() => setShowEditModal(false)}
           platform={platform}
           content={content}
-          contentType={entry.type}
-          onSave={async (updatedContent) => onUpdateContent(entry.id, platform, updatedContent)}
-          entryId={entry.id}
-          topic={entry.topic}
-          description={entry.description}
-          slideImages={entry.slideImages}
+          contentType={isThread ? 'Thread' : localEntry.type}
+          onSave={async (updatedContent) => onUpdateContent(localEntry.id, platform, updatedContent)}
+          entryId={localEntry.id}
+          topic={localEntry.topic}
+          description={localEntry.description}
+          slideImages={localEntry.slideImages}
+          imageUrl={localEntry.imageUrl}
+          onUpdateImage={onUpdateImage}
         />
       )}
     </>

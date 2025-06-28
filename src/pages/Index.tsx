@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X } from 'lucide-react';
+import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +39,21 @@ const parseSlideImages = (platformContent: any): string[] => {
   }
   
   return [];
+};
+
+// FIXED: Helper function to determine platform from status fields instead of content
+const determinePlatformFromStatus = (entry: any): 'instagram' | 'linkedin' | 'wordpress' | 'twitter' => {
+  // Check which platform has a non-null status (meaning it was selected for this entry)
+  const platforms: ('instagram' | 'linkedin' | 'wordpress' | 'twitter')[] = ['instagram', 'linkedin', 'wordpress', 'twitter'];
+  
+  for (const platform of platforms) {
+    const statusField = `status_${platform}`;
+    if (entry[statusField] !== null) {
+      return platform;
+    }
+  }
+
+  return 'instagram'; // Final fallback
 };
 
 // Extended ContentEntry interface to include targetPlatform
@@ -109,22 +123,29 @@ const Index = () => {
           });
         } else if (data) {
           // Transform the data to match the expected format
-          const transformedEntries: ExtendedContentEntry[] = data.map(entry => ({
-            id: entry.id,
-            topic: entry.topic,
-            description: entry.description || '',
-            type: entry.type,
-            createdDate: entry.created_date,
-            status: {
-              instagram: entry.status_instagram as 'published' | 'pending' | 'error',
-              linkedin: entry.status_linkedin as 'published' | 'pending' | 'error',
-              wordpress: entry.status_wordpress as 'published' | 'pending' | 'error',
-              twitter: entry.status_twitter as 'published' | 'pending' | 'error'
-            },
-            platformContent: entry.platform_content || {},
-            publishedLinks: parsePublishedLinks(entry.published_links),
-            slideImages: parseSlideImages(entry.platform_content)
-          }));
+          const transformedEntries: ExtendedContentEntry[] = data.map(entry => {
+            // FIXED: Properly determine target platform from status fields
+            const targetPlatform = determinePlatformFromStatus(entry);
+            
+            return {
+              id: entry.id,
+              topic: entry.topic,
+              description: entry.description || '',
+              type: entry.type,
+              createdDate: entry.created_date,
+              status: {
+                instagram: entry.status_instagram as 'published' | 'pending' | 'error' | null,
+                linkedin: entry.status_linkedin as 'published' | 'pending' | 'error' | null,
+                wordpress: entry.status_wordpress as 'published' | 'pending' | 'error' | null,
+                twitter: entry.status_twitter as 'published' | 'pending' | 'error' | null
+              },
+              platformContent: entry.platform_content || {},
+              publishedLinks: parsePublishedLinks(entry.published_links),
+              slideImages: parseSlideImages(entry.platform_content),
+              imageUrl: entry.image_url, // NEW: Add image_url from database
+              targetPlatform: targetPlatform
+            };
+          });
           setEntries(transformedEntries);
         }
         setLoading(false);
@@ -228,8 +249,11 @@ const Index = () => {
 
         toast({
           title: "¡Slides descargadas exitosamente!",
-          description: `Se descargaron y guardaron ${slideImages.length} imágenes de las slides.`,
+          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
         });
+        
+        // Trigger a page refresh to show the updated slides everywhere
+        window.location.reload();
       } else {
         console.log('No slideImages found in response');
         toast({
@@ -262,7 +286,7 @@ const Index = () => {
     window.location.reload();
   };
 
-  // Función para manejar nueva entrada con mapeo correcto de tipos
+  // FIXED: Función para manejar nueva entrada sin sufijos de plataforma
   const handleNewEntry = async (entryData: any) => {
     console.log("Datos recibidos para nueva entrada:", entryData);
     
@@ -285,19 +309,19 @@ const Index = () => {
       let platformContent = {
         instagram: {
           text: "Generando contenido automáticamente para Instagram...",
-          images: ["/placeholder.svg"],
+          images: [], // Sin imagen inicial
           publishDate: "",
           slidesURL: ""
         },
         linkedin: {
           text: "Generando contenido automáticamente para LinkedIn...",
-          images: ["/placeholder.svg"],
+          images: [], // Sin imagen inicial
           publishDate: "",
           slidesURL: ""
         },
         wordpress: {
           text: "Generando contenido automáticamente para WordPress...",
-          images: ["/placeholder.svg"],
+          images: [], // Sin imagen inicial
           publishDate: "",
           title: "",
           description: "",
@@ -306,7 +330,7 @@ const Index = () => {
         },
         twitter: {
           text: "Generando contenido automáticamente para Twitter...",
-          images: ["/placeholder.svg"],
+          images: [], // Sin imagen inicial
           publishDate: "",
           threadPosts: []
         }
@@ -315,26 +339,29 @@ const Index = () => {
       // If there's generated content from webhook, use it
       if (entryData.generatedContent) {
         const generated = entryData.generatedContent;
+        console.log('Generated content from webhook:', generated);
         
-        const imageToUse = generated.imageURL || "/placeholder.svg";
         const slidesURL = generated.slidesURL || "";
+        
+        // Log para debug
+        console.log('Slides URL from webhook:', slidesURL);
         
         platformContent = {
           instagram: {
             text: generated.instagramContent || platformContent.instagram.text,
-            images: [imageToUse],
+            images: [], // No initial image in platform_content
             publishDate: "",
             slidesURL: slidesURL
           },
           linkedin: {
             text: generated.linkedinContent || platformContent.linkedin.text,
-            images: [imageToUse],
+            images: [], // No initial image in platform_content
             publishDate: "",
             slidesURL: slidesURL
           },
           wordpress: {
             text: generated.wordpressContent || platformContent.wordpress.text,
-            images: [imageToUse],
+            images: [], // No initial image in platform_content
             publishDate: "",
             title: generated.wordpressTitle || "",
             description: generated.wordpressDescription || "",
@@ -343,19 +370,22 @@ const Index = () => {
           },
           twitter: {
             text: generated.twitterContent || platformContent.twitter.text,
-            images: [imageToUse],
+            images: [], // No initial image in platform_content
             publishDate: "",
             threadPosts: generated.twitterThreadPosts || []
           }
         };
+
+        console.log('Final platform content:', platformContent);
       }
 
-      // Save to Supabase - Una entrada por plataforma sin target_platform
+      // FIXED: Guardar solo el título sin sufijo de plataforma y pasar selectedPlatforms
       const { data, error } = await contentService.createContentEntry({
-        topic: `${entryData.topic} - ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
+        topic: entryData.topic, // Sin sufijo de plataforma
         description: entryData.description,
         type: contentType,
-        platform_content: platformContent
+        platform_content: platformContent,
+        selectedPlatforms: [platform] // Pasar la plataforma actual
       });
 
       if (error) {
@@ -373,14 +403,15 @@ const Index = () => {
           type: data.type,
           createdDate: data.created_date,
           status: {
-            instagram: data.status_instagram as 'published' | 'pending' | 'error',
-            linkedin: data.status_linkedin as 'published' | 'pending' | 'error',
-            wordpress: data.status_wordpress as 'published' | 'pending' | 'error',
-            twitter: data.status_twitter as 'published' | 'pending' | 'error'
+            instagram: data.status_instagram as 'published' | 'pending' | 'error' | null,
+            linkedin: data.status_linkedin as 'published' | 'pending' | 'error' | null,
+            wordpress: data.status_wordpress as 'published' | 'pending' | 'error' | null,
+            twitter: data.status_twitter as 'published' | 'pending' | 'error' | null
           },
           platformContent: data.platform_content,
           publishedLinks: parsePublishedLinks(data.published_links),
           slideImages: parseSlideImages(data.platform_content),
+          imageUrl: data.image_url, // NEW: Add image_url from database
           targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter' // Agregar la plataforma objetivo
         };
 
@@ -423,6 +454,30 @@ const Index = () => {
       }
       return entry;
     }));
+  };
+
+  // NEW: Function to handle image updates
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null): Promise<void> => {
+    const { error } = await contentService.updateImageUrl(entryId, imageUrl);
+    
+    if (error) {
+      toast({
+        title: "Error al actualizar imagen",
+        description: "No se pudo actualizar la imagen.",
+        variant: "destructive",
+      });
+    } else {
+      setEntries(prev => prev.map(entry => {
+        if (entry.id === entryId) {
+          return { ...entry, imageUrl: imageUrl };
+        }
+        return entry;
+      }));
+      toast({
+        title: "Imagen actualizada",
+        description: "La imagen se ha actualizado correctamente.",
+      });
+    }
   };
 
   const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
@@ -547,7 +602,11 @@ const Index = () => {
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            {/* FIXED: Logo clickeable para navegar al dashboard */}
+            <button 
+              onClick={() => setActiveTab('dashboard')} 
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+            >
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
@@ -557,7 +616,7 @@ const Index = () => {
                 </h1>
                 <p className="text-sm text-gray-500">Automatización de Contenido</p>
               </div>
-            </div>
+            </button>
             
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-4">
@@ -567,6 +626,13 @@ const Index = () => {
                 size="sm"
               >
                 Dashboard
+              </Button>
+              <Button
+                variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('calendar')}
+                size="sm"
+              >
+                Calendario
               </Button>
               <Button
                 onClick={() => setShowForm(true)}
@@ -648,6 +714,17 @@ const Index = () => {
                   Dashboard
                 </Button>
                 <Button
+                  variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+                  onClick={() => {
+                    setActiveTab('calendar');
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full justify-start h-12 text-left"
+                >
+                  <Calendar className="w-5 h-5 mr-3" />
+                  Calendario
+                </Button>
+                <Button
                   onClick={() => {
                     setShowForm(true);
                     setShowMobileMenu(false);
@@ -706,6 +783,10 @@ const Index = () => {
               onCancel={() => setShowForm(false)}
             />
           </div>
+        ) : activeTab === 'calendar' ? (
+          <div className="space-y-6 sm:space-y-8">
+            <CalendarView entries={entries} />
+          </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
             {/* Stats Overview */}
@@ -755,17 +836,7 @@ const Index = () => {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {entries.map((entry) => {
-                    // Determinar la plataforma objetivo desde el título o usar targetPlatform si existe
-                    let targetPlatform: 'instagram' | 'linkedin' | 'wordpress' = 'instagram';
-                    if (entry.targetPlatform) {
-                      targetPlatform = entry.targetPlatform;
-                    } else if (entry.topic.includes('Instagram')) {
-                      targetPlatform = 'instagram';
-                    } else if (entry.topic.includes('LinkedIn')) {
-                      targetPlatform = 'linkedin';
-                    } else if (entry.topic.includes('WordPress')) {
-                      targetPlatform = 'wordpress';
-                    }
+                    const targetPlatform = entry.targetPlatform || 'instagram';
 
                     return (
                       <PlatformCard
@@ -777,6 +848,7 @@ const Index = () => {
                         onDownloadSlides={handleDownloadSlides}
                         onUpdateStatus={handleUpdateStatus}
                         onUpdateLink={handleUpdateLink}
+                        onUpdateImage={handleUpdateImage}
                       />
                     );
                   })}

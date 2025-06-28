@@ -8,10 +8,10 @@ export interface ContentEntry {
   type: string;
   createdDate: string;
   status: {
-    instagram: 'published' | 'pending' | 'error';
-    linkedin: 'published' | 'pending' | 'error';
-    wordpress: 'published' | 'pending' | 'error';
-    twitter: 'published' | 'pending' | 'error';
+    instagram: 'published' | 'pending' | 'error' | null;
+    linkedin: 'published' | 'pending' | 'error' | null;
+    wordpress: 'published' | 'pending' | 'error' | null;
+    twitter: 'published' | 'pending' | 'error' | null;
   };
   platformContent: any;
   publishedLinks?: {
@@ -21,6 +21,7 @@ export interface ContentEntry {
     twitter?: string;
   };
   slideImages?: string[];
+  imageUrl?: string; // NEW: Add image_url field
 }
 
 interface PlatformContentStructure {
@@ -75,39 +76,36 @@ export const contentService = {
     description: string;
     type: string;
     platform_content: any;
+    selectedPlatforms?: string[];
   }) {
-    const { platform_content } = entryData;
-    const imageURL = platform_content.imageURL; // Asumimos que el webhook devuelve una imageURL dentro de platform_content
-
-    if (imageURL) {
-      // La distribuimos a cada plataforma seleccionada
-      if (platform_content.instagram) {
-        platform_content.instagram.images = [imageURL];
-      }
-      if (platform_content.linkedin) {
-        platform_content.linkedin.images = [imageURL];
-      }
-      if (platform_content.wordpress) {
-        platform_content.wordpress.images = [imageURL];
-      }
-      if (platform_content.twitter) {
-        platform_content.twitter.images = [imageURL];
-      }
-      // Eliminamos la imageURL del nivel raíz para no guardarla duplicada
-      delete platform_content.imageURL;
+    const { platform_content, selectedPlatforms = [] } = entryData;
+    
+    // NEW: Handle imageURL separately and store in image_url column
+    let imageURL = null;
+    if (platform_content.imageURL) {
+      imageURL = platform_content.imageURL;
+      delete platform_content.imageURL; // Remove from platform_content
     }
+
+    // Preparar el objeto de inserción con estados solo para plataformas seleccionadas
+    const insertData: any = {
+      topic: entryData.topic,
+      description: entryData.description,
+      type: entryData.type,
+      platform_content: entryData.platform_content,
+      user_id: (await supabase.auth.getUser()).data.user?.id,
+      image_url: imageURL // NEW: Store image in separate column
+    };
+
+    // Solo establecer estados para plataformas seleccionadas
+    selectedPlatforms.forEach(platform => {
+      const statusField = `status_${platform}`;
+      insertData[statusField] = 'pending';
+    });
 
     const { data, error } = await supabase
       .from('content_entries')
-      .insert([
-        {
-          topic: entryData.topic,
-          description: entryData.description,
-          type: entryData.type,
-          platform_content: entryData.platform_content,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }
-      ])
+      .insert([insertData])
       .select()
       .single();
 
@@ -127,6 +125,18 @@ export const contentService = {
     const { data, error } = await supabase
       .from('content_entries')
       .update(updates)
+      .eq('id', entryId)
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  // NEW: Function to update image_url separately
+  async updateImageUrl(entryId: string, imageUrl: string | null) {
+    const { data, error } = await supabase
+      .from('content_entries')
+      .update({ image_url: imageUrl })
       .eq('id', entryId)
       .select()
       .single();
@@ -607,10 +617,11 @@ export const contentService = {
         type: contentType,
         platform_content: {},
         published_links: {},
-        user_id: user.id
+        user_id: user.id,
+        image_url: webhookResponse.imageURL || null // NEW: Store image in separate column
       };
 
-      // Agregar estados individuales por plataforma
+      // Agregar estados individuales solo para plataformas seleccionadas
       validPlatforms.forEach(platform => {
         entryData[`status_${platform}`] = 'pending';
       });
@@ -624,7 +635,7 @@ export const contentService = {
           if (platform === 'twitter') {
             entryData.platform_content[platform] = {
               text: platformData.text || '',
-              images: webhookResponse.imageURL ? [webhookResponse.imageURL] : [],
+              images: [], // No store images in platform_content anymore
               threadPosts: platformData.threadPosts || [],
               publishDate: platformData.publishDate || null
             };
@@ -632,7 +643,7 @@ export const contentService = {
             // Para otras plataformas mantener la lógica existente
             entryData.platform_content[platform] = {
               text: platformData.text || '',
-              images: webhookResponse.imageURL ? [webhookResponse.imageURL] : [],
+              images: [], // No store images in platform_content anymore
               title: platformData.title || null,
               description: platformData.description || null,
               slug: platformData.slug || null,

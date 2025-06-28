@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -16,12 +15,13 @@ export type Database = {
           created_date: string
           description: string | null
           id: string
+          image_url: string | null
           platform_content: Json
           published_links: Json | null
           status_instagram: string | null
           status_linkedin: string | null
-          status_wordpress: string | null
           status_twitter: string | null
+          status_wordpress: string | null
           topic: string
           type: string
           updated_at: string
@@ -32,12 +32,13 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           platform_content?: Json
           published_links?: Json | null
           status_instagram?: string | null
           status_linkedin?: string | null
-          status_wordpress?: string | null
           status_twitter?: string | null
+          status_wordpress?: string | null
           topic: string
           type: string
           updated_at?: string
@@ -48,12 +49,13 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           platform_content?: Json
           published_links?: Json | null
           status_instagram?: string | null
           status_linkedin?: string | null
-          status_wordpress?: string | null
           status_twitter?: string | null
+          status_wordpress?: string | null
           topic?: string
           type?: string
           updated_at?: string

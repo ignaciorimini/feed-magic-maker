@@ -1,13 +1,15 @@
 
 import { useState } from 'react';
-import { Send, Loader2, CheckCircle } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { profileService } from '@/services/profileService';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 
 interface PublishButtonProps {
   entryId: string;
-  platform: string;
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   currentStatus: 'published' | 'pending' | 'error';
   contentType?: string;
   onStatusChange: (newStatus: 'published' | 'pending' | 'error') => void;
@@ -18,69 +20,126 @@ const PublishButton = ({
   entryId, 
   platform, 
   currentStatus, 
-  contentType,
-  onStatusChange,
+  contentType, 
+  onStatusChange, 
   onLinkUpdate 
 }: PublishButtonProps) => {
   const [isPublishing, setIsPublishing] = useState(false);
-  const [publishSuccess, setPublishSuccess] = useState(false);
+  const { user } = useAuth();
 
   const handlePublish = async () => {
+    if (!user) {
+      toast({
+        title: "Error de autenticación",
+        description: "Debes estar autenticado para publicar contenido",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPublishing(true);
-    setPublishSuccess(false);
     
     try {
-      onStatusChange('pending'); // Actualizar estado a pending inmediatamente
+      console.log("Obteniendo webhook del perfil del usuario para publicar...");
       
-      // Determinar el post_type basado en contentType
-      const postType = contentType === 'Simple Post' ? 'simple' : 'slide';
+      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
       
-      const { data, error } = await contentService.publishContent(entryId, platform, postType);
-      
-      if (error) {
-        throw error;
+      if (profileError || !profile?.webhook_url) {
+        toast({
+          title: "Webhook no configurado",
+          description: "Debes configurar tu webhook URL en el perfil para publicar contenido.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Verificar si la publicación fue exitosa según el platform específico
-      const platformPublishedStatus = `${platform}Published`;
+      // Obtener los datos completos del entry
+      const { data: entries } = await contentService.getUserContentEntries();
+      const entry = entries?.find(e => e.id === entryId);
       
-      if (data?.status === platformPublishedStatus) {
-        setPublishSuccess(true);
+      if (!entry) {
+        throw new Error("No se pudo encontrar el contenido");
+      }
+
+      console.log("Enviando solicitud de publicación al webhook:", profile.webhook_url);
+      
+      // Preparar el payload completo con todos los datos necesarios
+      const webhookPayload: any = {
+        action: 'publish_content',
+        entryId: entryId,
+        platform: platform,
+        contentType: contentType,
+        userEmail: user.email,
+        topic: entry.topic,
+        description: entry.description
+      };
+
+      // Para WordPress, enviar datos completos incluyendo imagen
+      if (platform === 'wordpress' && entry.platform_content) {
+        const platformContent = entry.platform_content as Record<string, any>;
+        const wpContent = platformContent?.wordpress;
+        
+        if (wpContent && typeof wpContent === 'object') {
+          webhookPayload.content = {
+            text: wpContent.text,
+            title: wpContent.title,
+            slug: wpContent.slug,
+            description: wpContent.description || entry.description,
+            image: entry.image_url || null
+          };
+        }
+      } else {
+        // Para otras plataformas, enviar el contenido específico de la plataforma
+        const platformContent = entry.platform_content as Record<string, any>;
+        webhookPayload.content = platformContent?.[platform] || {};
+        if (entry.image_url) {
+          webhookPayload.content.image = entry.image_url;
+        }
+      }
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Respuesta de publicación:", result);
+
+      // FIXED: Corregir la lógica de éxito de publicación
+      const expectedSuccessStatus = `${platform}Published`;
+      
+      if (result.status === expectedSuccessStatus) {
         onStatusChange('published');
         
-        // Mostrar mensaje de éxito
+        if (result.link && onLinkUpdate) {
+          onLinkUpdate(result.link);
+        }
+        
         toast({
           title: "¡Contenido publicado exitosamente!",
-          description: `Tu contenido ha sido publicado en ${platform}.`,
-          variant: "default",
-          className: "bg-green-50 border-green-200 text-green-800",
+          description: `El contenido ha sido publicado en ${platform}.`,
         });
-
-        // Si hay un link, actualizar la UI
-        if (data.link && onLinkUpdate) {
-          onLinkUpdate(data.link);
-        }
-
-        // Ocultar el mensaje de éxito después de 3 segundos
-        setTimeout(() => {
-          setPublishSuccess(false);
-        }, 3000);
-        
       } else {
-        // Si no es un estado de éxito claro, mostrar mensaje informativo
+        // Si no hay un status claro de éxito, pero tampoco hay error explícito, mantener como pending
+        console.warn("Status de respuesta inesperado:", result.status);
         toast({
-          title: "Solicitud enviada",
-          description: "Tu contenido está siendo procesado. El estado se actualizará automáticamente.",
-          variant: "default",
+          title: "Publicación en proceso",
+          description: `El contenido se está procesando para ${platform}.`,
         });
       }
     } catch (error) {
-      console.error('Error al publicar:', error);
+      console.error('Error al publicar contenido:', error);
       onStatusChange('error');
-      
       toast({
-        title: "Error al publicar",
-        description: "Hubo un problema al publicar el contenido. Por favor, intenta de nuevo.",
+        title: "Error al publicar contenido",
+        description: "Hubo un problema al publicar el contenido. Inténtalo nuevamente.",
         variant: "destructive",
       });
     } finally {
@@ -88,40 +147,24 @@ const PublishButton = ({
     }
   };
 
-  if (currentStatus === 'published') {
-    return (
-      <div className="flex items-center space-x-2">
-        <CheckCircle className="w-4 h-4 text-green-600" />
-        <span className="text-sm text-green-600 font-medium">Publicado</span>
-      </div>
-    );
-  }
-
-  if (publishSuccess) {
-    return (
-      <div className="flex items-center space-x-2 text-green-600">
-        <CheckCircle className="w-4 h-4" />
-        <span className="text-sm font-medium">¡Publicado con éxito!</span>
-      </div>
-    );
-  }
-
   return (
     <Button
       onClick={handlePublish}
-      disabled={isPublishing}
+      disabled={isPublishing || currentStatus === 'published'}
+      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
       size="sm"
-      className="bg-blue-600 hover:bg-blue-700 text-white"
     >
       {isPublishing ? (
         <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
           Publicando...
         </>
+      ) : currentStatus === 'published' ? (
+        'Publicado'
       ) : (
         <>
-          <Send className="w-4 h-4 mr-2" />
-          Publicar ahora
+          <Send className="w-3 h-3 mr-2" />
+          Publicar
         </>
       )}
     </Button>
