@@ -16,12 +16,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
-          platform_content: Json
           published_links: Json | null
-          status_instagram: string | null
-          status_linkedin: string | null
-          status_twitter: string | null
-          status_wordpress: string | null
           topic: string
           type: string
           updated_at: string
@@ -33,12 +28,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
-          platform_content?: Json
           published_links?: Json | null
-          status_instagram?: string | null
-          status_linkedin?: string | null
-          status_twitter?: string | null
-          status_wordpress?: string | null
           topic: string
           type: string
           updated_at?: string
@@ -50,18 +40,66 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
-          platform_content?: Json
           published_links?: Json | null
-          status_instagram?: string | null
-          status_linkedin?: string | null
-          status_twitter?: string | null
-          status_wordpress?: string | null
           topic?: string
           type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      content_platforms: {
+        Row: {
+          content_entry_id: string
+          created_at: string | null
+          generated_at: string | null
+          id: string
+          images: string[] | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          publish_date: string | null
+          published_at: string | null
+          slides_url: string | null
+          status: Database["public"]["Enums"]["content_status"] | null
+          text: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content_entry_id: string
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          images?: string[] | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          publish_date?: string | null
+          published_at?: string | null
+          slides_url?: string | null
+          status?: Database["public"]["Enums"]["content_status"] | null
+          text?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content_entry_id?: string
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          images?: string[] | null
+          platform?: Database["public"]["Enums"]["platform_type"]
+          publish_date?: string | null
+          published_at?: string | null
+          slides_url?: string | null
+          status?: Database["public"]["Enums"]["content_status"] | null
+          text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_platforms_content_entry_id_fkey"
+            columns: ["content_entry_id"]
+            isOneToOne: false
+            referencedRelation: "content_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -96,6 +134,67 @@ export type Database = {
         }
         Relationships: []
       }
+      slide_images: {
+        Row: {
+          content_platform_id: string
+          created_at: string | null
+          id: string
+          image_url: string
+          position: number
+        }
+        Insert: {
+          content_platform_id: string
+          created_at?: string | null
+          id?: string
+          image_url: string
+          position?: number
+        }
+        Update: {
+          content_platform_id?: string
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slide_images_content_platform_id_fkey"
+            columns: ["content_platform_id"]
+            isOneToOne: false
+            referencedRelation: "content_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uploaded_images: {
+        Row: {
+          content_platform_id: string
+          id: string
+          image_url: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          content_platform_id: string
+          id?: string
+          image_url: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          content_platform_id?: string
+          id?: string
+          image_url?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploaded_images_content_platform_id_fkey"
+            columns: ["content_platform_id"]
+            isOneToOne: false
+            referencedRelation: "content_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -104,7 +203,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      content_status:
+        | "pending"
+        | "generated"
+        | "edited"
+        | "scheduled"
+        | "published"
+      platform_type: "instagram" | "linkedin" | "twitter" | "wordpress"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -219,6 +324,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      content_status: [
+        "pending",
+        "generated",
+        "edited",
+        "scheduled",
+        "published",
+      ],
+      platform_type: ["instagram", "linkedin", "twitter", "wordpress"],
+    },
   },
 } as const
