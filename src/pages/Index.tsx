@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X, Calendar } from 'lucide-react';
@@ -67,59 +68,7 @@ const Index = () => {
             variant: "destructive",
           });
         } else if (data) {
-          // Transform the data to match ContentCard expectations
-          const transformedEntries = data.map(entry => {
-            const platformContent: any = {};
-            const status: any = {};
-            const slideImages: string[] = [];
-
-            entry.platforms.forEach(platform => {
-              platformContent[platform.platform] = {
-                text: platform.text || '',
-                images: platform.images || [],
-                publishDate: platform.publish_date,
-                slidesURL: platform.slides_url,
-                ...(platform.platform === 'wordpress' && {
-                  title: entry.topic,
-                  description: entry.description,
-                  slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
-                })
-              };
-
-              // Convert new status to old status format for ContentCard
-              switch (platform.status) {
-                case 'published':
-                  status[platform.platform] = 'published';
-                  break;
-                case 'pending':
-                case 'generated':
-                case 'edited':
-                case 'scheduled':
-                default:
-                  status[platform.platform] = 'pending';
-                  break;
-              }
-
-              // Collect slide images from any platform
-              if (platform.slideImages && platform.slideImages.length > 0) {
-                slideImages.push(...platform.slideImages);
-              }
-            });
-
-            return {
-              id: entry.id,
-              topic: entry.topic,
-              description: entry.description,
-              type: entry.type,
-              createdDate: new Date(entry.created_at).toLocaleDateString(),
-              status,
-              platformContent,
-              slideImages: slideImages.length > 0 ? slideImages : undefined,
-              publishedLinks: entry.published_links || {}
-            };
-          });
-
-          setEntries(transformedEntries);
+          setEntries(data);
         }
         setLoading(false);
       }
@@ -158,57 +107,7 @@ const Index = () => {
       // Reload entries to show the new content
       const { data: updatedEntries } = await contentService.getUserContentEntries();
       if (updatedEntries) {
-        // Transform the data again
-        const transformedEntries = updatedEntries.map(entry => {
-          const platformContent: any = {};
-          const status: any = {};
-          const slideImages: string[] = [];
-
-          entry.platforms.forEach(platform => {
-            platformContent[platform.platform] = {
-              text: platform.text || '',
-              images: platform.images || [],
-              publishDate: platform.publish_date,
-              slidesURL: platform.slides_url,
-              ...(platform.platform === 'wordpress' && {
-                title: entry.topic,
-                description: entry.description,
-                slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
-              })
-            };
-
-            switch (platform.status) {
-              case 'published':
-                status[platform.platform] = 'published';
-                break;
-              case 'pending':
-              case 'generated':
-              case 'edited':
-              case 'scheduled':
-              default:
-                status[platform.platform] = 'pending';
-                break;
-            }
-
-            if (platform.slideImages && platform.slideImages.length > 0) {
-              slideImages.push(...platform.slideImages);
-            }
-          });
-
-          return {
-            id: entry.id,
-            topic: entry.topic,
-            description: entry.description,
-            type: entry.type,
-            createdDate: new Date(entry.created_at).toLocaleDateString(),
-            status,
-            platformContent,
-            slideImages: slideImages.length > 0 ? slideImages : undefined,
-            publishedLinks: entry.published_links || {}
-          };
-        });
-
-        setEntries(transformedEntries);
+        setEntries(updatedEntries);
       }
       setShowForm(false);
       toast({
@@ -315,6 +214,58 @@ const Index = () => {
       });
     }
   };
+
+  // Transform entries for ContentCard compatibility
+  const transformedEntries = entries.map(entry => {
+    const platformContent: any = {};
+    const status: any = {};
+    const slideImages: string[] = [];
+
+    entry.platforms.forEach(platform => {
+      platformContent[platform.platform] = {
+        text: platform.text || '',
+        images: platform.images || [],
+        publishDate: platform.publish_date,
+        slidesURL: platform.slides_url,
+        ...(platform.platform === 'wordpress' && {
+          title: entry.topic,
+          description: entry.description,
+          slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
+        })
+      };
+
+      // Convert new status to old status format for ContentCard
+      switch (platform.status) {
+        case 'published':
+          status[platform.platform] = 'published';
+          break;
+        case 'pending':
+        case 'generated':
+        case 'edited':
+        case 'scheduled':
+        default:
+          status[platform.platform] = 'pending';
+          break;
+      }
+
+      // Collect slide images from any platform
+      if (platform.slideImages && platform.slideImages.length > 0) {
+        slideImages.push(...platform.slideImages);
+      }
+    });
+
+    return {
+      id: entry.id,
+      topic: entry.topic,
+      description: entry.description,
+      type: entry.type,
+      createdDate: new Date(entry.created_at).toLocaleDateString(),
+      status,
+      platformContent,
+      slideImages: slideImages.length > 0 ? slideImages : undefined,
+      publishedLinks: entry.published_links || {}
+    };
+  });
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -424,14 +375,13 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Mobile Menu */}
         {showMobileMenu && (
           <div className="fixed inset-0 z-[100] md:hidden">
-            {/* Dark overlay behind the menu */}
             <div 
               className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
               onClick={() => setShowMobileMenu(false)} 
             />
-            {/* Menu panel with solid white background */}
             <div className="fixed right-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl border-l border-gray-200">
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900">Menú</h2>
@@ -528,12 +478,12 @@ const Index = () => {
           </div>
         ) : activeTab === 'calendar' ? (
           <div className="space-y-6 sm:space-y-8">
-            <CalendarView entries={entries} />
+            <CalendarView entries={transformedEntries} />
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
             <div>
-              <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
+              <StatsOverview entries={transformedEntries} selectedPlatforms={selectedPlatforms} />
             </div>
 
             <div>
@@ -545,7 +495,7 @@ const Index = () => {
                 
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
-                    {entries.length} entradas
+                    {transformedEntries.length} entradas
                   </Badge>
                 </div>
               </div>
@@ -555,7 +505,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : entries.length === 0 ? (
+              ) : transformedEntries.length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -576,7 +526,7 @@ const Index = () => {
                 </Card>
               ) : (
                 <div className="space-y-6">
-                  {entries.map((entry) => (
+                  {transformedEntries.map((entry) => (
                     <ContentCard
                       key={entry.id}
                       entry={entry}
