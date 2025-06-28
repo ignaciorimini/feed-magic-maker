@@ -83,7 +83,7 @@ const PlatformPreview = ({
     return text.substring(0, maxLength) + '...';
   };
 
-  // Convert new status to old status for components that still use the old system
+  // Convert new status to old status for WordPressPreview
   const convertToOldStatus = (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published'): 'pending' | 'published' | 'error' => {
     switch (newStatus) {
       case 'published':
@@ -92,29 +92,16 @@ const PlatformPreview = ({
       case 'generated':
       case 'edited':
       case 'scheduled':
-        return 'pending';
       default:
         return 'pending';
     }
   };
 
-  // Convert old status to new status for components that use the new system
-  const convertToNewStatus = (oldStatus: 'pending' | 'published' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
-    switch (oldStatus) {
-      case 'published':
-        return 'published';
-      case 'pending':
-      case 'error':
-        return 'pending';
-      default:
-        return 'pending';
-    }
-  };
-
-  // Handler for status changes from components using old status system
-  const handleOldStatusChange = (oldStatus: 'pending' | 'published' | 'error') => {
-    const newStatus = convertToNewStatus(oldStatus);
+  // Handle status changes from WordPressPreview (old status) to parent (new status)
+  const handleWordPressStatusChange = (oldStatus: 'pending' | 'published' | 'error') => {
     if (onStatusChange) {
+      const newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' = 
+        oldStatus === 'published' ? 'published' : 'pending';
       onStatusChange(newStatus);
     }
   };
@@ -273,7 +260,7 @@ const PlatformPreview = ({
         onUpdateContent={onUpdateContent}
         platformId={platformId || ''}
         publishedLink={publishedLink}
-        onStatusChange={handleOldStatusChange}
+        onStatusChange={handleWordPressStatusChange}
         onLinkUpdate={onLinkUpdate}
       />
     );
@@ -301,7 +288,7 @@ const PlatformPreview = ({
             canGenerateImage={canGenerateImage}
             isDownloading={isDownloading}
             isGeneratingImage={isGeneratingImage}
-            status={status}
+            status={convertToOldStatus(status)}
             publishedLink={publishedLink}
             onEdit={() => setShowEditModal(true)}
             onDownloadSlides={handleDownloadSlides}
