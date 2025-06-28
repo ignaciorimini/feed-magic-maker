@@ -94,7 +94,8 @@ const Index = () => {
       topic: entryData.topic,
       description: entryData.description,
       type: entryData.type,
-      selectedPlatforms: entryData.selectedPlatforms
+      selectedPlatforms: entryData.selectedPlatforms,
+      generatedContent: entryData.generatedContent // Add this line to pass webhook content
     });
 
     if (error) {
