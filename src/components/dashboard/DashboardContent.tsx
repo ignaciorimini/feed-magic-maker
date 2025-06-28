@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import StatsOverview from '@/components/StatsOverview';
-import ContentCard from '@/components/ContentCard';
+import PlatformCard from '@/components/PlatformCard';
 
 interface DashboardContentProps {
   entries: any[];
@@ -25,6 +25,56 @@ const DashboardContent = ({
   onDeleteEntry,
   onDownloadSlides
 }: DashboardContentProps) => {
+  // Transform entries to create individual platform cards
+  const platformCards = entries.flatMap(entry => {
+    const cards = [];
+    
+    // Create a card for each selected platform that has content
+    selectedPlatforms.forEach(platform => {
+      const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+      const hasContent = entry.platformContent && entry.platformContent[platformKey];
+      const hasStatus = entry.status && entry.status[platformKey] !== null;
+      
+      if (hasContent || hasStatus) {
+        cards.push({
+          ...entry,
+          platform: platformKey,
+          id: `${entry.id}-${platform}` // Unique ID for each platform card
+        });
+      }
+    });
+    
+    return cards;
+  });
+
+  const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
+    // Extract the original entry ID (remove platform suffix)
+    const originalEntryId = entryId.split('-')[0];
+    console.log('Updating status for entry:', originalEntryId, 'platform:', platform, 'status:', newStatus);
+    // Status updates would need to be handled by the parent component
+  };
+
+  const handleUpdateLink = async (entryId: string, platform: string, link: string) => {
+    // Extract the original entry ID (remove platform suffix)
+    const originalEntryId = entryId.split('-')[0];
+    console.log('Updating link for entry:', originalEntryId, 'platform:', platform, 'link:', link);
+    // Link updates would need to be handled by the parent component
+  };
+
+  const handleDeleteEntry = (entryId: string, platform: string) => {
+    // Extract the original entry ID (remove platform suffix)
+    const originalEntryId = entryId.split('-')[0];
+    onDeleteEntry(originalEntryId);
+  };
+
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+    // Extract the original entry ID (remove platform suffix)
+    const originalEntryId = entryId.split('-')[0];
+    console.log('Updating image for entry:', originalEntryId, 'imageUrl:', imageUrl);
+    // Image updates would need to be handled by the parent component
+    return Promise.resolve();
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
@@ -40,7 +90,7 @@ const DashboardContent = ({
           
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs sm:text-sm">
-              {entries.length} entradas
+              {platformCards.length} tarjetas
             </Badge>
           </div>
         </div>
@@ -50,7 +100,7 @@ const DashboardContent = ({
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
             <p className="text-gray-600">Cargando contenido...</p>
           </div>
-        ) : entries.length === 0 ? (
+        ) : platformCards.length === 0 ? (
           <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
             <CardContent className="pt-6">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -70,16 +120,18 @@ const DashboardContent = ({
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {entries.map((entry) => (
-              <ContentCard
-                key={entry.id}
-                entry={entry}
-                selectedPlatforms={selectedPlatforms}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {platformCards.map((platformEntry) => (
+              <PlatformCard
+                key={platformEntry.id}
+                entry={platformEntry}
+                platform={platformEntry.platform}
                 onUpdateContent={onUpdateContent}
-                onUpdatePublishSettings={() => {}}
-                onDeleteEntry={onDeleteEntry}
+                onDeleteEntry={handleDeleteEntry}
                 onDownloadSlides={onDownloadSlides}
+                onUpdateStatus={handleUpdateStatus}
+                onUpdateLink={handleUpdateLink}
+                onUpdateImage={handleUpdateImage}
               />
             ))}
           </div>
