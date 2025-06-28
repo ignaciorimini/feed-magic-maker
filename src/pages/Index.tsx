@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X, Calendar } from 'lucide-react';
@@ -8,9 +9,9 @@ import ContentForm from '@/components/ContentForm';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
 import CalendarView from '@/components/CalendarView';
-import PlatformPreview from '@/components/PlatformPreview';
+import ContentCard from '@/components/ContentCard';
 import { useAuth } from '@/hooks/useAuth';
-import { contentService, ContentEntry, ContentPlatform } from '@/services/contentService';
+import { contentService, ContentEntry } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
 
@@ -22,7 +23,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress']);
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -116,7 +117,65 @@ const Index = () => {
     }
   };
 
-  const handleDownloadSlides = async (platformId: string, slidesURL: string, contentName: string) => {
+  const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
+    // Find the platform ID for this entry and platform
+    const entry = entries.find(e => e.id === entryId);
+    const platformData = entry?.platforms.find(p => p.platform === platform);
+    
+    if (!platformData) {
+      toast({
+        title: "Error",
+        description: "No se pudo encontrar la plataforma.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await contentService.updatePlatformContent(platformData.id, content);
+    
+    if (error) {
+      toast({
+        title: "Error al actualizar contenido",
+        description: "No se pudo actualizar el contenido.",
+        variant: "destructive",
+      });
+    } else {
+      // Reload entries to show updated content
+      const { data: updatedEntries } = await contentService.getUserContentEntries();
+      if (updatedEntries) {
+        setEntries(updatedEntries);
+      }
+      toast({
+        title: "Contenido actualizado",
+        description: "Los cambios se han guardado correctamente.",
+      });
+    }
+  };
+
+  const handleUpdatePublishSettings = async (entryId: string, settings: any) => {
+    // Implementation for updating publish settings
+    console.log('Update publish settings:', entryId, settings);
+  };
+
+  const handleDeleteEntry = async (entryId: string) => {
+    const { error } = await contentService.deleteContentEntry(entryId);
+    
+    if (error) {
+      toast({
+        title: "Error al eliminar contenido",
+        description: "No se pudo eliminar el contenido.",
+        variant: "destructive",
+      });
+    } else {
+      setEntries(prev => prev.filter(entry => entry.id !== entryId));
+      toast({
+        title: "Contenido eliminado",
+        description: "El contenido ha sido eliminado exitosamente.",
+      });
+    }
+  };
+
+  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
     if (!slidesURL) {
       toast({
         title: "Error",
@@ -126,8 +185,18 @@ const Index = () => {
       return;
     }
 
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) {
+      toast({
+        title: "Error",
+        description: "No se encontró el contenido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, contentName);
+      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, entry.topic);
       
       if (error) throw error;
 
@@ -137,7 +206,11 @@ const Index = () => {
       }
 
       if (slideImages.length > 0) {
-        await contentService.saveSlideImages(platformId, slideImages);
+        // Update all platforms for this entry with slide images
+        const updatePromises = entry.platforms.map(platform => 
+          contentService.saveSlideImages(platform.id, slideImages)
+        );
+        await Promise.all(updatePromises);
         
         // Reload entries to show updated slides
         const { data: updatedEntries } = await contentService.getUserContentEntries();
@@ -166,57 +239,44 @@ const Index = () => {
     }
   };
 
-  const handleUpdateContent = async (platformId: string, content: any): Promise<void> => {
-    const { error } = await contentService.updatePlatformContent(platformId, content);
-    
-    if (error) {
-      toast({
-        title: "Error al actualizar contenido",
-        description: "No se pudo actualizar el contenido.",
-        variant: "destructive",
-      });
-    } else {
-      // Reload entries to show updated content
-      const { data: updatedEntries } = await contentService.getUserContentEntries();
-      if (updatedEntries) {
-        setEntries(updatedEntries);
-      }
-      toast({
-        title: "Contenido actualizado",
-        description: "Los cambios se han guardado correctamente.",
-      });
-    }
-  };
-
-  const handleUpdateStatus = async (platformId: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
-    await contentService.updatePlatformStatus(platformId, newStatus);
-    
-    // Update local state
-    setEntries(prev => prev.map(entry => ({
-      ...entry,
-      platforms: entry.platforms.map(platform => 
-        platform.id === platformId ? { ...platform, status: newStatus } : platform
-      )
-    })));
-  };
-
-  const handleDeleteEntry = async (entryId: string) => {
-    const { error } = await contentService.deleteContentEntry(entryId);
-    
-    if (error) {
-      toast({
-        title: "Error al eliminar contenido",
-        description: "No se pudo eliminar el contenido.",
-        variant: "destructive",
-      });
-    } else {
-      setEntries(prev => prev.filter(entry => entry.id !== entryId));
-      toast({
-        title: "Contenido eliminado",
-        description: "El contenido ha sido eliminado exitosamente.",
-      });
-    }
-  };
+  // Transform entries to the format expected by ContentCard
+  const transformedEntries = entries.map(entry => ({
+    id: entry.id,
+    topic: entry.topic,
+    description: entry.description || '',
+    type: entry.type,
+    createdDate: new Date(entry.created_date).toLocaleDateString(),
+    status: {
+      instagram: entry.platforms.find(p => p.platform === 'instagram')?.status === 'published' ? 'published' as const : 'pending' as const,
+      linkedin: entry.platforms.find(p => p.platform === 'linkedin')?.status === 'published' ? 'published' as const : 'pending' as const,
+      wordpress: entry.platforms.find(p => p.platform === 'wordpress')?.status === 'published' ? 'published' as const : 'pending' as const,
+    },
+    platformContent: {
+      instagram: {
+        text: entry.platforms.find(p => p.platform === 'instagram')?.text || '',
+        images: entry.platforms.find(p => p.platform === 'instagram')?.images || [],
+        publishDate: entry.platforms.find(p => p.platform === 'instagram')?.publish_date,
+        slidesURL: entry.platforms.find(p => p.platform === 'instagram')?.slides_url,
+      },
+      linkedin: {
+        text: entry.platforms.find(p => p.platform === 'linkedin')?.text || '',
+        images: entry.platforms.find(p => p.platform === 'linkedin')?.images || [],
+        publishDate: entry.platforms.find(p => p.platform === 'linkedin')?.publish_date,
+        slidesURL: entry.platforms.find(p => p.platform === 'linkedin')?.slides_url,
+      },
+      wordpress: {
+        text: entry.platforms.find(p => p.platform === 'wordpress')?.text || '',
+        images: entry.platforms.find(p => p.platform === 'wordpress')?.images || [],
+        publishDate: entry.platforms.find(p => p.platform === 'wordpress')?.publish_date,
+        title: entry.topic,
+        description: entry.description || '',
+        slug: entry.topic.toLowerCase().replace(/\s+/g, '-'),
+        slidesURL: entry.platforms.find(p => p.platform === 'wordpress')?.slides_url,
+      },
+    },
+    slideImages: entry.slideImages || [],
+    publishedLinks: entry.published_links || {},
+  }));
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -241,20 +301,6 @@ const Index = () => {
       />
     );
   }
-
-  // Flatten all platforms from all entries for display - filter out twitter for now
-  const allPlatforms = entries.flatMap(entry => 
-    entry.platforms
-      .filter(platform => platform.platform !== 'twitter') // Filter out twitter temporarily
-      .map(platform => ({
-        ...platform,
-        entryTopic: entry.topic,
-        entryDescription: entry.description,
-        entryType: entry.type,
-        entryImageUrl: entry.imageUrl,
-        entryId: entry.id
-      }))
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -456,12 +502,12 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Contenido Creado</h2>
-                  <p className="text-sm sm:text-base text-gray-600">Gestiona tu contenido por red social</p>
+                  <p className="text-sm sm:text-base text-gray-600">Gestiona tu contenido por entrada</p>
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
-                    {allPlatforms.length} plataformas
+                    {transformedEntries.length} entradas
                   </Badge>
                 </div>
               </div>
@@ -471,7 +517,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : allPlatforms.length === 0 ? (
+              ) : transformedEntries.length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -491,34 +537,16 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {allPlatforms.map((platform) => (
-                    <PlatformPreview
-                      key={platform.id}
-                      platform={platform.platform as 'instagram' | 'linkedin' | 'wordpress'}
-                      content={{
-                        text: platform.text || '',
-                        images: platform.slideImages || platform.images || [],
-                        publishDate: platform.publish_date,
-                        ...(platform.platform === 'wordpress' && {
-                          title: platform.entryTopic,
-                          description: platform.entryDescription
-                        })
-                      }}
-                      status={platform.status}
-                      contentType={platform.entryType}
-                      onUpdateContent={(content) => handleUpdateContent(platform.id, content)}
-                      entryId={platform.entryId}
-                      platformId={platform.id}
-                      publishedLink={null} // Will be populated from published_links
-                      onStatusChange={(newStatus) => handleUpdateStatus(platform.id, newStatus)}
-                      onLinkUpdate={() => {}} // Handle link updates
-                      onDeleteEntry={() => handleDeleteEntry(platform.entryId)}
-                      onDownloadSlides={platform.slides_url ? 
-                        () => handleDownloadSlides(platform.id, platform.slides_url!, platform.entryTopic) : 
-                        undefined
-                      }
-                      onUpdateImage={() => {}} // Handle image updates
+                <div className="space-y-6">
+                  {transformedEntries.map((entry) => (
+                    <ContentCard
+                      key={entry.id}
+                      entry={entry}
+                      selectedPlatforms={selectedPlatforms}
+                      onUpdateContent={handleUpdateContent}
+                      onUpdatePublishSettings={handleUpdatePublishSettings}
+                      onDeleteEntry={handleDeleteEntry}
+                      onDownloadSlides={handleDownloadSlides}
                     />
                   ))}
                 </div>
