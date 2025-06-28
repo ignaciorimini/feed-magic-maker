@@ -16,12 +16,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
-          platform_content: Json | null
           published_links: Json | null
-          status_instagram: string | null
-          status_linkedin: string | null
-          status_twitter: string | null
-          status_wordpress: string | null
           topic: string
           type: string
           updated_at: string
@@ -33,12 +28,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
-          platform_content?: Json | null
           published_links?: Json | null
-          status_instagram?: string | null
-          status_linkedin?: string | null
-          status_twitter?: string | null
-          status_wordpress?: string | null
           topic: string
           type: string
           updated_at?: string
@@ -50,12 +40,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
-          platform_content?: Json | null
           published_links?: Json | null
-          status_instagram?: string | null
-          status_linkedin?: string | null
-          status_twitter?: string | null
-          status_wordpress?: string | null
           topic?: string
           type?: string
           updated_at?: string

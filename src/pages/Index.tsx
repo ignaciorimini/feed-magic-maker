@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, User, BarChart3, LogOut, Loader2, Settings, Menu, X, Calendar } from 'lucide-react';
@@ -6,73 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ContentForm from '@/components/ContentForm';
-import PlatformCard from '@/components/PlatformCard';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
 import CalendarView from '@/components/CalendarView';
 import { useAuth } from '@/hooks/useAuth';
-import { contentService, ContentEntry } from '@/services/contentService';
+import { contentService, ContentEntry, ContentPlatform } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
-
-// Helper function to safely parse publishedLinks from database Json type
-const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; } => {
-  if (!publishedLinks || typeof publishedLinks !== 'object') {
-    return {};
-  }
-  
-  // If it's already the right type, return it
-  if (typeof publishedLinks === 'object' && !Array.isArray(publishedLinks)) {
-    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; };
-  }
-  
-  return {};
-};
-
-// Helper function to safely parse slideImages from platform_content
-const parseSlideImages = (platformContent: any): string[] => {
-  if (!platformContent || typeof platformContent !== 'object') {
-    return [];
-  }
-  
-  if (platformContent.slideImages && Array.isArray(platformContent.slideImages)) {
-    return platformContent.slideImages;
-  }
-  
-  return [];
-};
-
-// FIXED: Helper function to determine platform from status fields instead of content
-const determinePlatformFromStatus = (entry: any): 'instagram' | 'linkedin' | 'wordpress' | 'twitter' => {
-  // Check which platform has a non-null status (meaning it was selected for this entry)
-  const platforms: ('instagram' | 'linkedin' | 'wordpress' | 'twitter')[] = ['instagram', 'linkedin', 'wordpress', 'twitter'];
-  
-  for (const platform of platforms) {
-    const statusField = `status_${platform}`;
-    if ((entry as any)[statusField] !== null) {
-      return platform;
-    }
-  }
-
-  return 'instagram'; // Final fallback
-};
-
-// Extended ContentEntry interface to include targetPlatform
-interface ExtendedContentEntry extends ContentEntry {
-  targetPlatform?: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-  status: {
-    instagram: 'published' | 'pending' | 'error' | null;
-    linkedin: 'published' | 'pending' | 'error' | null;
-    wordpress: 'published' | 'pending' | 'error' | null;
-    twitter: 'published' | 'pending' | 'error' | null;
-  };
-}
+import PlatformPreview from '@/components/platform-preview';
 
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
-  const [entries, setEntries] = useState<ExtendedContentEntry[]>([]);
+  const [entries, setEntries] = useState<ContentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -87,7 +33,7 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Check if user needs profile setup and load selected platforms
+  // Check profile setup and load platforms
   useEffect(() => {
     const checkProfile = async () => {
       if (user) {
@@ -96,25 +42,17 @@ const Index = () => {
         if (needsSetup) {
           setShowProfileSetup(true);
         } else {
-          // Load user profile to get selected platforms
           const { data: profile } = await profileService.getUserProfile(user.id);
-          if (profile && profile.selected_platforms) {
-            // Ensure the selected_platforms is an array of strings
-            if (Array.isArray(profile.selected_platforms)) {
-              const validPlatforms = profile.selected_platforms.filter(
-                (platform): platform is string => typeof platform === 'string'
-              );
-              setSelectedPlatforms(validPlatforms);
-            }
+          if (profile?.selected_platforms && Array.isArray(profile.selected_platforms)) {
+            setSelectedPlatforms(profile.selected_platforms.filter((p): p is string => typeof p === 'string'));
           }
         }
       }
     };
-
     checkProfile();
   }, [user]);
 
-  // Load user's content entries
+  // Load content entries
   useEffect(() => {
     const loadEntries = async () => {
       if (user && !needsProfileSetup) {
@@ -129,155 +67,13 @@ const Index = () => {
             variant: "destructive",
           });
         } else if (data) {
-          // Transform the data to match the expected format
-          const transformedEntries: ExtendedContentEntry[] = data.map(entry => {
-            // FIXED: Properly determine target platform from status fields
-            const targetPlatform = determinePlatformFromStatus(entry);
-            
-            return {
-              id: entry.id,
-              topic: entry.topic,
-              description: entry.description || '',
-              type: entry.type,
-              createdDate: entry.created_date,
-              status: {
-                instagram: ((entry as any).status_instagram as 'published' | 'pending' | 'error') || null,
-                linkedin: ((entry as any).status_linkedin as 'published' | 'pending' | 'error') || null,
-                wordpress: ((entry as any).status_wordpress as 'published' | 'pending' | 'error') || null,
-                twitter: ((entry as any).status_twitter as 'published' | 'pending' | 'error') || null
-              },
-              platformContent: (entry as any).platform_content || {},
-              publishedLinks: parsePublishedLinks(entry.published_links),
-              slideImages: parseSlideImages((entry as any).platform_content),
-              imageUrl: entry.image_url, // NEW: Add image_url from database
-              targetPlatform: targetPlatform
-            };
-          });
-          setEntries(transformedEntries);
+          setEntries(data);
         }
         setLoading(false);
       }
     };
-
     loadEntries();
   }, [user, needsProfileSetup]);
-
-  // Nueva función para manejar descarga de slides
-  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
-    console.log('Downloading slides for entry:', entryId, 'URL:', slidesURL);
-    
-    if (!slidesURL) {
-      toast({
-        title: "Error",
-        description: "No hay URL de slides disponible para descargar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Find the entry to get its topic/name
-    const entry = entries.find(e => e.id === entryId);
-    if (!entry) {
-      toast({
-        title: "Error",
-        description: "No se pudo encontrar el contenido.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Usar la función que llama al webhook del usuario con action, slidesURL y contentName
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, entry.topic);
-      
-      if (error) {
-        throw error;
-      }
-
-      console.log('Download response received:', data);
-
-      // FIXED: Extraer slideImages correctamente del formato [{ slideImages: [...] }]
-      let slideImages: string[] = [];
-      
-      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
-        slideImages = data[0].slideImages;
-        console.log('Extracted slideImages:', slideImages.length, 'slides');
-      }
-
-      if (slideImages.length > 0) {
-        console.log('Saving', slideImages.length, 'slide images to database...');
-        
-        // Guardar las slide images en la base de datos
-        const { error: saveError } = await contentService.saveSlideImages(entryId, slideImages);
-        
-        if (saveError) {
-          console.error('Error saving slide images:', saveError);
-          toast({
-            title: "Error al guardar slides",
-            description: "Las slides se descargaron pero no se pudieron guardar.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        console.log('Slide images saved successfully, updating local state...');
-
-        // FIXED: Actualizar el estado local correctamente para que se reflejen en la UI
-        setEntries(prev => prev.map(currentEntry => {
-          if (currentEntry.id === entryId) {
-            const updatedPlatformContent = { ...currentEntry.platformContent };
-            
-            // Actualizar la imagen de Instagram y LinkedIn con la primera slide
-            const firstSlideImage = slideImages[0];
-            
-            if (updatedPlatformContent.instagram) {
-              updatedPlatformContent.instagram = {
-                ...updatedPlatformContent.instagram,
-                images: [firstSlideImage]
-              };
-            }
-            
-            if (updatedPlatformContent.linkedin) {
-              updatedPlatformContent.linkedin = {
-                ...updatedPlatformContent.linkedin,
-                images: [firstSlideImage]
-              };
-            }
-
-            // FIXED: Asegurar que slideImages se actualice en el entry
-            return {
-              ...currentEntry,
-              slideImages: slideImages, // Esto es crucial para que se vean en la UI
-              platformContent: updatedPlatformContent
-            };
-          }
-          return currentEntry;
-        }));
-
-        toast({
-          title: "¡Slides descargadas exitosamente!",
-          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
-        });
-        
-        // Trigger a page refresh to show the updated slides everywhere
-        window.location.reload();
-      } else {
-        console.log('No slideImages found in response');
-        toast({
-          title: "Error en la descarga",
-          description: "No se encontraron imágenes de slides en la respuesta del webhook.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error al descargar slides:', error);
-      toast({
-        title: "Error al descargar slides",
-        description: "Hubo un problema al conectar con tu webhook para descargar las slides.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -289,206 +85,89 @@ const Index = () => {
   const handleProfileSetupComplete = () => {
     setShowProfileSetup(false);
     setNeedsProfileSetup(false);
-    // Reload entries after profile setup
     window.location.reload();
   };
 
-  // FIXED: Función para manejar nueva entrada sin sufijos de plataforma
   const handleNewEntry = async (entryData: any) => {
-    console.log("Datos recibidos para nueva entrada:", entryData);
-    
-    let contentType: string;
-    if (entryData.type === 'simple') {
-      contentType = 'Simple Post';
-    } else if (entryData.type === 'slide') {
-      contentType = 'Slide Post';
-    } else {
-      contentType = entryData.type || 'Simple Post';
-    }
-    
-    console.log('Content type mapped to:', contentType);
-    
-    // Para cada plataforma seleccionada, crear una entrada separada
-    const newEntries: ExtendedContentEntry[] = [];
-    
-    for (const platform of entryData.selectedPlatforms) {
-      // Process content generated from webhook
-      let platformContent = {
-        instagram: {
-          text: "Generando contenido automáticamente para Instagram...",
-          images: [], // Sin imagen inicial
-          publishDate: "",
-          slidesURL: ""
-        },
-        linkedin: {
-          text: "Generando contenido automáticamente para LinkedIn...",
-          images: [], // Sin imagen inicial
-          publishDate: "",
-          slidesURL: ""
-        },
-        wordpress: {
-          text: "Generando contenido automáticamente para WordPress...",
-          images: [], // Sin imagen inicial
-          publishDate: "",
-          title: "",
-          description: "",
-          slug: "",
-          slidesURL: ""
-        },
-        twitter: {
-          text: "Generando contenido automáticamente para Twitter...",
-          images: [], // Sin imagen inicial
-          publishDate: "",
-          threadPosts: []
-        }
-      };
+    const { data, error } = await contentService.generateContent(
+      entryData.topic,
+      entryData.description,
+      entryData.type,
+      entryData.selectedPlatforms
+    );
 
-      // If there's generated content from webhook, use it
-      if (entryData.generatedContent) {
-        const generated = entryData.generatedContent;
-        console.log('Generated content from webhook:', generated);
-        
-        const slidesURL = generated.slidesURL || "";
-        
-        // Log para debug
-        console.log('Slides URL from webhook:', slidesURL);
-        
-        platformContent = {
-          instagram: {
-            text: generated.instagramContent || platformContent.instagram.text,
-            images: [], // No initial image in platform_content
-            publishDate: "",
-            slidesURL: slidesURL
-          },
-          linkedin: {
-            text: generated.linkedinContent || platformContent.linkedin.text,
-            images: [], // No initial image in platform_content
-            publishDate: "",
-            slidesURL: slidesURL
-          },
-          wordpress: {
-            text: generated.wordpressContent || platformContent.wordpress.text,
-            images: [], // No initial image in platform_content
-            publishDate: "",
-            title: generated.wordpressTitle || "",
-            description: generated.wordpressDescription || "",
-            slug: generated.wordpressSlug || "",
-            slidesURL: slidesURL
-          },
-          twitter: {
-            text: generated.twitterContent || platformContent.twitter.text,
-            images: [], // No initial image in platform_content
-            publishDate: "",
-            threadPosts: generated.twitterThreadPosts || []
-          }
-        };
-
-        console.log('Final platform content:', platformContent);
-      }
-
-      // FIXED: Guardar solo el título sin sufijo de plataforma y pasar selectedPlatforms
-      const { data, error } = await contentService.createContentEntry({
-        topic: entryData.topic, // Sin sufijo de plataforma
-        description: entryData.description,
-        type: contentType,
-        platform_content: platformContent,
-        selectedPlatforms: [platform] // Pasar la plataforma actual
-      });
-
-      if (error) {
-        console.error('Error creating entry for', platform, ':', error);
-        toast({
-          title: "Error al crear contenido",
-          description: `No se pudo guardar el contenido para ${platform}. Inténtalo nuevamente.`,
-          variant: "destructive",
-        });
-      } else if (data) {
-        const newEntry: ExtendedContentEntry = {
-          id: data.id,
-          topic: data.topic,
-          description: data.description || '',
-          type: data.type,
-          createdDate: data.created_date,
-          status: {
-            instagram: ((data as any).status_instagram as 'published' | 'pending' | 'error') || null,
-            linkedin: ((data as any).status_linkedin as 'published' | 'pending' | 'error') || null,
-            wordpress: ((data as any).status_wordpress as 'published' | 'pending' | 'error') || null,
-            twitter: ((data as any).status_twitter as 'published' | 'pending' | 'error') || null
-          },
-          platformContent: (data as any).platform_content,
-          publishedLinks: parsePublishedLinks(data.published_links),
-          slideImages: parseSlideImages((data as any).platform_content),
-          imageUrl: data.image_url, // NEW: Add image_url from database
-          targetPlatform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter' // Agregar la plataforma objetivo
-        };
-
-        newEntries.push(newEntry);
-      }
-    }
-
-    // Add all new entries to state
-    if (newEntries.length > 0) {
-      setEntries([...newEntries, ...entries]);
-      setShowForm(false);
-    }
-  };
-
-  const handleUpdateStatus = (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
-    setEntries(prev => prev.map(entry => {
-      if (entry.id === entryId) {
-        return {
-          ...entry,
-          status: {
-            ...entry.status,
-            [platform]: newStatus
-          }
-        };
-      }
-      return entry;
-    }));
-  };
-
-  const handleUpdateLink = (entryId: string, platform: string, link: string) => {
-    setEntries(prev => prev.map(entry => {
-      if (entry.id === entryId) {
-        return {
-          ...entry,
-          publishedLinks: {
-            ...entry.publishedLinks,
-            [platform]: link
-          }
-        };
-      }
-      return entry;
-    }));
-  };
-
-  // NEW: Function to handle image updates
-  const handleUpdateImage = async (entryId: string, imageUrl: string | null): Promise<void> => {
-    const { error } = await contentService.updateImageUrl(entryId, imageUrl);
-    
     if (error) {
       toast({
-        title: "Error al actualizar imagen",
-        description: "No se pudo actualizar la imagen.",
+        title: "Error al crear contenido",
+        description: "No se pudo crear el contenido. Inténtalo nuevamente.",
         variant: "destructive",
       });
-    } else {
-      setEntries(prev => prev.map(entry => {
-        if (entry.id === entryId) {
-          return { ...entry, imageUrl: imageUrl };
-        }
-        return entry;
-      }));
+    } else if (data) {
+      // Reload entries to show the new content
+      const { data: updatedEntries } = await contentService.getUserContentEntries();
+      if (updatedEntries) {
+        setEntries(updatedEntries);
+      }
+      setShowForm(false);
       toast({
-        title: "Imagen actualizada",
-        description: "La imagen se ha actualizado correctamente.",
+        title: "Contenido creado exitosamente",
+        description: "Tu contenido ha sido generado para las plataformas seleccionadas.",
       });
     }
   };
 
-  const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
-    const { error } = await contentService.updatePlatformContent(entryId, platform, content);
+  const handleDownloadSlides = async (platformId: string, slidesURL: string, contentName: string) => {
+    if (!slidesURL) {
+      toast({
+        title: "Error",
+        description: "No hay URL de slides disponible para descargar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, contentName);
+      
+      if (error) throw error;
+
+      let slideImages: string[] = [];
+      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
+        slideImages = data[0].slideImages;
+      }
+
+      if (slideImages.length > 0) {
+        await contentService.saveSlideImages(platformId, slideImages);
+        
+        // Reload entries to show updated slides
+        const { data: updatedEntries } = await contentService.getUserContentEntries();
+        if (updatedEntries) {
+          setEntries(updatedEntries);
+        }
+
+        toast({
+          title: "¡Slides descargadas exitosamente!",
+          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
+        });
+      } else {
+        toast({
+          title: "Error en la descarga",
+          description: "No se encontraron imágenes de slides en la respuesta del webhook.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading slides:', error);
+      toast({
+        title: "Error al descargar slides",
+        description: "Hubo un problema al conectar con tu webhook para descargar las slides.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateContent = async (platformId: string, content: any): Promise<void> => {
+    const { error } = await contentService.updatePlatformContent(platformId, content);
     
     if (error) {
       toast({
@@ -497,63 +176,37 @@ const Index = () => {
         variant: "destructive",
       });
     } else {
-      setEntries(prev => prev.map(entry => {
-        if (entry.id === entryId) {
-          const updatedPlatformContent = {
-            ...entry.platformContent,
-            [platform]: content
-          };
-          
-          // If content being updated includes slide images, update the root slideImages property too
-          if (content.slideImages && Array.isArray(content.slideImages)) {
-            return { ...entry, platformContent: updatedPlatformContent, slideImages: content.slideImages };
-          }
-          
-          return { ...entry, platformContent: updatedPlatformContent };
-        }
-        return entry;
-      }));
+      // Reload entries to show updated content
+      const { data: updatedEntries } = await contentService.getUserContentEntries();
+      if (updatedEntries) {
+        setEntries(updatedEntries);
+      }
       toast({
         title: "Contenido actualizado",
         description: "Los cambios se han guardado correctamente.",
       });
     }
   };
-  
-  const handleUpdatePublishSettings = (entryId: string, settings: any) => {
-    setEntries(prev => prev.map(entry => {
-      if (entry.id === entryId) {
-        const updatedEntry = { ...entry };
-        Object.entries(settings.publishDates).forEach(([platform, date]) => {
-          if (date) {
-            updatedEntry.platformContent[platform as keyof typeof updatedEntry.platformContent].publishDate = date as string;
-          }
-        });
-        return updatedEntry;
-      }
-      return entry;
-    }));
+
+  const handleUpdateStatus = async (platformId: string, newStatus: 'published' | 'pending' | 'error') => {
+    await contentService.updatePlatformStatus(platformId, newStatus);
+    
+    // Update local state
+    setEntries(prev => prev.map(entry => ({
+      ...entry,
+      platforms: entry.platforms.map(platform => 
+        platform.id === platformId ? { ...platform, status: newStatus } : platform
+      )
+    })));
   };
 
-  const handleDeleteEntry = async (entryId: string, platform?: string) => {
-    console.log('Attempting to delete entry:', entryId, 'Platform:', platform);
-    
-    if (!entryId || entryId === 'undefined' || entryId === 'null') {
-      toast({
-        title: "Error al eliminar contenido",
-        description: "ID de entrada inválido.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleDeleteEntry = async (entryId: string) => {
     const { error } = await contentService.deleteContentEntry(entryId);
     
     if (error) {
-      console.error('Delete error:', error);
       toast({
         title: "Error al eliminar contenido",
-        description: error.message || "No se pudo eliminar el contenido.",
+        description: "No se pudo eliminar el contenido.",
         variant: "destructive",
       });
     } else {
@@ -564,16 +217,6 @@ const Index = () => {
       });
     }
   };
-
-  // Agrupar entries por tema/descripción para mostrar cards por plataforma
-  const groupedEntries = entries.reduce((acc, entry) => {
-    const baseKey = entry.description + '|' + entry.type;
-    if (!acc[baseKey]) {
-      acc[baseKey] = [];
-    }
-    acc[baseKey].push(entry);
-    return acc;
-  }, {} as Record<string, ExtendedContentEntry[]>);
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -587,12 +230,8 @@ const Index = () => {
     );
   }
 
-  // Don't render anything if not authenticated (redirect is happening)
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  // Show profile setup if needed
   if (showProfileSetup) {
     return (
       <ProfileSetup
@@ -603,13 +242,24 @@ const Index = () => {
     );
   }
 
+  // Flatten all platforms from all entries for display
+  const allPlatforms = entries.flatMap(entry => 
+    entry.platforms.map(platform => ({
+      ...platform,
+      entryTopic: entry.topic,
+      entryDescription: entry.description,
+      entryType: entry.type,
+      entryImageUrl: entry.imageUrl,
+      entryId: entry.id
+    }))
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* FIXED: Logo clickeable para navegar al dashboard */}
             <button 
               onClick={() => setActiveTab('dashboard')} 
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
@@ -796,12 +446,10 @@ const Index = () => {
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
-            {/* Stats Overview */}
             <div>
               <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
             </div>
 
-            {/* Content Grid */}
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <div>
@@ -811,7 +459,7 @@ const Index = () => {
                 
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
-                    {entries.length} tarjetas
+                    {allPlatforms.length} plataformas
                   </Badge>
                 </div>
               </div>
@@ -821,7 +469,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : entries.length === 0 ? (
+              ) : allPlatforms.length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -842,23 +490,35 @@ const Index = () => {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {entries.map((entry) => {
-                    const targetPlatform = entry.targetPlatform || 'instagram';
-
-                    return (
-                      <PlatformCard
-                        key={`${entry.id}-${targetPlatform}`}
-                        entry={entry}
-                        platform={targetPlatform}
-                        onUpdateContent={handleUpdateContent}
-                        onDeleteEntry={handleDeleteEntry}
-                        onDownloadSlides={handleDownloadSlides}
-                        onUpdateStatus={handleUpdateStatus}
-                        onUpdateLink={handleUpdateLink}
-                        onUpdateImage={handleUpdateImage}
-                      />
-                    );
-                  })}
+                  {allPlatforms.map((platform) => (
+                    <PlatformPreview
+                      key={platform.id}
+                      platform={platform.platform}
+                      content={{
+                        text: platform.text || '',
+                        images: platform.slideImages || platform.images || [],
+                        publishDate: platform.publish_date,
+                        ...(platform.platform === 'wordpress' && {
+                          title: platform.entryTopic,
+                          description: platform.entryDescription
+                        })
+                      }}
+                      status={platform.status}
+                      contentType={platform.entryType}
+                      onUpdateContent={(content) => handleUpdateContent(platform.id, content)}
+                      entryId={platform.entryId}
+                      platformId={platform.id}
+                      publishedLink={null} // Will be populated from published_links
+                      onStatusChange={(newStatus) => handleUpdateStatus(platform.id, newStatus)}
+                      onLinkUpdate={() => {}} // Handle link updates
+                      onDeleteEntry={() => handleDeleteEntry(platform.entryId)}
+                      onDownloadSlides={platform.slides_url ? 
+                        () => handleDownloadSlides(platform.id, platform.slides_url!, platform.entryTopic) : 
+                        undefined
+                      }
+                      onUpdateImage={() => {}} // Handle image updates
+                    />
+                  ))}
                 </div>
               )}
             </div>

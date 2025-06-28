@@ -14,12 +14,12 @@ interface TwitterPreviewProps {
     publishDate?: string;
     threadPosts?: string[];
   };
-  status: 'published' | 'pending' | 'error';
+  status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
   onUpdateContent: (content: any) => Promise<void>;
-  entryId?: string;
+  platformId: string;
   publishedLink?: string;
-  onStatusChange?: (newStatus: 'published' | 'pending' | 'error') => void;
+  onStatusChange?: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
   onLinkUpdate?: (link: string) => void;
 }
 
@@ -28,7 +28,7 @@ const TwitterPreview = ({
   status, 
   contentType, 
   onUpdateContent, 
-  entryId, 
+  platformId, 
   publishedLink,
   onStatusChange,
   onLinkUpdate 
@@ -149,18 +149,16 @@ const TwitterPreview = ({
           )}
 
           {/* Publish Button */}
-          {entryId && (
-            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-              <PublishButton
-                entryId={entryId}
-                platform="twitter"
-                currentStatus={status}
-                contentType={contentType}
-                onStatusChange={onStatusChange || (() => {})}
-                onLinkUpdate={onLinkUpdate}
-              />
-            </div>
-          )}
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+            <PublishButton
+              platformId={platformId}
+              platform="twitter"
+              currentStatus={status}
+              contentType={contentType}
+              onStatusChange={onStatusChange || (() => {})}
+              onLinkUpdate={onLinkUpdate}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -173,7 +171,7 @@ const TwitterPreview = ({
           content={content}
           contentType={contentType}
           onSave={onUpdateContent}
-          entryId={entryId || ''}
+          entryId={platformId}
         />
       )}
     </>

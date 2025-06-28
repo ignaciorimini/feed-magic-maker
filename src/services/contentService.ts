@@ -3,599 +3,224 @@ import { supabase } from '@/integrations/supabase/client';
 import { profileService } from './profileService';
 
 export interface ContentEntry {
-  id: string; // Changed from number to string to match UUID
+  id: string;
   topic: string;
   description: string;
   type: string;
   createdDate: string;
-  status: {
-    instagram: 'published' | 'pending' | 'error' | null;
-    linkedin: 'published' | 'pending' | 'error' | null;
-    wordpress: 'published' | 'pending' | 'error' | null;
-    twitter: 'published' | 'pending' | 'error' | null;
-  };
-  platformContent: any;
-  publishedLinks?: {
-    instagram?: string;
-    linkedin?: string;
-    wordpress?: string;
-    twitter?: string;
-  };
-  slideImages?: string[];
-  imageUrl?: string; // NEW: Add image_url field
+  imageUrl?: string;
+  platforms: ContentPlatform[];
 }
 
-interface PlatformContentStructure {
-  instagram?: {
-    text: string;
-    images: string[];
-    publishDate?: string;
-    slidesURL?: string;
-  };
-  linkedin?: {
-    text: string;
-    images: string[];
-    publishDate?: string;
-    slidesURL?: string;
-  };
-  wordpress?: {
-    text: string;
-    images: string[];
-    publishDate?: string;
-    title?: string;
-    description?: string;
-    slug?: string;
-    slidesURL?: string;
-  };
-  twitter?: {
-    text: string;
-    images: string[];
-    publishDate?: string;
-    threadPosts?: string[];
-  };
+export interface ContentPlatform {
+  id: string;
+  content_entry_id: string;
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+  status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
+  text?: string;
+  images: string[];
+  slides_url?: string;
+  publish_date?: string;
+  generated_at?: string;
+  published_at?: string;
   slideImages?: string[];
+  publishedLink?: string;
 }
-
-// Helper function to safely parse publishedLinks from database
-const parsePublishedLinks = (publishedLinks: any): { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; } => {
-  if (!publishedLinks || typeof publishedLinks !== 'object') {
-    return {};
-  }
-  
-  // If it's already the right type, return it
-  if (typeof publishedLinks === 'object' && !Array.isArray(publishedLinks)) {
-    return publishedLinks as { instagram?: string; linkedin?: string; wordpress?: string; twitter?: string; };
-  }
-  
-  return {};
-};
 
 export const contentService = {
-  // Crear nueva entrada de contenido
+  // Create new content entry with platforms
   async createContentEntry(entryData: {
     topic: string;
     description: string;
     type: string;
-    platform_content: any;
-    selectedPlatforms?: string[];
+    selectedPlatforms: string[];
+    generatedContent?: any;
   }) {
-    const { platform_content, selectedPlatforms = [] } = entryData;
-    
-    // NEW: Handle imageURL separately and store in image_url column
-    let imageURL = null;
-    if (platform_content.imageURL) {
-      imageURL = platform_content.imageURL;
-      delete platform_content.imageURL; // Remove from platform_content
-    }
-
-    // Preparar el objeto de inserción con estados solo para plataformas seleccionadas
-    const insertData: any = {
-      topic: entryData.topic,
-      description: entryData.description,
-      type: entryData.type,
-      user_id: (await supabase.auth.getUser()).data.user?.id,
-      image_url: imageURL // NEW: Store image in separate column
-    };
-
-    // Add platform_content and status fields using type assertion
-    (insertData as any).platform_content = entryData.platform_content;
-
-    // Solo establecer estados para plataformas seleccionadas
-    selectedPlatforms.forEach(platform => {
-      const statusField = `status_${platform}`;
-      (insertData as any)[statusField] = 'pending';
-    });
-
-    const { data, error } = await supabase
-      .from('content_entries')
-      .insert([insertData])
-      .select()
-      .single();
-
-    return { data, error };
-  },
-
-  async getUserContentEntries() {
-    const { data, error } = await supabase
-      .from('content_entries')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    return { data, error };
-  },
-
-  async updateContentEntry(entryId: string, updates: any) {
-    const { data, error } = await supabase
-      .from('content_entries')
-      .update(updates)
-      .eq('id', entryId)
-      .select()
-      .single();
-
-    return { data, error };
-  },
-
-  // NEW: Function to update image_url separately
-  async updateImageUrl(entryId: string, imageUrl: string | null) {
-    const { data, error } = await supabase
-      .from('content_entries')
-      .update({ image_url: imageUrl })
-      .eq('id', entryId)
-      .select()
-      .single();
-
-    return { data, error };
-  },
-
-  async deleteContentEntry(entryId: string) {
-    console.log('Attempting to delete entry with ID:', entryId);
-    
-    if (!entryId || entryId === 'undefined' || entryId === 'null') {
-      console.error('Invalid entry ID provided:', entryId);
-      return { error: new Error('ID de entrada inválido') };
-    }
-
     try {
-      // Get current user to ensure they own the entry
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        return { error: new Error('Usuario no autenticado') };
-      }
+      if (!user) throw new Error('Usuario no autenticado');
 
-      // First check if the entry exists and belongs to the user
-      const { data: existingEntry, error: fetchError } = await supabase
+      // Create the content entry first
+      const { data: entry, error: entryError } = await supabase
         .from('content_entries')
-        .select('id, user_id')
-        .eq('id', entryId)
-        .eq('user_id', user.id)
+        .insert({
+          topic: entryData.topic,
+          description: entryData.description,
+          type: entryData.type,
+          user_id: user.id,
+          image_url: entryData.generatedContent?.imageURL || null
+        })
+        .select()
         .single();
 
-      if (fetchError) {
-        console.error('Error fetching entry:', fetchError);
-        return { error: new Error('No se pudo encontrar la entrada o no tienes permisos para eliminarla') };
-      }
+      if (entryError) throw entryError;
 
-      if (!existingEntry) {
-        return { error: new Error('Entrada no encontrada') };
-      }
+      // Create platform entries for each selected platform
+      const platformInserts = entryData.selectedPlatforms.map(platform => ({
+        content_entry_id: entry.id,
+        platform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter',
+        status: 'pending' as const,
+        text: entryData.generatedContent?.[platform]?.text || `Generando contenido para ${platform}...`,
+        images: [] as string[],
+        slides_url: entryData.generatedContent?.slidesURL || null
+      }));
 
-      // Now delete the entry
-      const { error: deleteError } = await supabase
-        .from('content_entries')
-        .delete()
-        .eq('id', entryId)
-        .eq('user_id', user.id); // Double check ownership
+      const { data: platforms, error: platformsError } = await supabase
+        .from('content_platforms')
+        .insert(platformInserts)
+        .select();
 
-      if (deleteError) {
-        console.error('Database delete error:', deleteError);
-        return { error: deleteError };
-      }
+      if (platformsError) throw platformsError;
 
-      console.log('Entry deleted successfully');
-      return { error: null };
-    } catch (err) {
-      console.error('Delete operation failed:', err);
-      return { error: err };
+      return { data: { entry, platforms }, error: null };
+    } catch (error) {
+      console.error('Error creating content entry:', error);
+      return { data: null, error };
     }
   },
 
-  async updatePlatformContent(entryId: string, platform: string, content: any) {
-    // Primero obtenemos el contenido actual
-    const { data: currentEntry } = await supabase
-      .from('content_entries')
-      .select('*')
-      .eq('id', entryId)
-      .single();
-
-    if (currentEntry) {
-      // Use type assertion to access platform_content
-      const currentPlatformContent = (currentEntry as any).platform_content && typeof (currentEntry as any).platform_content === 'object' 
-        ? (currentEntry as any).platform_content 
-        : {};
-
-      const updatedPlatformContent = {
-        ...currentPlatformContent,
-        [platform]: content
-      };
-
-      const updateData: any = {};
-      (updateData as any).platform_content = updatedPlatformContent;
-
-      const { data, error } = await supabase
+  // Get user's content entries with their platforms
+  async getUserContentEntries() {
+    try {
+      const { data: entries, error: entriesError } = await supabase
         .from('content_entries')
-        .update(updateData)
-        .eq('id', entryId)
+        .select(`
+          *,
+          content_platforms (
+            *,
+            slide_images (*)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (entriesError) throw entriesError;
+
+      // Transform data to match the expected format
+      const transformedEntries: ContentEntry[] = entries?.map(entry => ({
+        id: entry.id,
+        topic: entry.topic,
+        description: entry.description || '',
+        type: entry.type,
+        createdDate: entry.created_date,
+        imageUrl: entry.image_url,
+        platforms: (entry as any).content_platforms?.map((platform: any) => ({
+          id: platform.id,
+          content_entry_id: platform.content_entry_id,
+          platform: platform.platform,
+          status: platform.status,
+          text: platform.text,
+          images: platform.images || [],
+          slides_url: platform.slides_url,
+          publish_date: platform.publish_date,
+          generated_at: platform.generated_at,
+          published_at: platform.published_at,
+          slideImages: platform.slide_images?.map((img: any) => img.image_url) || []
+        })) || []
+      })) || [];
+
+      return { data: transformedEntries, error: null };
+    } catch (error) {
+      console.error('Error loading entries:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Update platform content
+  async updatePlatformContent(platformId: string, content: any) {
+    try {
+      const { data, error } = await supabase
+        .from('content_platforms')
+        .update({
+          text: content.text,
+          images: content.images || [],
+          slides_url: content.slides_url,
+          publish_date: content.publish_date
+        })
+        .eq('id', platformId)
         .select()
         .single();
 
       return { data, error };
+    } catch (error) {
+      console.error('Error updating platform content:', error);
+      return { data: null, error };
     }
-
-    return { data: null, error: new Error('Entry not found') };
   },
 
-  // Nueva función para guardar slide images en la base de datos
-  async saveSlideImages(entryId: string, slideImages: string[]) {
+  // Update platform status
+  async updatePlatformStatus(platformId: string, status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') {
     try {
-      // Obtener el contenido actual
-      const { data: currentEntry, error: fetchError } = await supabase
-        .from('content_entries')
-        .select('*')
-        .eq('id', entryId)
+      const { data, error } = await supabase
+        .from('content_platforms')
+        .update({ 
+          status,
+          published_at: status === 'published' ? new Date().toISOString() : null
+        })
+        .eq('id', platformId)
+        .select()
         .single();
 
-      if (fetchError) {
-        return { error: fetchError };
-      }
+      return { data, error };
+    } catch (error) {
+      console.error('Error updating platform status:', error);
+      return { data: null, error };
+    }
+  },
 
-      if (currentEntry) {
-        // Use type assertion to access platform_content
-        const currentPlatformContent: PlatformContentStructure = 
-          (currentEntry as any).platform_content && 
-          typeof (currentEntry as any).platform_content === 'object' &&
-          !Array.isArray((currentEntry as any).platform_content)
-            ? (currentEntry as any).platform_content as PlatformContentStructure
-            : {};
+  // Save slide images for a platform
+  async saveSlideImages(platformId: string, slideImages: string[]) {
+    try {
+      // First, delete existing slide images
+      await supabase
+        .from('slide_images')
+        .delete()
+        .eq('content_platform_id', platformId);
 
-        // Actualizar el contenido con las slide images
-        const updatedPlatformContent: PlatformContentStructure = {
-          ...currentPlatformContent,
-          slideImages: slideImages
-        };
+      // Insert new slide images
+      const slideInserts = slideImages.map((imageUrl, index) => ({
+        content_platform_id: platformId,
+        image_url: imageUrl,
+        position: index
+      }));
 
-        // Para Slide Posts, actualizar la imagen de Instagram y LinkedIn con la primera slide
-        if (slideImages.length > 0) {
-          const firstSlideImage = slideImages[0];
-          
-          if (currentPlatformContent.instagram) {
-            updatedPlatformContent.instagram = {
-              ...currentPlatformContent.instagram,
-              images: [firstSlideImage]
-            };
-          }
-          
-          if (currentPlatformContent.linkedin) {
-            updatedPlatformContent.linkedin = {
-              ...currentPlatformContent.linkedin,
-              images: [firstSlideImage]
-            };
-          }
-        }
+      const { data, error } = await supabase
+        .from('slide_images')
+        .insert(slideInserts)
+        .select();
 
-        const updateData: any = {};
-        (updateData as any).platform_content = updatedPlatformContent;
-
-        const { data, error } = await supabase
-          .from('content_entries')
-          .update(updateData)
-          .eq('id', entryId)
-          .select()
-          .single();
-
-        return { data, error };
-      }
-
-      return { data: null, error: new Error('Entry not found') };
+      return { data, error };
     } catch (error) {
       console.error('Error saving slide images:', error);
       return { data: null, error };
     }
   },
 
-  // Nueva función para actualizar links de publicación
-  async updatePublishedLink(entryId: string, platform: string, link: string) {
+  // Delete content entry (cascades to platforms and images)
+  async deleteContentEntry(entryId: string) {
     try {
-      // Obtener los links actuales
-      const { data: currentEntry, error: fetchError } = await supabase
-        .from('content_entries')
-        .select('published_links')
-        .eq('id', entryId)
-        .single();
-
-      if (fetchError) {
-        return { error: fetchError };
-      }
-
-      // Asegurar que published_links es un objeto
-      const currentLinks = parsePublishedLinks(currentEntry?.published_links);
-
-      // Actualizar con el nuevo link
-      const updatedLinks = {
-        ...currentLinks,
-        [platform]: link
-      };
-
-      const { data, error } = await supabase
-        .from('content_entries')
-        .update({ published_links: updatedLinks })
-        .eq('id', entryId)
-        .select()
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      console.error('Error updating published link:', error);
-      return { data: null, error };
-    }
-  },
-
-  // Nueva función para actualizar el estado de publicación
-  async updatePublishStatus(entryId: string, platform: string, status: 'published' | 'pending' | 'error') {
-    try {
-      const statusField = `status_${platform}`;
-      const updateData: any = {};
-      (updateData as any)[statusField] = status;
-      
-      const { data, error } = await supabase
-        .from('content_entries')
-        .update(updateData)
-        .eq('id', entryId)
-        .select()
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      console.error('Error updating publish status:', error);
-      return { data: null, error };
-    }
-  },
-
-  // Nueva función para publicar contenido inmediatamente
-  async publishContent(entryId: string, platform: string, postType?: string) {
-    console.log('Publishing content for entry:', entryId, 'platform:', platform, 'postType:', postType);
-    
-    try {
-      // Obtener el usuario actual
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('Usuario no autenticado');
-      }
+      if (!user) throw new Error('Usuario no autenticado');
 
-      // Obtener el entry y su contenido
-      const { data: entry, error: entryError } = await supabase
+      const { error } = await supabase
         .from('content_entries')
-        .select('*')
+        .delete()
         .eq('id', entryId)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', user.id);
 
-      if (entryError || !entry) {
-        throw new Error('No se pudo encontrar el contenido');
-      }
-
-      // Obtener el webhook URL del perfil del usuario
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      
-      if (profileError || !profile?.webhook_url) {
-        throw new Error('Webhook no configurado en el perfil del usuario');
-      }
-
-      console.log('Sending publish request to user webhook:', profile.webhook_url);
-
-      // Primero actualizamos el estado a 'pending'
-      await this.updatePublishStatus(entryId, platform, 'pending');
-
-      // Use type assertion to access platform_content
-      const platformContent = (entry as any).platform_content && typeof (entry as any).platform_content === 'object' 
-        ? ((entry as any).platform_content as any)[platform] 
-        : null;
-
-      // Preparar el payload del webhook incluyendo el post_type si está disponible
-      const webhookPayload: any = {
-        action: 'publish',
-        platform: platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter',
-        entryId: entryId,
-        content: platformContent,
-        userEmail: user.email
-      };
-
-      // Agregar post_type si está disponible
-      if (postType) {
-        webhookPayload.post_type = postType;
-      }
-
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookPayload)
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP error response:', errorText);
-        
-        // Actualizar estado a error
-        await this.updatePublishStatus(entryId, platform, 'error');
-        
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      // Check if response has content before trying to parse JSON
-      const responseText = await response.text();
-      let data = null;
-      
-      if (responseText.trim()) {
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to parse JSON response:', parseError);
-          console.log('Response text:', responseText);
-          throw new Error('Respuesta inválida del webhook');
-        }
-      } else {
-        console.log('Empty response from webhook, treating as success');
-        data = { status: 'published' };
-      }
-
-      console.log('Publish response:', data);
-
-      // Manejar la respuesta según el estado específico de cada plataforma
-      const platformPublishedStatus = `${platform}Published`;
-      
-      if (data?.status === platformPublishedStatus) {
-        // Actualizar estado a publicado
-        await this.updatePublishStatus(entryId, platform, 'published');
-        
-        // Guardar el link si está disponible
-        if (data.link) {
-          await this.updatePublishedLink(entryId, platform, data.link);
-        }
-      } else if (!responseText.trim()) {
-        // Para respuestas vacías, mantener como pending hasta recibir confirmación
-        console.log('Empty response, keeping as pending');
-      } else {
-        // Si no es un estado de éxito claro, mantener como pending
-        console.warn('Unexpected response status:', data?.status);
-        console.log('Expected status for', platform, ':', platformPublishedStatus);
-      }
-
-      return { data, error: null };
+      return { error };
     } catch (error) {
-      console.error('Error publishing content:', error);
-      
-      // Actualizar estado a error en caso de excepción
-      try {
-        await this.updatePublishStatus(entryId, platform, 'error');
-      } catch (statusError) {
-        console.error('Failed to update status to error:', statusError);
-      }
-      
-      return { data: null, error };
+      console.error('Error deleting content entry:', error);
+      return { error };
     }
   },
 
-  // Nueva función para descargar slides usando el webhook del usuario
-  async downloadSlidesWithUserWebhook(slidesURL: string, contentName: string) {
-    console.log('Attempting to download slides using user webhook for URL:', slidesURL, 'Content:', contentName);
-    
-    try {
-      // Obtener el usuario actual
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('Usuario no autenticado');
-      }
-
-      // Obtener el webhook URL del perfil del usuario
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      
-      if (profileError || !profile?.webhook_url) {
-        throw new Error('Webhook no configurado en el perfil del usuario');
-      }
-
-      console.log('Sending download slides request to user webhook:', profile.webhook_url);
-
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'download_slides',
-          slidesURL: slidesURL,
-          contentName: contentName,
-          userEmail: user.email
-        })
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const rawData = await response.json();
-      console.log('Raw webhook response:', rawData);
-      console.log('Raw data type:', typeof rawData);
-      console.log('Raw data is array:', Array.isArray(rawData));
-      
-      // FIXED: Devolver la respuesta original sin normalizar para que handleDownloadSlides pueda procesarla correctamente
-      return { 
-        data: rawData, 
-        error: null 
-      };
-    } catch (error) {
-      console.error('Error downloading slides:', error);
-      return { data: null, error };
-    }
-  },
-
-  // Mantener la función original como respaldo
-  async downloadSlidesAsImages(slidesURL: string) {
-    console.log('Attempting to download slides from URL:', slidesURL);
-    
-    try {
-      const response = await fetch('https://webhookn8n.ignaciorimini.site/webhook/contentflow-carousel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          slidesURL: slidesURL
-        })
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('Download successful:', data);
-      return { data, error: null };
-    } catch (error) {
-      console.error('Error downloading slides:', error);
-      return { data: null, error };
-    }
-  },
-
+  // Generate content using webhook
   async generateContent(topic: string, description: string, contentType: string, selectedPlatforms: string[]) {
     try {
-      // Asegurar que twitter esté incluido si está seleccionado y validar tipos
-      const validPlatforms = selectedPlatforms.filter((platform): platform is 'instagram' | 'linkedin' | 'wordpress' | 'twitter' => 
-        ['instagram', 'linkedin', 'wordpress', 'twitter'].includes(platform)
-      );
-
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('Usuario no autenticado');
-      }
+      if (!user) throw new Error('Usuario no autenticado');
 
-      // Obtener el webhook URL del perfil del usuario
       const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      
       if (profileError || !profile?.webhook_url) {
         throw new Error('Webhook no configurado en el perfil del usuario');
       }
@@ -605,17 +230,13 @@ export const contentService = {
         topic,
         description,
         contentType,
-        selectedPlatforms: validPlatforms,
+        selectedPlatforms,
         userEmail: user.email
       };
 
-      console.log('Sending to webhook:', webhookData);
-
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookData)
       });
 
@@ -624,69 +245,126 @@ export const contentService = {
       }
 
       const webhookResponse = await response.json();
-      console.log('Webhook response:', webhookResponse);
-
-      // Crear entrada en la base de datos con las columnas correctas
-      const entryData: any = {
+      
+      // Create entry with generated content
+      return await this.createContentEntry({
         topic,
         description,
         type: contentType,
-        published_links: {},
-        user_id: user.id,
-        image_url: webhookResponse.imageURL || null // NEW: Store image in separate column
-      };
-
-      // Use type assertion to add platform_content
-      (entryData as any).platform_content = {};
-
-      // Agregar estados individuales solo para plataformas seleccionadas
-      validPlatforms.forEach(platform => {
-        (entryData as any)[`status_${platform}`] = 'pending';
+        selectedPlatforms,
+        generatedContent: webhookResponse
       });
-
-      // Procesar contenido de cada plataforma incluyendo Twitter
-      validPlatforms.forEach(platform => {
-        if (webhookResponse[platform]) {
-          const platformData = webhookResponse[platform];
-          
-          // Para Twitter, manejar diferentes tipos de contenido
-          if (platform === 'twitter') {
-            (entryData as any).platform_content[platform] = {
-              text: platformData.text || '',
-              images: [], // No store images in platform_content anymore
-              threadPosts: platformData.threadPosts || [],
-              publishDate: platformData.publishDate || null
-            };
-          } else {
-            // Para otras plataformas mantener la lógica existente
-            (entryData as any).platform_content[platform] = {
-              text: platformData.text || '',
-              images: [], // No store images in platform_content anymore
-              title: platformData.title || null,
-              description: platformData.description || null,
-              slug: platformData.slug || null,
-              publishDate: platformData.publishDate || null
-            };
-
-            if (webhookResponse.slidesURL) {
-              (entryData as any).platform_content[platform].slidesURL = webhookResponse.slidesURL;
-            }
-          }
-        }
-      });
-
-      const { data: newEntry, error } = await supabase
-        .from('content_entries')
-        .insert([entryData])
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      return { data: newEntry, error: null };
-
     } catch (error) {
       console.error('Error generating content:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Download slides using user webhook
+  async downloadSlidesWithUserWebhook(slidesURL: string, contentName: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook no configurado en el perfil del usuario');
+      }
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'download_slides',
+          slidesURL: slidesURL,
+          contentName: contentName,
+          userEmail: user.email
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const rawData = await response.json();
+      return { data: rawData, error: null };
+    } catch (error) {
+      console.error('Error downloading slides:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Publish content to platform
+  async publishContent(platformId: string, platform: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      // Get platform data
+      const { data: platformData, error: platformError } = await supabase
+        .from('content_platforms')
+        .select('*, content_entries(*)')
+        .eq('id', platformId)
+        .single();
+
+      if (platformError) throw platformError;
+
+      // Get webhook URL
+      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook no configurado en el perfil del usuario');
+      }
+
+      // Update status to pending
+      await this.updatePlatformStatus(platformId, 'pending');
+
+      const webhookPayload = {
+        action: 'publish_content',
+        entryId: platformData.content_entry_id,
+        platformId: platformId,
+        platform: platform,
+        userEmail: user.email,
+        topic: (platformData as any).content_entries.topic,
+        description: (platformData as any).content_entries.description,
+        content: {
+          text: platformData.text,
+          images: platformData.images,
+          slides_url: platformData.slides_url
+        }
+      };
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload)
+      });
+
+      if (!response.ok) {
+        await this.updatePlatformStatus(platformId, 'error');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === `${platform}Published`) {
+        await this.updatePlatformStatus(platformId, 'published');
+        
+        // Update published links in content_entries
+        if (result.link) {
+          const currentLinks = (platformData as any).content_entries.published_links || {};
+          const updatedLinks = { ...currentLinks, [platform]: result.link };
+          
+          await supabase
+            .from('content_entries')
+            .update({ published_links: updatedLinks })
+            .eq('id', platformData.content_entry_id);
+        }
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Error publishing content:', error);
       return { data: null, error };
     }
   }

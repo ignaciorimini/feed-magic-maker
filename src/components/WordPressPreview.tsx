@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Globe, Edit2, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -15,12 +16,12 @@ interface WordPressPreviewProps {
     description?: string;
     slug?: string;
   };
-  status: 'published' | 'pending' | 'error';
+  status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
   onUpdateContent: (content: any) => Promise<void>;
-  entryId?: string;
+  platformId: string;
   publishedLink?: string;
-  onStatusChange?: (newStatus: 'published' | 'pending' | 'error') => void;
+  onStatusChange?: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
   onLinkUpdate?: (link: string) => void;
 }
 
@@ -29,7 +30,7 @@ const WordPressPreview = ({
   status, 
   contentType, 
   onUpdateContent, 
-  entryId, 
+  platformId, 
   publishedLink,
   onStatusChange,
   onLinkUpdate 
@@ -41,7 +42,6 @@ const WordPressPreview = ({
     setImageError(false);
   }, [content.images]);
 
-  // Función para truncar texto
   const truncateText = (text: string, maxLength: number = 40) => {
     if (!text || text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
@@ -131,7 +131,7 @@ const WordPressPreview = ({
             </div>
           </div>
 
-          {/* Published Link Display - Blue clickable link */}
+          {/* Published Link Display */}
           {publishedLink && (
             <div className="space-y-1">
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Artículo publicado</span>
@@ -149,18 +149,16 @@ const WordPressPreview = ({
           )}
 
           {/* Publish Button */}
-          {entryId && (
-            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-              <PublishButton
-                entryId={entryId}
-                platform="wordpress"
-                currentStatus={status}
-                contentType={contentType}
-                onStatusChange={onStatusChange || (() => {})}
-                onLinkUpdate={onLinkUpdate}
-              />
-            </div>
-          )}
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+            <PublishButton
+              platformId={platformId}
+              platform="wordpress"
+              currentStatus={status}
+              contentType={contentType}
+              onStatusChange={onStatusChange || (() => {})}
+              onLinkUpdate={onLinkUpdate}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -173,7 +171,7 @@ const WordPressPreview = ({
           content={content}
           contentType={contentType}
           onSave={onUpdateContent}
-          entryId={entryId || ''}
+          entryId={platformId}
         />
       )}
     </>
