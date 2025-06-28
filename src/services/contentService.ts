@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { profileService } from '@/services/profileService';
 
 export interface ContentPlatform {
   id: string;
@@ -188,6 +189,37 @@ export const contentService = {
       return { error };
     } catch (error) {
       console.error('Error deleting content entry:', error);
+      return { error };
+    }
+  },
+
+  // Add the missing saveSlideImages method
+  async saveSlideImages(platformId: string, slideImages: string[]) {
+    try {
+      // First, delete existing slide images for this platform
+      await supabase
+        .from('slide_images')
+        .delete()
+        .eq('content_platform_id', platformId);
+
+      // Insert new slide images
+      if (slideImages.length > 0) {
+        const slideImageData = slideImages.map((imageUrl, index) => ({
+          content_platform_id: platformId,
+          image_url: imageUrl,
+          position: index
+        }));
+
+        const { error } = await supabase
+          .from('slide_images')
+          .insert(slideImageData);
+
+        if (error) throw error;
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('Error saving slide images:', error);
       return { error };
     }
   },

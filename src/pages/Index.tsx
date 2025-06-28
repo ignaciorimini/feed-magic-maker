@@ -242,16 +242,18 @@ const Index = () => {
     );
   }
 
-  // Flatten all platforms from all entries for display
+  // Flatten all platforms from all entries for display - filter out twitter for now
   const allPlatforms = entries.flatMap(entry => 
-    entry.platforms.map(platform => ({
-      ...platform,
-      entryTopic: entry.topic,
-      entryDescription: entry.description,
-      entryType: entry.type,
-      entryImageUrl: entry.imageUrl,
-      entryId: entry.id
-    }))
+    entry.platforms
+      .filter(platform => platform.platform !== 'twitter') // Filter out twitter temporarily
+      .map(platform => ({
+        ...platform,
+        entryTopic: entry.topic,
+        entryDescription: entry.description,
+        entryType: entry.type,
+        entryImageUrl: entry.imageUrl,
+        entryId: entry.id
+      }))
   );
 
   return (
@@ -493,7 +495,7 @@ const Index = () => {
                   {allPlatforms.map((platform) => (
                     <PlatformPreview
                       key={platform.id}
-                      platform={platform.platform}
+                      platform={platform.platform as 'instagram' | 'linkedin' | 'wordpress'}
                       content={{
                         text: platform.text || '',
                         images: platform.slideImages || platform.images || [],

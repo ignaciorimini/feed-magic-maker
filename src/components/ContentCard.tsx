@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -100,13 +99,18 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
   const isSlidePost = localEntry.type === 'Slide Post';
   const shouldShowSlides = isSlidePost && hasDownloadedSlides;
 
-  // Handler for status changes
-  const handleStatusChange = (platform: string, newStatus: 'published' | 'pending' | 'error') => {
+  // Handler for status changes - fix the type conversion
+  const handleStatusChange = (platform: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
+    // Convert the new status system to the old one for compatibility
+    const convertedStatus: 'published' | 'pending' | 'error' = 
+      newStatus === 'published' ? 'published' : 
+      newStatus === 'error' ? 'error' : 'pending';
+
     setLocalEntry(prev => ({
       ...prev,
       status: {
         ...prev.status,
-        [platform]: newStatus
+        [platform]: convertedStatus
       }
     }));
   };
@@ -272,7 +276,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="instagram"
                   content={localEntry.platformContent.instagram}
-                  status={localEntry.status.instagram}
+                  status={localEntry.status.instagram === 'published' ? 'published' : localEntry.status.instagram === 'error' ? 'pending' : 'pending'}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'instagram', content)}
                   entryId={localEntry.id}
@@ -287,7 +291,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="linkedin"
                   content={localEntry.platformContent.linkedin}
-                  status={localEntry.status.linkedin}
+                  status={localEntry.status.linkedin === 'published' ? 'published' : localEntry.status.linkedin === 'error' ? 'pending' : 'pending'}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'linkedin', content)}
                   entryId={localEntry.id}
@@ -302,7 +306,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="wordpress"
                   content={localEntry.platformContent.wordpress}
-                  status={localEntry.status.wordpress}
+                  status={localEntry.status.wordpress === 'published' ? 'published' : localEntry.status.wordpress === 'error' ? 'pending' : 'pending'}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'wordpress', content)}
                   entryId={localEntry.id}
