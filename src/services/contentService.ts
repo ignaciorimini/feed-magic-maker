@@ -45,6 +45,8 @@ export const contentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Creating content entry with:', entryData);
+
       // Create the main content entry
       const { data: entry, error: entryError } = await supabase
         .from('content_entries')
@@ -60,14 +62,51 @@ export const contentService = {
       if (entryError) throw entryError;
 
       // Create platform entries for each selected platform
-      const platformEntries = entryData.selectedPlatforms.map(platform => ({
-        content_entry_id: entry.id,
-        platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
-        status: 'pending' as const,
-        text: entryData.generatedContent?.[platform]?.text || '',
-        images: entryData.generatedContent?.[platform]?.images || [],
-        slides_url: entryData.generatedContent?.[platform]?.slidesURL || null,
-      }));
+      const platformEntries = entryData.selectedPlatforms.map(platform => {
+        const platformKey = platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
+        
+        // Map the webhook content structure to the correct field names
+        let platformText = '';
+        let platformStatus: 'pending' | 'generated' = 'pending';
+        let slidesUrl = null;
+
+        if (entryData.generatedContent) {
+          // Map webhook response fields to platform text
+          switch (platformKey) {
+            case 'instagram':
+              platformText = entryData.generatedContent.instagramContent || '';
+              break;
+            case 'linkedin':
+              platformText = entryData.generatedContent.linkedinContent || '';
+              break;
+            case 'twitter':
+              platformText = entryData.generatedContent.twitterContent || '';
+              break;
+            case 'wordpress':
+              platformText = entryData.generatedContent.wordpressContent || '';
+              break;
+          }
+
+          // If we have content from webhook, set status to generated
+          if (platformText) {
+            platformStatus = 'generated';
+          }
+
+          // Map slides URL
+          slidesUrl = entryData.generatedContent.slidesURL || null;
+        }
+
+        console.log(`Platform ${platformKey}: text="${platformText}", status="${platformStatus}"`);
+
+        return {
+          content_entry_id: entry.id,
+          platform: platformKey,
+          status: platformStatus,
+          text: platformText,
+          images: [],
+          slides_url: slidesUrl,
+        };
+      });
 
       const { data: platforms, error: platformsError } = await supabase
         .from('content_platforms')
@@ -75,6 +114,8 @@ export const contentService = {
         .select();
 
       if (platformsError) throw platformsError;
+
+      console.log('Created platforms:', platforms);
 
       return { data: { entry, platforms }, error: null };
     } catch (error) {
