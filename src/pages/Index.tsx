@@ -50,26 +50,27 @@ const Index = () => {
   }, [user]);
 
   // Load content entries
-  useEffect(() => {
-    const loadEntries = async () => {
-      if (user && !needsProfileSetup) {
-        setLoading(true);
-        const { data, error } = await contentService.getUserContentEntries();
-        
-        if (error) {
-          console.error('Error loading entries:', error);
-          toast({
-            title: "Error al cargar contenido",
-            description: "No se pudo cargar tu contenido. Inténtalo nuevamente.",
-            variant: "destructive",
-          });
-        } else if (data) {
-          console.log('Raw entries loaded:', data);
-          setEntries(data);
-        }
-        setLoading(false);
+  const loadEntries = async () => {
+    if (user && !needsProfileSetup) {
+      setLoading(true);
+      const { data, error } = await contentService.getUserContentEntries();
+      
+      if (error) {
+        console.error('Error loading entries:', error);
+        toast({
+          title: "Error al cargar contenido",
+          description: "No se pudo cargar tu contenido. Inténtalo nuevamente.",
+          variant: "destructive",
+        });
+      } else if (data) {
+        console.log('Raw entries loaded:', data);
+        setEntries(data);
       }
-    };
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadEntries();
   }, [user, needsProfileSetup]);
 
@@ -87,6 +88,8 @@ const Index = () => {
   };
 
   const handleNewEntry = async (entryData: any) => {
+    console.log('Creating new entry with data:', entryData);
+    
     const { data, error } = await contentService.createContentEntry({
       topic: entryData.topic,
       description: entryData.description,
@@ -95,17 +98,18 @@ const Index = () => {
     });
 
     if (error) {
+      console.error('Error creating content:', error);
       toast({
         title: "Error al crear contenido",
         description: "No se pudo crear el contenido. Inténtalo nuevamente.",
         variant: "destructive",
       });
     } else if (data) {
-      // Reload entries to show the new content
-      const { data: updatedEntries } = await contentService.getUserContentEntries();
-      if (updatedEntries) {
-        setEntries(updatedEntries);
-      }
+      console.log('Content created successfully:', data);
+      
+      // Reload entries from database to show the new content
+      await loadEntries();
+      
       setShowForm(false);
       toast({
         title: "Contenido creado exitosamente",
@@ -139,7 +143,7 @@ const Index = () => {
       });
     } else {
       // Reload entries to show updated content
-      window.location.reload();
+      await loadEntries();
       toast({
         title: "Contenido actualizado",
         description: "Los cambios se han guardado correctamente.",
@@ -211,7 +215,7 @@ const Index = () => {
         });
         
         // Reload to show updated slides
-        window.location.reload();
+        await loadEntries();
       } else {
         toast({
           title: "Descarga completada",
