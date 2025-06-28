@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -82,6 +81,42 @@ const PlatformPreview = ({
   const truncateText = (text: string, maxLength: number = 150) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Convert new status to old status for components that still use the old system
+  const convertToOldStatus = (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published'): 'pending' | 'published' | 'error' => {
+    switch (newStatus) {
+      case 'published':
+        return 'published';
+      case 'pending':
+      case 'generated':
+      case 'edited':
+      case 'scheduled':
+        return 'pending';
+      default:
+        return 'pending';
+    }
+  };
+
+  // Convert old status to new status for components that use the new system
+  const convertToNewStatus = (oldStatus: 'pending' | 'published' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
+    switch (oldStatus) {
+      case 'published':
+        return 'published';
+      case 'pending':
+      case 'error':
+        return 'pending';
+      default:
+        return 'pending';
+    }
+  };
+
+  // Handler for status changes from components using old status system
+  const handleOldStatusChange = (oldStatus: 'pending' | 'published' | 'error') => {
+    const newStatus = convertToNewStatus(oldStatus);
+    if (onStatusChange) {
+      onStatusChange(newStatus);
+    }
   };
 
   const handleDownloadSlides = async () => {
@@ -233,12 +268,12 @@ const PlatformPreview = ({
     return (
       <WordPressPreview
         content={content}
-        status={status}
+        status={convertToOldStatus(status)}
         contentType={contentType}
         onUpdateContent={onUpdateContent}
         platformId={platformId || ''}
         publishedLink={publishedLink}
-        onStatusChange={onStatusChange}
+        onStatusChange={handleOldStatusChange}
         onLinkUpdate={onLinkUpdate}
       />
     );
