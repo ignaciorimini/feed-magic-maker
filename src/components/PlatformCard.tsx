@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -226,6 +227,35 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage;
 
+  // Convert old status to new status format
+  const convertStatusToNew = (oldStatus: 'published' | 'pending' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
+    switch (oldStatus) {
+      case 'published':
+        return 'published';
+      case 'pending':
+        return 'pending';
+      case 'error':
+        return 'pending'; // Convert error to pending for now
+      default:
+        return 'pending';
+    }
+  };
+
+  // Convert new status to old status format
+  const convertStatusToOld = (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published'): 'published' | 'pending' | 'error' => {
+    switch (newStatus) {
+      case 'published':
+        return 'published';
+      case 'pending':
+      case 'generated':
+      case 'edited':
+      case 'scheduled':
+        return 'pending';
+      default:
+        return 'pending';
+    }
+  };
+
   return (
     <>
       <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group flex flex-col h-full`}>
@@ -388,11 +418,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             {status === 'pending' && onUpdateStatus && onUpdateLink && (
               <div className="pt-2">
                 <PublishButton
-                  entryId={localEntry.id}
+                  platformId={localEntry.id}
                   platform={platform}
-                  currentStatus={status}
+                  currentStatus={convertStatusToNew(status)}
                   contentType={isThread ? 'Thread' : localEntry.type}
-                  onStatusChange={(newStatus) => onUpdateStatus(localEntry.id, platform, newStatus)}
+                  onStatusChange={(newStatus) => onUpdateStatus(localEntry.id, platform, convertStatusToOld(newStatus))}
                   onLinkUpdate={(link) => onUpdateLink(localEntry.id, platform, link)}
                 />
               </div>

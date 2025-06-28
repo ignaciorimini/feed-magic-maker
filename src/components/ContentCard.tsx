@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -99,12 +100,11 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
   const isSlidePost = localEntry.type === 'Slide Post';
   const shouldShowSlides = isSlidePost && hasDownloadedSlides;
 
-  // Handler for status changes - fix the type conversion
+  // Handler for status changes - convert between old and new status systems
   const handleStatusChange = (platform: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
     // Convert the new status system to the old one for compatibility
     const convertedStatus: 'published' | 'pending' | 'error' = 
-      newStatus === 'published' ? 'published' : 
-      newStatus === 'error' ? 'error' : 'pending';
+      newStatus === 'published' ? 'published' : 'pending';
 
     setLocalEntry(prev => ({
       ...prev,
@@ -124,6 +124,20 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
         [platform]: link
       }
     }));
+  };
+
+  // Convert old status to new status for platform previews
+  const convertStatusToNew = (oldStatus: 'published' | 'pending' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
+    switch (oldStatus) {
+      case 'published':
+        return 'published';
+      case 'pending':
+        return 'pending';
+      case 'error':
+        return 'pending'; // Convert error to pending for now
+      default:
+        return 'pending';
+    }
   };
 
   return (
@@ -276,7 +290,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="instagram"
                   content={localEntry.platformContent.instagram}
-                  status={localEntry.status.instagram === 'published' ? 'published' : localEntry.status.instagram === 'error' ? 'pending' : 'pending'}
+                  status={convertStatusToNew(localEntry.status.instagram)}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'instagram', content)}
                   entryId={localEntry.id}
@@ -291,7 +305,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="linkedin"
                   content={localEntry.platformContent.linkedin}
-                  status={localEntry.status.linkedin === 'published' ? 'published' : localEntry.status.linkedin === 'error' ? 'pending' : 'pending'}
+                  status={convertStatusToNew(localEntry.status.linkedin)}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'linkedin', content)}
                   entryId={localEntry.id}
@@ -306,7 +320,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 <PlatformPreview
                   platform="wordpress"
                   content={localEntry.platformContent.wordpress}
-                  status={localEntry.status.wordpress === 'published' ? 'published' : localEntry.status.wordpress === 'error' ? 'pending' : 'pending'}
+                  status={convertStatusToNew(localEntry.status.wordpress)}
                   contentType={localEntry.type}
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'wordpress', content)}
                   entryId={localEntry.id}
