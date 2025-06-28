@@ -8,7 +8,7 @@ import ContentForm from '@/components/ContentForm';
 import StatsOverview from '@/components/StatsOverview';
 import ProfileSetup from '@/components/ProfileSetup';
 import CalendarView from '@/components/CalendarView';
-import PlatformPreview from '@/components/PlatformPreview';
+import ContentCard from '@/components/ContentCard';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService, ContentEntry, ContentPlatform } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
@@ -22,7 +22,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress']);
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -67,7 +67,59 @@ const Index = () => {
             variant: "destructive",
           });
         } else if (data) {
-          setEntries(data);
+          // Transform the data to match ContentCard expectations
+          const transformedEntries = data.map(entry => {
+            const platformContent: any = {};
+            const status: any = {};
+            const slideImages: string[] = [];
+
+            entry.platforms.forEach(platform => {
+              platformContent[platform.platform] = {
+                text: platform.text || '',
+                images: platform.images || [],
+                publishDate: platform.publish_date,
+                slidesURL: platform.slides_url,
+                ...(platform.platform === 'wordpress' && {
+                  title: entry.topic,
+                  description: entry.description,
+                  slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
+                })
+              };
+
+              // Convert new status to old status format for ContentCard
+              switch (platform.status) {
+                case 'published':
+                  status[platform.platform] = 'published';
+                  break;
+                case 'pending':
+                case 'generated':
+                case 'edited':
+                case 'scheduled':
+                default:
+                  status[platform.platform] = 'pending';
+                  break;
+              }
+
+              // Collect slide images from any platform
+              if (platform.slideImages && platform.slideImages.length > 0) {
+                slideImages.push(...platform.slideImages);
+              }
+            });
+
+            return {
+              id: entry.id,
+              topic: entry.topic,
+              description: entry.description,
+              type: entry.type,
+              createdDate: new Date(entry.created_at).toLocaleDateString(),
+              status,
+              platformContent,
+              slideImages: slideImages.length > 0 ? slideImages : undefined,
+              publishedLinks: entry.published_links || {}
+            };
+          });
+
+          setEntries(transformedEntries);
         }
         setLoading(false);
       }
@@ -106,7 +158,57 @@ const Index = () => {
       // Reload entries to show the new content
       const { data: updatedEntries } = await contentService.getUserContentEntries();
       if (updatedEntries) {
-        setEntries(updatedEntries);
+        // Transform the data again
+        const transformedEntries = updatedEntries.map(entry => {
+          const platformContent: any = {};
+          const status: any = {};
+          const slideImages: string[] = [];
+
+          entry.platforms.forEach(platform => {
+            platformContent[platform.platform] = {
+              text: platform.text || '',
+              images: platform.images || [],
+              publishDate: platform.publish_date,
+              slidesURL: platform.slides_url,
+              ...(platform.platform === 'wordpress' && {
+                title: entry.topic,
+                description: entry.description,
+                slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
+              })
+            };
+
+            switch (platform.status) {
+              case 'published':
+                status[platform.platform] = 'published';
+                break;
+              case 'pending':
+              case 'generated':
+              case 'edited':
+              case 'scheduled':
+              default:
+                status[platform.platform] = 'pending';
+                break;
+            }
+
+            if (platform.slideImages && platform.slideImages.length > 0) {
+              slideImages.push(...platform.slideImages);
+            }
+          });
+
+          return {
+            id: entry.id,
+            topic: entry.topic,
+            description: entry.description,
+            type: entry.type,
+            createdDate: new Date(entry.created_at).toLocaleDateString(),
+            status,
+            platformContent,
+            slideImages: slideImages.length > 0 ? slideImages : undefined,
+            publishedLinks: entry.published_links || {}
+          };
+        });
+
+        setEntries(transformedEntries);
       }
       setShowForm(false);
       toast({
@@ -116,58 +218,22 @@ const Index = () => {
     }
   };
 
-  const handleDownloadSlides = async (platformId: string, slidesURL: string, contentName: string) => {
-    if (!slidesURL) {
+  const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
+    // Find the platform ID for the specific entry and platform
+    const { data: rawEntries } = await contentService.getUserContentEntries();
+    const entry = rawEntries?.find(e => e.id === entryId);
+    const platformData = entry?.platforms.find(p => p.platform === platform);
+    
+    if (!platformData) {
       toast({
-        title: "Error",
-        description: "No hay URL de slides disponible para descargar.",
+        title: "Error al actualizar contenido",
+        description: "No se pudo encontrar la plataforma especificada.",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, contentName);
-      
-      if (error) throw error;
-
-      let slideImages: string[] = [];
-      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
-        slideImages = data[0].slideImages;
-      }
-
-      if (slideImages.length > 0) {
-        await contentService.saveSlideImages(platformId, slideImages);
-        
-        // Reload entries to show updated slides
-        const { data: updatedEntries } = await contentService.getUserContentEntries();
-        if (updatedEntries) {
-          setEntries(updatedEntries);
-        }
-
-        toast({
-          title: "¡Slides descargadas exitosamente!",
-          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
-        });
-      } else {
-        toast({
-          title: "Error en la descarga",
-          description: "No se encontraron imágenes de slides en la respuesta del webhook.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error downloading slides:', error);
-      toast({
-        title: "Error al descargar slides",
-        description: "Hubo un problema al conectar con tu webhook para descargar las slides.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateContent = async (platformId: string, content: any): Promise<void> => {
-    const { error } = await contentService.updatePlatformContent(platformId, content);
+    const { error } = await contentService.updatePlatformContent(platformData.id, content);
     
     if (error) {
       toast({
@@ -177,27 +243,12 @@ const Index = () => {
       });
     } else {
       // Reload entries to show updated content
-      const { data: updatedEntries } = await contentService.getUserContentEntries();
-      if (updatedEntries) {
-        setEntries(updatedEntries);
-      }
+      window.location.reload();
       toast({
         title: "Contenido actualizado",
         description: "Los cambios se han guardado correctamente.",
       });
     }
-  };
-
-  const handleUpdateStatus = async (platformId: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
-    await contentService.updatePlatformStatus(platformId, newStatus);
-    
-    // Update local state
-    setEntries(prev => prev.map(entry => ({
-      ...entry,
-      platforms: entry.platforms.map(platform => 
-        platform.id === platformId ? { ...platform, status: newStatus } : platform
-      )
-    })));
   };
 
   const handleDeleteEntry = async (entryId: string) => {
@@ -214,6 +265,53 @@ const Index = () => {
       toast({
         title: "Contenido eliminado",
         description: "El contenido ha sido eliminado exitosamente.",
+      });
+    }
+  };
+
+  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
+    if (!slidesURL) {
+      toast({
+        title: "Error",
+        description: "No hay URL de slides disponible para descargar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const entry = entries.find(e => e.id === entryId);
+      if (!entry) return;
+
+      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, entry.topic);
+      
+      if (error) throw error;
+
+      let slideImages: string[] = [];
+      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
+        slideImages = data[0].slideImages;
+      }
+
+      if (slideImages.length > 0) {
+        toast({
+          title: "¡Slides descargadas exitosamente!",
+          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
+        });
+        
+        // Reload to show updated slides
+        window.location.reload();
+      } else {
+        toast({
+          title: "Descarga completada",
+          description: "Las slides han sido procesadas por tu webhook.",
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading slides:', error);
+      toast({
+        title: "Error al descargar slides",
+        description: "Hubo un problema al conectar con tu webhook para descargar las slides.",
+        variant: "destructive",
       });
     }
   };
@@ -241,20 +339,6 @@ const Index = () => {
       />
     );
   }
-
-  // Flatten all platforms from all entries for display - filter out twitter for now
-  const allPlatforms = entries.flatMap(entry => 
-    entry.platforms
-      .filter(platform => platform.platform !== 'twitter') // Filter out twitter temporarily
-      .map(platform => ({
-        ...platform,
-        entryTopic: entry.topic,
-        entryDescription: entry.description,
-        entryType: entry.type,
-        entryImageUrl: entry.imageUrl,
-        entryId: entry.id
-      }))
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -461,7 +545,7 @@ const Index = () => {
                 
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline" className="text-xs sm:text-sm">
-                    {allPlatforms.length} plataformas
+                    {entries.length} entradas
                   </Badge>
                 </div>
               </div>
@@ -471,7 +555,7 @@ const Index = () => {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
                   <p className="text-gray-600">Cargando contenido...</p>
                 </div>
-              ) : allPlatforms.length === 0 ? (
+              ) : entries.length === 0 ? (
                 <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
                   <CardContent className="pt-6">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -491,34 +575,16 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {allPlatforms.map((platform) => (
-                    <PlatformPreview
-                      key={platform.id}
-                      platform={platform.platform as 'instagram' | 'linkedin' | 'wordpress'}
-                      content={{
-                        text: platform.text || '',
-                        images: platform.slideImages || platform.images || [],
-                        publishDate: platform.publish_date,
-                        ...(platform.platform === 'wordpress' && {
-                          title: platform.entryTopic,
-                          description: platform.entryDescription
-                        })
-                      }}
-                      status={platform.status}
-                      contentType={platform.entryType}
-                      onUpdateContent={(content) => handleUpdateContent(platform.id, content)}
-                      entryId={platform.entryId}
-                      platformId={platform.id}
-                      publishedLink={null} // Will be populated from published_links
-                      onStatusChange={(newStatus) => handleUpdateStatus(platform.id, newStatus)}
-                      onLinkUpdate={() => {}} // Handle link updates
-                      onDeleteEntry={() => handleDeleteEntry(platform.entryId)}
-                      onDownloadSlides={platform.slides_url ? 
-                        () => handleDownloadSlides(platform.id, platform.slides_url!, platform.entryTopic) : 
-                        undefined
-                      }
-                      onUpdateImage={() => {}} // Handle image updates
+                <div className="space-y-6">
+                  {entries.map((entry) => (
+                    <ContentCard
+                      key={entry.id}
+                      entry={entry}
+                      selectedPlatforms={selectedPlatforms}
+                      onUpdateContent={handleUpdateContent}
+                      onUpdatePublishSettings={() => {}}
+                      onDeleteEntry={handleDeleteEntry}
+                      onDownloadSlides={handleDownloadSlides}
                     />
                   ))}
                 </div>
