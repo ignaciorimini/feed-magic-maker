@@ -65,6 +65,7 @@ const Index = () => {
             variant: "destructive",
           });
         } else if (data) {
+          console.log('Raw entries loaded:', data);
           setEntries(data);
         }
         setLoading(false);
@@ -212,24 +213,36 @@ const Index = () => {
     }
   };
 
-  // Transform entries for ContentCard compatibility
+  // Transform entries for ContentCard compatibility with enhanced error checking
   const transformedEntries = entries.map(entry => {
+    console.log('Transforming entry:', entry);
+    
     const platformContent: any = {};
     const status: any = {};
     const slideImages: string[] = [];
 
+    // Ensure entry.platforms exists and is an array
+    if (!entry.platforms || !Array.isArray(entry.platforms)) {
+      console.error('Entry platforms is missing or not an array:', entry);
+      return null;
+    }
+
     entry.platforms.forEach(platform => {
-      platformContent[platform.platform] = {
+      // Create safe platform content with defaults
+      const safeContent = {
         text: platform.text || '',
         images: platform.images || [],
         publishDate: platform.publish_date,
         slidesURL: platform.slides_url,
         ...(platform.platform === 'wordpress' && {
-          title: entry.topic,
-          description: entry.description,
-          slug: entry.topic.toLowerCase().replace(/\s+/g, '-')
+          title: entry.topic || '',
+          description: entry.description || '',
+          slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
         })
       };
+
+      platformContent[platform.platform] = safeContent;
+      console.log(`Platform content for ${platform.platform}:`, safeContent);
 
       // Convert new status to old status format for ContentCard
       switch (platform.status) {
@@ -251,18 +264,23 @@ const Index = () => {
       }
     });
 
-    return {
+    const transformedEntry = {
       id: entry.id,
-      topic: entry.topic,
-      description: entry.description,
-      type: entry.type,
+      topic: entry.topic || '',
+      description: entry.description || '',
+      type: entry.type || '',
       createdDate: new Date(entry.created_at).toLocaleDateString(),
       status,
       platformContent,
       slideImages: slideImages.length > 0 ? slideImages : undefined,
       publishedLinks: entry.published_links || {}
     };
-  });
+
+    console.log('Transformed entry:', transformedEntry);
+    return transformedEntry;
+  }).filter(Boolean); // Remove any null entries
+
+  console.log('Final transformed entries:', transformedEntries);
 
   // Show loading screen while checking authentication
   if (authLoading) {

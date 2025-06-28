@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -58,9 +59,26 @@ const PlatformPreview = ({
   const [imageError, setImageError] = useState(false);
   const { user } = useAuth();
 
+  // Add defensive checks for content prop
+  if (!content) {
+    console.error('PlatformPreview: content prop is undefined for platform:', platform);
+    return null;
+  }
+
+  // Ensure content has required properties with defaults
+  const safeContent = {
+    text: content.text || '',
+    images: content.images || [],
+    publishDate: content.publishDate,
+    title: content.title,
+    description: content.description,
+    slug: content.slug,
+    slidesURL: content.slidesURL
+  };
+
   useEffect(() => {
     setImageError(false);
-  }, [content.images]);
+  }, [safeContent.images]);
 
   const getPlatformConfig = (platform: string) => {
     switch (platform) {
@@ -79,7 +97,7 @@ const PlatformPreview = ({
   const PlatformIcon = config.icon;
 
   const truncateText = (text: string, maxLength: number = 150) => {
-    if (text.length <= maxLength) return text;
+    if (!text || text.length <= maxLength) return text || '';
     return text.substring(0, maxLength) + '...';
   };
 
@@ -98,7 +116,7 @@ const PlatformPreview = ({
   };
 
   const handleDownloadSlides = async () => {
-    if (!content.slidesURL || !entryId || !topic) {
+    if (!safeContent.slidesURL || !entryId || !topic) {
       toast({
         title: "Error",
         description: "No hay URL de slides disponible para descargar.",
@@ -109,7 +127,7 @@ const PlatformPreview = ({
 
     setIsDownloading(true);
     try {
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(content.slidesURL, topic);
+      const { data, error } = await contentService.downloadSlidesWithUserWebhook(safeContent.slidesURL, topic);
       
       if (error) {
         throw error;
@@ -190,7 +208,7 @@ const PlatformPreview = ({
 
       if (result.imageURL) {
         const updatedContent = {
-          ...content,
+          ...safeContent,
           images: [result.imageURL]
         };
         
@@ -224,10 +242,10 @@ const PlatformPreview = ({
       return slideImages[0];
     }
 
-    const imageUrl = content.images && content.images.length > 0 ? content.images[0] : '';
+    const imageUrl = safeContent.images && safeContent.images.length > 0 ? safeContent.images[0] : '';
     
     console.log('Image URL from content:', imageUrl);
-    console.log('Content images array:', content.images);
+    console.log('Content images array:', safeContent.images);
 
     if (imageUrl && 
         typeof imageUrl === 'string' && 
@@ -245,7 +263,7 @@ const PlatformPreview = ({
   if (platform === 'wordpress') {
     return (
       <WordPressPreview
-        content={content}
+        content={safeContent}
         status={status}
         contentType={contentType}
         onUpdateContent={onUpdateContent}
@@ -265,7 +283,7 @@ const PlatformPreview = ({
 
   console.log('Preview image determined:', previewImage);
   console.log('Is slide post:', isSlidePost);
-  console.log('Has slides URL:', !!content.slidesURL);
+  console.log('Has slides URL:', !!safeContent.slidesURL);
   console.log('Has slide images:', hasSlideImages);
 
   return (
@@ -275,7 +293,7 @@ const PlatformPreview = ({
           <PlatformHeader
             platform={platform}
             isSlidePost={isSlidePost}
-            hasSlidesURL={!!content.slidesURL}
+            hasSlidesURL={!!safeContent.slidesURL}
             canGenerateImage={canGenerateImage}
             isDownloading={isDownloading}
             isGeneratingImage={isGeneratingImage}
@@ -289,7 +307,7 @@ const PlatformPreview = ({
         
         <CardContent className="pt-0 space-y-3">
           <SlidePreview
-            slidesURL={content.slidesURL}
+            slidesURL={safeContent.slidesURL}
             slideImages={slideImages}
             isSlidePost={isSlidePost}
             hasSlideImages={hasSlideImages}
@@ -300,7 +318,7 @@ const PlatformPreview = ({
           {/* Content Preview */}
           <div className="space-y-2">
             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-              {truncateText(content.text)}
+              {truncateText(safeContent.text)}
             </p>
           </div>
 
@@ -311,7 +329,7 @@ const PlatformPreview = ({
             canGenerateImage={canGenerateImage}
             isGeneratingImage={isGeneratingImage}
             isSlidePost={isSlidePost}
-            hasSlidesURL={!!content.slidesURL}
+            hasSlidesURL={!!safeContent.slidesURL}
             hasSlideImages={hasSlideImages}
             isDownloading={isDownloading}
             onGenerateImage={handleGenerateImage}
@@ -320,7 +338,7 @@ const PlatformPreview = ({
           />
 
           <PublishInfo
-            publishDate={content.publishDate}
+            publishDate={safeContent.publishDate}
             status={status}
             publishedLink={publishedLink}
             entryId={entryId}
@@ -337,7 +355,7 @@ const PlatformPreview = ({
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           platform={platform}
-          content={content}
+          content={safeContent}
           contentType={contentType}
           onSave={onUpdateContent}
           entryId={entryId || ''}
