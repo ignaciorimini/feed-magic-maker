@@ -71,19 +71,29 @@ export const contentService = {
         let slidesUrl = null;
 
         if (entryData.generatedContent) {
+          // Handle both array and object responses from webhook
+          let webhookContent = entryData.generatedContent;
+          
+          // If it's an array, take the first element
+          if (Array.isArray(webhookContent) && webhookContent.length > 0) {
+            webhookContent = webhookContent[0];
+          }
+
+          console.log('Processing webhook content:', webhookContent);
+
           // Map webhook response fields to platform text
           switch (platformKey) {
             case 'instagram':
-              platformText = entryData.generatedContent.instagramContent || '';
+              platformText = webhookContent.instagramContent || '';
               break;
             case 'linkedin':
-              platformText = entryData.generatedContent.linkedinContent || '';
+              platformText = webhookContent.linkedinContent || '';
               break;
             case 'twitter':
-              platformText = entryData.generatedContent.twitterContent || '';
+              platformText = webhookContent.twitterContent || '';
               break;
             case 'wordpress':
-              platformText = entryData.generatedContent.wordpressContent || '';
+              platformText = webhookContent.wordpressContent || '';
               break;
           }
 
@@ -93,10 +103,10 @@ export const contentService = {
           }
 
           // Map slides URL
-          slidesUrl = entryData.generatedContent.slidesURL || null;
+          slidesUrl = webhookContent.slidesURL || null;
         }
 
-        console.log(`Platform ${platformKey}: text="${platformText}", status="${platformStatus}"`);
+        console.log(`Platform ${platformKey}: text="${platformText.substring(0, 50)}...", status="${platformStatus}"`);
 
         return {
           content_entry_id: entry.id,
