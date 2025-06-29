@@ -14,6 +14,8 @@ import MetaIntegration from './MetaIntegration';
 import LinkedInIntegration from './LinkedInIntegration';
 import WordPressIntegration from './WordPressIntegration';
 
+type ServiceType = 'google' | 'meta' | 'linkedin' | 'wordpress';
+
 const IntegrationsManager = () => {
   const [credentials, setCredentials] = useState<UserCredential[]>([]);
   const [guides, setGuides] = useState<IntegrationGuide[]>([]);
@@ -21,14 +23,14 @@ const IntegrationsManager = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { user } = useAuth();
 
-  const serviceNames = {
+  const serviceNames: Record<ServiceType, string> = {
     google: 'Google Slides',
     meta: 'Meta (Instagram/Facebook)',
     linkedin: 'LinkedIn',
     wordpress: 'WordPress'
   };
 
-  const serviceIcons = {
+  const serviceIcons: Record<ServiceType, string> = {
     google: '🔍',
     meta: '📘',
     linkedin: '💼',
@@ -66,7 +68,7 @@ const IntegrationsManager = () => {
     setLoading(false);
   };
 
-  const getCredentialStatus = (service: string) => {
+  const getCredentialStatus = (service: ServiceType) => {
     const credential = credentials.find(c => c.service === service);
     
     if (!credential) {
@@ -84,7 +86,7 @@ const IntegrationsManager = () => {
     loadData();
   };
 
-  const getGuideForService = (service: string) => {
+  const getGuideForService = (service: ServiceType) => {
     return guides.find(g => g.service === service);
   };
 
@@ -119,7 +121,7 @@ const IntegrationsManager = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-4">
-            {Object.entries(serviceNames).map(([service, name]) => {
+            {(Object.entries(serviceNames) as [ServiceType, string][]).map(([service, name]) => {
               const status = getCredentialStatus(service);
               const guide = getGuideForService(service);
               
@@ -127,7 +129,7 @@ const IntegrationsManager = () => {
                 <Card key={service} className="hover:shadow-md transition-shadow">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{serviceIcons[service as keyof typeof serviceIcons]}</span>
+                      <span className="text-2xl">{serviceIcons[service]}</span>
                       <div>
                         <CardTitle className="text-lg">{name}</CardTitle>
                         <CardDescription className="max-w-md">

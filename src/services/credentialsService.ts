@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface UserCredential {
   id: string;
   user_id: string;
-  service: 'google' | 'meta' | 'wordpress' | 'linkedin';
-  credential_type: 'oauth' | 'api_key' | 'username_password';
+  service: string; // Changed from union type to string for flexibility
+  credential_type: string; // Changed from union type to string for flexibility
   access_token?: string;
   refresh_token?: string;
   client_id?: string;
@@ -17,7 +17,7 @@ export interface UserCredential {
 
 export interface IntegrationGuide {
   id: string;
-  service: 'google' | 'meta' | 'wordpress' | 'linkedin';
+  service: string; // Changed from union type to string for flexibility
   video_url?: string;
   description?: string;
   created_at: string;
