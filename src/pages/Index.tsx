@@ -11,6 +11,7 @@ import { contentService, ContentEntry } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
 import IntegrationsManager from '@/components/integrations/IntegrationsManager';
+import { checkAndLogRLSPolicies } from '@/utils/checkRLSPolicies';
 
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
@@ -35,6 +36,9 @@ const Index = () => {
   useEffect(() => {
     const checkProfile = async () => {
       if (user) {
+        // Check RLS policies for debugging
+        await checkAndLogRLSPolicies();
+        
         const { needsSetup } = await profileService.checkProfileSetup(user.id);
         setNeedsProfileSetup(needsSetup);
         if (needsSetup) {
@@ -54,18 +58,25 @@ const Index = () => {
   const loadEntries = async () => {
     if (user && !needsProfileSetup) {
       setLoading(true);
+      console.log('=== LOADING ENTRIES ===');
+      console.log('User ID:', user.id);
+      
       const { data, error } = await contentService.getUserContentEntries();
       
       if (error) {
         console.error('Error loading entries:', error);
         toast({
           title: "Error al cargar contenido",
-          description: "No se pudo cargar tu contenido. Inténtalo nuevamente.",
+          description: `No se pudo cargar tu contenido: ${error.message || 'Error desconocido'}`,
           variant: "destructive",
         });
       } else if (data) {
         console.log('Raw entries loaded:', data);
         setEntries(data);
+        console.log('Entries set in state:', data.length, 'entries');
+      } else {
+        console.log('No data returned from contentService.getUserContentEntries()');
+        setEntries([]);
       }
       setLoading(false);
     }
@@ -151,27 +162,32 @@ const Index = () => {
   };
 
   const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
-    console.log(`Generating image for platform ${platform}:`, { platformId, topic, description });
+    console.log(`=== HANDLING GENERATE IMAGE ===`);
+    console.log(`Platform ${platform}:`, { platformId, topic, description });
     
     try {
       const { data, error } = await contentService.generateImageForPlatform(platformId, platform, topic, description);
       
       if (error) {
+        console.error('Error from generateImageForPlatform:', error);
         toast({
           title: "Error al generar imagen",
-          description: "No se pudo generar la imagen. Verifica tu webhook.",
+          description: `No se pudo generar la imagen: ${error.message || 'Verifica tu webhook'}`,
           variant: "destructive",
         });
       } else {
+        console.log('Image generated successfully:', data);
         toast({
           title: "Imagen generada exitosamente",
           description: `Se generó la imagen para ${platform}.`,
         });
         
+        // Reload entries to show the new image
+        console.log('Reloading entries to show new image...');
         await loadEntries();
       }
     } catch (error) {
-      console.error('Error generating image:', error);
+      console.error('Unexpected error generating image:', error);
       toast({
         title: "Error inesperado",
         description: "Ocurrió un error al generar la imagen.",
@@ -327,7 +343,7 @@ const Index = () => {
 
   // Transform entries for ContentCard compatibility with enhanced error checking
   const transformedEntries = entries.map(entry => {
-    console.log('Transforming entry:', entry);
+    console.log('Transforming entry:', entry.id, entry.topic);
     
     const platformContent: any = {};
     const status: any = {};
@@ -350,10 +366,15 @@ const Index = () => {
 
     entry.platforms.forEach(platform => {
       try {
+        console.log(`Processing platform ${platform.platform} for entry ${entry.id}:`, platform);
+        
         // Handle image_url from the database
         const images: string[] = [];
         if (platform.image_url && typeof platform.image_url === 'string') {
+          console.log(`Found image_url for ${platform.platform}:`, platform.image_url);
           images.push(platform.image_url);
+        } else {
+          console.log(`No image_url found for ${platform.platform}, image_url:`, platform.image_url);
         }
 
         // Safe parsing of uploaded images
@@ -462,11 +483,11 @@ const Index = () => {
       publishedLinks: entry.published_links || {}
     };
 
-    console.log('Transformed entry:', transformedEntry);
+    console.log('Transformed entry:', transformedEntry.id, transformedEntry.topic);
     return transformedEntry;
   });
 
-  console.log('Final transformed entries:', transformedEntries);
+  console.log('Final transformed entries:', transformedEntries.length);
 
   // Show loading screen while checking authentication
   if (authLoading) {

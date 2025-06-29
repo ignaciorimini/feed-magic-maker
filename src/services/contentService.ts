@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -80,6 +81,8 @@ export const contentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
+      console.log('Fetching content entries for user:', user.id);
+
       const { data: entries, error } = await supabase
         .from('content_entries')
         .select(`
@@ -99,7 +102,12 @@ export const contentService = {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error fetching entries:', error);
+        throw error;
+      }
+
+      console.log('Raw entries from database:', entries);
 
       // Transform the data to include slideImages as an array of URLs
       const transformedEntries = entries?.map(entry => ({
@@ -110,6 +118,8 @@ export const contentService = {
           uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
         }))
       })) || [];
+
+      console.log('Transformed entries:', transformedEntries);
 
       return { data: transformedEntries, error: null };
     } catch (error) {
@@ -247,7 +257,33 @@ export const contentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
-      console.log('Generating image for platform:', platformId, platform);
+      console.log('=== GENERATING IMAGE FOR PLATFORM ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform:', platform);
+      console.log('User ID:', user.id);
+
+      // First, verify the platform exists and belongs to the user
+      const { data: platformCheck, error: checkError } = await supabase
+        .from('content_platforms')
+        .select(`
+          id,
+          content_entry_id,
+          platform,
+          content_entries!inner(user_id)
+        `)
+        .eq('id', platformId)
+        .single();
+
+      if (checkError) {
+        console.error('Error checking platform:', checkError);
+        throw new Error(`Platform not found: ${checkError.message}`);
+      }
+
+      if (platformCheck.content_entries.user_id !== user.id) {
+        throw new Error('Platform does not belong to authenticated user');
+      }
+
+      console.log('Platform verified:', platformCheck);
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -296,22 +332,49 @@ export const contentService = {
       }
 
       if (!imageUrl) {
+        console.error('No imageURL in webhook response:', result);
         throw new Error('No image URL received from webhook');
       }
 
-      console.log('Updating platform with new image URL:', imageUrl);
+      console.log('=== UPDATING PLATFORM WITH IMAGE URL ===');
+      console.log('Platform ID:', platformId);
+      console.log('Image URL:', imageUrl);
       
       // Update the platform with the new image URL in the image_url field
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
           image_url: imageUrl
         })
-        .eq('id', platformId);
+        .eq('id', platformId)
+        .select('id, image_url, platform')
+        .single();
 
       if (updateError) {
         console.error('Error updating platform with image:', updateError);
         throw updateError;
+      }
+
+      console.log('Platform updated successfully:', updateData);
+
+      // Verify the update was successful by fetching the record again
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('content_platforms')
+        .select('id, image_url, platform')
+        .eq('id', platformId)
+        .single();
+
+      if (verifyError) {
+        console.error('Error verifying update:', verifyError);
+      } else {
+        console.log('Verification: Platform after update:', verifyData);
+        if (verifyData.image_url !== imageUrl) {
+          console.error('WARNING: Image URL was not saved correctly!');
+          console.error('Expected:', imageUrl);
+          console.error('Actual:', verifyData.image_url);
+        } else {
+          console.log('✅ Image URL saved correctly');
+        }
       }
 
       return { data: { imageUrl }, error: null };
