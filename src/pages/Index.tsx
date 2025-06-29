@@ -95,7 +95,7 @@ const Index = () => {
       description: entryData.description,
       type: entryData.type,
       selectedPlatforms: entryData.selectedPlatforms,
-      generatedContent: entryData.generatedContent // Add this line to pass webhook content
+      generatedContent: entryData.generatedContent
     });
 
     if (error) {
@@ -108,7 +108,6 @@ const Index = () => {
     } else if (data) {
       console.log('Content created successfully:', data);
       
-      // Reload entries from database to show the new content
       await loadEntries();
       
       setShowForm(false);
@@ -168,7 +167,6 @@ const Index = () => {
           description: `Se generó la imagen para ${platform}.`,
         });
         
-        // Reload entries to show updated image
         await loadEntries();
       }
     } catch (error) {
@@ -185,7 +183,6 @@ const Index = () => {
     console.log(`Uploading image for platform:`, { platformId, fileName: file.name });
     
     try {
-      // Convert file to base64 for storage (in a real app, you'd upload to storage)
       const reader = new FileReader();
       reader.onload = async (e) => {
         const imageUrl = e.target?.result as string;
@@ -262,7 +259,6 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
-        // Remove from local state immediately for better UX
         setEntries(prev => prev.filter(entry => entry.id !== entryId));
         
         toast({
@@ -311,7 +307,6 @@ const Index = () => {
           description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
         });
         
-        // Reload to show updated slides
         await loadEntries();
       } else {
         toast({
@@ -339,11 +334,20 @@ const Index = () => {
 
     if (!entry.platforms || !Array.isArray(entry.platforms)) {
       console.error('Entry platforms is missing or not an array:', entry);
-      return null;
+      return {
+        id: entry.id,
+        topic: entry.topic || '',
+        description: entry.description || '',
+        type: entry.type || '',
+        createdDate: new Date(entry.created_at).toLocaleDateString(),
+        status: {},
+        platformContent: {},
+        slideImages: undefined,
+        publishedLinks: entry.published_links || {}
+      };
     }
 
     entry.platforms.forEach(platform => {
-      // Combine generated and uploaded images
       const allImages = [
         ...(platform.images || []),
         ...(platform.uploadedImages || [])
@@ -355,7 +359,7 @@ const Index = () => {
         uploadedImages: platform.uploadedImages || [],
         publishDate: platform.publish_date,
         slidesURL: platform.slides_url,
-        platformId: platform.id, // NEW: Include platform ID for operations
+        platformId: platform.id,
         ...(platform.platform === 'wordpress' && {
           title: entry.topic || '',
           description: entry.description || '',
@@ -398,7 +402,7 @@ const Index = () => {
 
     console.log('Transformed entry:', transformedEntry);
     return transformedEntry;
-  }).filter(Boolean); // Remove any null entries
+  });
 
   console.log('Final transformed entries:', transformedEntries);
 
@@ -439,7 +443,6 @@ const Index = () => {
         userEmail={user?.email}
       />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {showForm ? (
           <div className="max-w-2xl mx-auto">
