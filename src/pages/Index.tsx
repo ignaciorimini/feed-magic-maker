@@ -350,25 +350,10 @@ const Index = () => {
 
     entry.platforms.forEach(platform => {
       try {
-        // Safe parsing of images from JSON string or array
-        let parsedImages: string[] = [];
-        if (platform.images) {
-          if (typeof platform.images === 'string') {
-            try {
-              const parsed = JSON.parse(platform.images);
-              parsedImages = Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              console.warn('Failed to parse images JSON for platform', platform.platform, ':', e);
-              parsedImages = [];
-            }
-          } else if (Array.isArray(platform.images)) {
-            parsedImages = platform.images;
-          }
-        }
-
-        // Include image_url from the database if it exists
+        // Handle image_url from the database
+        const images: string[] = [];
         if (platform.image_url && typeof platform.image_url === 'string') {
-          parsedImages.unshift(platform.image_url);
+          images.push(platform.image_url);
         }
 
         // Safe parsing of uploaded images
@@ -405,7 +390,7 @@ const Index = () => {
 
         // Combine all images safely
         const allImages = [
-          ...parsedImages,
+          ...images,
           ...uploadedImages
         ];
 

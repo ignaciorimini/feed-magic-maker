@@ -19,7 +19,7 @@ export interface ContentPlatform {
   platform: string;
   status: string;
   text?: string;
-  images?: string[];
+  image_url?: string;
   slides_url?: string;
   publish_date?: string;
   slideImages?: string[];
@@ -58,7 +58,6 @@ export const contentService = {
         platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
         status: 'pending' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
         text: entryData.generatedContent?.[platform]?.text || '',
-        images: JSON.stringify(entryData.generatedContent?.[platform]?.images || []),
         slides_url: entryData.generatedContent?.[platform]?.slidesURL || null,
       }));
 
@@ -90,7 +89,7 @@ export const contentService = {
             platform,
             status,
             text,
-            images,
+            image_url,
             slides_url,
             publish_date,
             slideImages:slide_images(image_url, position),
@@ -107,7 +106,6 @@ export const contentService = {
         ...entry,
         platforms: entry.platforms.map((platform: any) => ({
           ...platform,
-          images: platform.images ? JSON.parse(platform.images) : [],
           slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
           uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
         }))
@@ -126,7 +124,6 @@ export const contentService = {
         .from('content_platforms')
         .update({
           text: content.text,
-          images: JSON.stringify(content.images || []),
           slides_url: content.slidesURL,
         })
         .eq('id', platformId);
@@ -352,25 +349,6 @@ export const contentService = {
           .eq('image_url', imageUrl);
 
         if (error) throw error;
-      } else {
-        // Remove from images array in content_platforms
-        const { data: platform, error: fetchError } = await supabase
-          .from('content_platforms')
-          .select('images')
-          .eq('id', platformId)
-          .single();
-
-        if (fetchError) throw fetchError;
-
-        const currentImages = platform.images ? JSON.parse(platform.images) : [];
-        const updatedImages = currentImages.filter((img: string) => img !== imageUrl);
-
-        const { error: updateError } = await supabase
-          .from('content_platforms')
-          .update({ images: JSON.stringify(updatedImages) })
-          .eq('id', platformId);
-
-        if (updateError) throw updateError;
       }
 
       return { error: null };
