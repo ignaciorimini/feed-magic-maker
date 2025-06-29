@@ -355,17 +355,20 @@ const Index = () => {
         if (platform.images) {
           if (typeof platform.images === 'string') {
             try {
-              // Try to parse as JSON if it's a string
               const parsed = JSON.parse(platform.images);
               parsedImages = Array.isArray(parsed) ? parsed : [];
             } catch (e) {
               console.warn('Failed to parse images JSON for platform', platform.platform, ':', e);
-              // If JSON parsing fails, treat as empty array
               parsedImages = [];
             }
           } else if (Array.isArray(platform.images)) {
             parsedImages = platform.images;
           }
+        }
+
+        // Include image_url from the database if it exists
+        if (platform.image_url && typeof platform.image_url === 'string') {
+          parsedImages.unshift(platform.image_url);
         }
 
         // Safe parsing of uploaded images
@@ -447,7 +450,7 @@ const Index = () => {
         // Provide safe fallback for this platform
         platformContent[platform.platform] = {
           text: platform.text || '',
-          images: [],
+          images: platform.image_url ? [platform.image_url] : [],
           uploadedImages: [],
           publishDate: platform.publish_date,
           slidesURL: platform.slides_url,

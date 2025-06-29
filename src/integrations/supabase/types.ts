@@ -51,7 +51,7 @@ export type Database = {
           created_at: string | null
           generated_at: string | null
           id: string
-          images: string | null
+          image_url: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date: string | null
           published_at: string | null
@@ -65,7 +65,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
-          images?: string | null
+          image_url?: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null
@@ -79,7 +79,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
-          images?: string | null
+          image_url?: string | null
           platform?: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null

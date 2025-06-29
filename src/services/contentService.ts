@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -289,49 +288,36 @@ export const contentService = {
       const result = await response.json();
       console.log('Webhook response:', result);
       
-      // Handle the array response format
+      // Handle the new webhook response format: [{ "imageURL": "..." }]
+      let imageUrl = null;
+      
       if (Array.isArray(result) && result.length > 0) {
-        const responseData = result[0]?.response?.body;
-        if (responseData?.imageURL) {
-          console.log('Updating platform with new image URL:', responseData.imageURL);
-          
-          // Update the platform with the new image
-          const { error: updateError } = await supabase
-            .from('content_platforms')
-            .update({
-              images: JSON.stringify([responseData.imageURL])
-            })
-            .eq('id', platformId);
-
-          if (updateError) {
-            console.error('Error updating platform with image:', updateError);
-            throw updateError;
-          }
-
-          return { data: { imageUrl: responseData.imageURL }, error: null };
+        const firstResult = result[0];
+        if (firstResult.imageURL) {
+          imageUrl = firstResult.imageURL;
         }
       }
 
-      // Fallback for direct response format
-      if (result.imageURL) {
-        console.log('Updating platform with new image URL (direct format):', result.imageURL);
-        
-        const { error: updateError } = await supabase
-          .from('content_platforms')
-          .update({
-            images: JSON.stringify([result.imageURL])
-          })
-          .eq('id', platformId);
-
-        if (updateError) {
-          console.error('Error updating platform with image:', updateError);
-          throw updateError;
-        }
-
-        return { data: { imageUrl: result.imageURL }, error: null };
+      if (!imageUrl) {
+        throw new Error('No image URL received from webhook');
       }
 
-      throw new Error('No image URL received from webhook');
+      console.log('Updating platform with new image URL:', imageUrl);
+      
+      // Update the platform with the new image URL in the image_url field
+      const { error: updateError } = await supabase
+        .from('content_platforms')
+        .update({
+          image_url: imageUrl
+        })
+        .eq('id', platformId);
+
+      if (updateError) {
+        console.error('Error updating platform with image:', updateError);
+        throw updateError;
+      }
+
+      return { data: { imageUrl }, error: null };
     } catch (error) {
       console.error('Error generating image:', error);
       return { data: null, error };
