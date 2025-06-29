@@ -53,11 +53,11 @@ export const contentService = {
 
       if (entryError) throw entryError;
 
-      // Create platform entries
+      // Create platform entries with proper type casting
       const platformsData = entryData.selectedPlatforms.map(platform => ({
         content_entry_id: entry.id,
-        platform: platform,
-        status: 'pending',
+        platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
+        status: 'pending' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
         text: entryData.generatedContent?.[platform]?.text || '',
         images: entryData.generatedContent?.[platform]?.images || [],
         slides_url: entryData.generatedContent?.[platform]?.slidesURL || null,
@@ -334,6 +334,73 @@ export const contentService = {
     } catch (error) {
       console.error('Error deleting image:', error);
       return { error };
+    }
+  },
+
+  async saveSlideImages(platformId: string, slideImages: string[]) {
+    try {
+      // First, delete existing slide images for this platform
+      await supabase
+        .from('slide_images')
+        .delete()
+        .eq('content_platform_id', platformId);
+
+      // Insert new slide images
+      const slideImagesData = slideImages.map((imageUrl, index) => ({
+        content_platform_id: platformId,
+        image_url: imageUrl,
+        position: index
+      }));
+
+      const { error } = await supabase
+        .from('slide_images')
+        .insert(slideImagesData);
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('Error saving slide images:', error);
+      return { error };
+    }
+  },
+
+  async publishContent(platformId: string, platform: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook URL not configured');
+      }
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'publish_content',
+          platformId: platformId,
+          platform: platform,
+          userEmail: user.email
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Error publishing content:', error);
+      return { data: null, error };
     }
   }
 };
