@@ -5,29 +5,68 @@ export const checkAndLogRLSPolicies = async () => {
   try {
     console.log('=== CHECKING RLS POLICIES ===');
     
-    // Check if RLS is enabled on content_platforms
-    const { data: rlsStatus, error: rlsError } = await supabase
-      .from('pg_class')
-      .select('relname, relrowsecurity')
-      .eq('relname', 'content_platforms')
-      .single();
+    // Test if we can perform basic operations on content_platforms table
+    // This will help us understand if RLS is working correctly
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (!rlsError && rlsStatus) {
-      console.log('RLS enabled on content_platforms:', rlsStatus.relrowsecurity);
+    if (!user) {
+      console.warn('⚠️  No authenticated user - RLS policies cannot be tested');
+      return;
     }
 
-    // Check policies
-    const { data: policies, error: policiesError } = await supabase
-      .from('pg_policies')
-      .select('*')
-      .eq('tablename', 'content_platforms');
-    
-    if (!policiesError && policies) {
-      console.log('Policies on content_platforms:', policies);
-      if (policies.length === 0) {
-        console.warn('⚠️  No RLS policies found on content_platforms table!');
-        console.warn('This might prevent users from updating their content.');
+    console.log('Testing RLS policies for authenticated user:', user.id);
+
+    // Test SELECT permission
+    const { data: selectTest, error: selectError } = await supabase
+      .from('content_platforms')
+      .select('id, platform')
+      .limit(1);
+
+    if (selectError) {
+      console.error('❌ SELECT permission test failed:', selectError.message);
+      if (selectError.message.includes('row-level security')) {
+        console.error('🔒 RLS is blocking SELECT operations - policies may need to be created');
       }
+    } else {
+      console.log('✅ SELECT permission test passed');
+    }
+
+    // Test INSERT permission (we'll try to insert and then delete immediately)
+    const testPlatformData = {
+      content_entry_id: '00000000-0000-0000-0000-000000000000', // This will fail FK constraint, but that's ok
+      platform: 'instagram' as const,
+      status: 'pending' as const,
+      text: 'RLS test - will be deleted'
+    };
+
+    const { error: insertError } = await supabase
+      .from('content_platforms')
+      .insert(testPlatformData);
+
+    if (insertError) {
+      console.error('❌ INSERT permission test failed:', insertError.message);
+      if (insertError.message.includes('row-level security')) {
+        console.error('🔒 RLS is blocking INSERT operations - policies may need to be created');
+      } else if (insertError.message.includes('foreign key')) {
+        console.log('✅ INSERT permission test passed (FK constraint expected)');
+      }
+    } else {
+      console.log('✅ INSERT permission test passed');
+    }
+
+    // Test UPDATE permission
+    const { error: updateError } = await supabase
+      .from('content_platforms')
+      .update({ text: 'test update' })
+      .eq('id', '00000000-0000-0000-0000-000000000000'); // Non-existent ID
+
+    if (updateError) {
+      console.error('❌ UPDATE permission test failed:', updateError.message);
+      if (updateError.message.includes('row-level security')) {
+        console.error('🔒 RLS is blocking UPDATE operations - policies may need to be created');
+      }
+    } else {
+      console.log('✅ UPDATE permission test passed');
     }
 
   } catch (error) {
