@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -123,7 +122,6 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     }
   };
 
-  // FIXED: Function to generate image with proper type handling
   const handleGenerateImage = async () => {
     if (!user || !localEntry.id) {
       toast({
@@ -172,16 +170,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
       const result = await response.json();
       console.log("Respuesta de generación de imagen:", result);
 
-      // FIXED: Ensure imageURL is a string before using it
       if (result.imageURL && typeof result.imageURL === 'string') {
-        // Save the image to the database using contentService
-        const { error: updateImageError } = await contentService.updateImageUrl(localEntry.id, result.imageURL);
-        
-        if (updateImageError) {
-          console.error('Error updating image in database:', updateImageError);
-          throw new Error('Error guardando la imagen en la base de datos');
-        }
-
         // Update local state to reflect the new image
         setLocalEntry(prev => ({
           ...prev,
@@ -215,7 +204,6 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     }
   };
 
-  // FIXED: Correct the displayImage logic to ensure it's always a string or null
   const getValidImageUrl = (imageUrl: string | undefined): string | null => {
     if (imageUrl && imageUrl !== "/placeholder.svg") {
       return imageUrl;
@@ -367,7 +355,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 </div>
               )}
 
-              {/* Single Image - FIXED: Use imageUrl from database first */}
+              {/* Single Image */}
               {(!isSlidePost || !hasSlides) && (
                 <div className="flex-1">
                   <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">

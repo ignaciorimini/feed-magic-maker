@@ -14,6 +14,9 @@ interface DashboardContentProps {
   onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
   onDeleteEntry: (entryId: string) => void;
   onDownloadSlides: (entryId: string, slidesURL: string) => void;
+  onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
+  onUploadImage: (platformId: string, file: File) => void;
+  onDeleteImage: (platformId: string, imageUrl: string, isUploaded: boolean) => void;
 }
 
 const DashboardContent = ({
@@ -23,7 +26,10 @@ const DashboardContent = ({
   onNewContent,
   onUpdateContent,
   onDeleteEntry,
-  onDownloadSlides
+  onDownloadSlides,
+  onGenerateImage,
+  onUploadImage,
+  onDeleteImage
 }: DashboardContentProps) => {
   // Transform entries to create individual platform cards only for platforms that have content
   const platformCards = entries.flatMap(entry => {

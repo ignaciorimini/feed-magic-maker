@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -15,11 +14,13 @@ interface PlatformPreviewProps {
   content: {
     text: string;
     images: string[];
+    uploadedImages?: string[];
     publishDate?: string;
     title?: string;
     description?: string;
     slug?: string;
     slidesURL?: string;
+    platformId?: string;
   };
   status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
@@ -69,11 +70,13 @@ const PlatformPreview = ({
   const safeContent = {
     text: content.text || '',
     images: content.images || [],
+    uploadedImages: content.uploadedImages || [],
     publishDate: content.publishDate,
     title: content.title,
     description: content.description,
     slug: content.slug,
-    slidesURL: content.slidesURL
+    slidesURL: content.slidesURL,
+    platformId: content.platformId || platformId
   };
 
   useEffect(() => {
@@ -160,7 +163,7 @@ const PlatformPreview = ({
   };
 
   const handleGenerateImage = async () => {
-    if (!user || !entryId) {
+    if (!user || !safeContent.platformId || !topic) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -171,65 +174,115 @@ const PlatformPreview = ({
 
     setIsGeneratingImage(true);
     try {
-      console.log("Obteniendo webhook del perfil del usuario para generar imagen...");
+      const { data, error } = await contentService.generateImageForPlatform(
+        safeContent.platformId,
+        platform,
+        topic,
+        safeContent.description || ''
+      );
       
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      
-      if (profileError || !profile?.webhook_url) {
-        toast({
-          title: "Webhook no configurado",
-          description: "Debes configurar tu webhook URL en el perfil para generar imágenes.",
-          variant: "destructive",
-        });
-        return;
+      if (error) {
+        throw error;
       }
 
-      console.log("Enviando solicitud de generación de imagen al webhook:", profile.webhook_url);
-      
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'generate_image',
-          topic: topic,
-          platform: platform,
-          userEmail: user.email
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Respuesta de generación de imagen:", result);
-
-      if (result.imageURL) {
-        const updatedContent = {
-          ...safeContent,
-          images: [result.imageURL]
-        };
-        
-        await onUpdateContent(updatedContent);
-        
+      if (data?.imageUrl) {
         toast({
           title: "¡Imagen generada exitosamente!",
           description: "La imagen ha sido generada y actualizada.",
         });
-      } else {
-        throw new Error("No se recibió una URL de imagen válida");
+        
+        // Reload to show updated content
+        window.location.reload();
       }
     } catch (error) {
       console.error('Error al generar imagen:', error);
       toast({
         title: "Error al generar imagen",
-        description: "Hubo un problema al generar la imagen. Inténtalo nuevamente.",
+        description: "Hubo un problema al generar la imagen. Verifica tu webhook.",
         variant: "destructive",
       });
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const handleUploadImage = async (file: File) => {
+    if (!safeContent.platformId) {
+      toast({
+        title: "Error",
+        description: "No se puede subir la imagen en este momento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string;
+        
+        const { error } = await contentService.uploadCustomImage(safeContent.platformId!, imageUrl);
+        
+        if (error) {
+          toast({
+            title: "Error al subir imagen",
+            description: "No se pudo subir la imagen personalizada.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Imagen subida exitosamente",
+            description: "Tu imagen personalizada se ha guardado.",
+          });
+          
+          window.location.reload();
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al subir la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteImage = async (imageUrl: string, isUploaded: boolean) => {
+    if (!safeContent.platformId) {
+      toast({
+        title: "Error",
+        description: "No se puede eliminar la imagen en este momento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await contentService.deleteImageFromPlatform(safeContent.platformId, imageUrl, isUploaded);
+      
+      if (error) {
+        toast({
+          title: "Error al eliminar imagen",
+          description: "No se pudo eliminar la imagen.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Imagen eliminada",
+          description: "La imagen ha sido eliminada exitosamente.",
+        });
+        
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al eliminar la imagen.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -238,25 +291,19 @@ const PlatformPreview = ({
     const hasSlideImages = slideImages && slideImages.length > 0;
 
     if (isSlidePost && hasSlideImages) {
-      console.log('Using slide image:', slideImages[0]);
       return slideImages[0];
     }
 
     const imageUrl = safeContent.images && safeContent.images.length > 0 ? safeContent.images[0] : '';
     
-    console.log('Image URL from content:', imageUrl);
-    console.log('Content images array:', safeContent.images);
-
     if (imageUrl && 
         typeof imageUrl === 'string' && 
         imageUrl.trim() !== '' &&
         !imageUrl.includes('/placeholder.svg') && 
         !imageUrl.includes('placeholder')) {
-      console.log('Using valid image URL:', imageUrl);
       return imageUrl;
     }
     
-    console.log('No valid image found, returning empty string');
     return '';
   };
 
@@ -281,17 +328,15 @@ const PlatformPreview = ({
   const hasImage = previewImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage;
 
-  console.log('Preview image determined:', previewImage);
-  console.log('Is slide post:', isSlidePost);
-  console.log('Has slides URL:', !!safeContent.slidesURL);
-  console.log('Has slide images:', hasSlideImages);
-
   return (
     <>
       <Card className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
         <CardHeader className="pb-2">
           <PlatformHeader
             platform={platform}
+            platformId={safeContent.platformId || ''}
+            topic={topic || ''}
+            description={safeContent.description || ''}
             isSlidePost={isSlidePost}
             hasSlidesURL={!!safeContent.slidesURL}
             canGenerateImage={canGenerateImage}
@@ -322,9 +367,10 @@ const PlatformPreview = ({
             </p>
           </div>
 
-          {/* Image Preview - Updated to handle Slide Posts better */}
+          {/* Image Preview */}
           <ImagePreview
             previewImage={previewImage}
+            uploadedImages={safeContent.uploadedImages}
             imageError={imageError}
             canGenerateImage={canGenerateImage}
             isGeneratingImage={isGeneratingImage}
@@ -332,9 +378,15 @@ const PlatformPreview = ({
             hasSlidesURL={!!safeContent.slidesURL}
             hasSlideImages={hasSlideImages}
             isDownloading={isDownloading}
+            platform={platform}
+            platformId={safeContent.platformId || ''}
+            topic={topic || ''}
+            description={safeContent.description || ''}
             onGenerateImage={handleGenerateImage}
             onImageError={() => setImageError(true)}
             onDownloadSlides={handleDownloadSlides}
+            onUploadImage={handleUploadImage}
+            onDeleteImage={handleDeleteImage}
           />
 
           <PublishInfo
