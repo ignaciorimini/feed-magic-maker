@@ -349,43 +349,116 @@ const Index = () => {
     }
 
     entry.platforms.forEach(platform => {
-      const allImages = [
-        ...(platform.images || []),
-        ...(platform.uploadedImages || [])
-      ];
+      try {
+        // Safe parsing of images from JSON string or array
+        let parsedImages: string[] = [];
+        if (platform.images) {
+          if (typeof platform.images === 'string') {
+            try {
+              // Try to parse as JSON if it's a string
+              const parsed = JSON.parse(platform.images);
+              parsedImages = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              console.warn('Failed to parse images JSON for platform', platform.platform, ':', e);
+              // If JSON parsing fails, treat as empty array
+              parsedImages = [];
+            }
+          } else if (Array.isArray(platform.images)) {
+            parsedImages = platform.images;
+          }
+        }
 
-      const safeContent = {
-        text: platform.text || '',
-        images: allImages,
-        uploadedImages: platform.uploadedImages || [],
-        publishDate: platform.publish_date,
-        slidesURL: platform.slides_url,
-        platformId: platform.id,
-        ...(platform.platform === 'wordpress' && {
-          title: entry.topic || '',
-          description: entry.description || '',
-          slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
-        })
-      };
+        // Safe parsing of uploaded images
+        let uploadedImages: string[] = [];
+        if (platform.uploadedImages) {
+          if (typeof platform.uploadedImages === 'string') {
+            try {
+              const parsed = JSON.parse(platform.uploadedImages);
+              uploadedImages = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              console.warn('Failed to parse uploadedImages JSON for platform', platform.platform, ':', e);
+              uploadedImages = [];
+            }
+          } else if (Array.isArray(platform.uploadedImages)) {
+            uploadedImages = platform.uploadedImages;
+          }
+        }
 
-      platformContent[platform.platform] = safeContent;
-      console.log(`Platform content for ${platform.platform}:`, safeContent);
+        // Safe parsing of slide images
+        let slideImagesArray: string[] = [];
+        if (platform.slideImages) {
+          if (typeof platform.slideImages === 'string') {
+            try {
+              const parsed = JSON.parse(platform.slideImages);
+              slideImagesArray = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              console.warn('Failed to parse slideImages JSON for platform', platform.platform, ':', e);
+              slideImagesArray = [];
+            }
+          } else if (Array.isArray(platform.slideImages)) {
+            slideImagesArray = platform.slideImages;
+          }
+        }
 
-      switch (platform.status) {
-        case 'published':
-          status[platform.platform] = 'published';
-          break;
-        case 'pending':
-        case 'generated':
-        case 'edited':
-        case 'scheduled':
-        default:
-          status[platform.platform] = 'pending';
-          break;
-      }
+        // Combine all images safely
+        const allImages = [
+          ...parsedImages,
+          ...uploadedImages
+        ];
 
-      if (platform.slideImages && platform.slideImages.length > 0) {
-        slideImages.push(...platform.slideImages);
+        const safeContent = {
+          text: platform.text || '',
+          images: allImages,
+          uploadedImages: uploadedImages,
+          publishDate: platform.publish_date,
+          slidesURL: platform.slides_url,
+          platformId: platform.id,
+          ...(platform.platform === 'wordpress' && {
+            title: entry.topic || '',
+            description: entry.description || '',
+            slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
+          })
+        };
+
+        platformContent[platform.platform] = safeContent;
+        console.log(`Platform content for ${platform.platform}:`, safeContent);
+
+        // Set status safely
+        switch (platform.status) {
+          case 'published':
+            status[platform.platform] = 'published';
+            break;
+          case 'pending':
+          case 'generated':
+          case 'edited':
+          case 'scheduled':
+          default:
+            status[platform.platform] = 'pending';
+            break;
+        }
+
+        // Add slide images to the main slideImages array
+        if (slideImagesArray.length > 0) {
+          slideImages.push(...slideImagesArray);
+        }
+
+      } catch (error) {
+        console.error('Error transforming platform data for', platform.platform, ':', error);
+        // Provide safe fallback for this platform
+        platformContent[platform.platform] = {
+          text: platform.text || '',
+          images: [],
+          uploadedImages: [],
+          publishDate: platform.publish_date,
+          slidesURL: platform.slides_url,
+          platformId: platform.id,
+          ...(platform.platform === 'wordpress' && {
+            title: entry.topic || '',
+            description: entry.description || '',
+            slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
+          })
+        };
+        status[platform.platform] = 'pending';
       }
     });
 
