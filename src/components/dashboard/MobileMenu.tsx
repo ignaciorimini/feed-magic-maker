@@ -1,106 +1,61 @@
 
-import { X, BarChart3, Calendar, Plus, Settings, User, LogOut } from 'lucide-react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Plus, Calendar, BarChart3, Link } from 'lucide-react';
 
 interface MobileMenuProps {
   isOpen: boolean;
-  onClose: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onNewContent: () => void;
-  onProfileSetup: () => void;
-  onSignOut: () => void;
-  userEmail?: string;
+  onClose: () => void;
 }
 
-const MobileMenu = ({
-  isOpen,
-  onClose,
-  activeTab,
-  setActiveTab,
-  onNewContent,
-  onProfileSetup,
-  onSignOut,
-  userEmail
-}: MobileMenuProps) => {
-  if (!isOpen) return null;
-
-  const handleMenuAction = (action: () => void) => {
-    action();
+const MobileMenu = ({ isOpen, activeTab, setActiveTab, onNewContent, onClose }: MobileMenuProps) => {
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
     onClose();
   };
 
+  const handleNewContent = () => {
+    onNewContent();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] md:hidden">
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
-        onClick={onClose} 
-      />
-      <div className="fixed right-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl border-l border-gray-200">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Menú</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-        <div className="p-6 space-y-4">
-          <Button
-            variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
-            onClick={() => handleMenuAction(() => setActiveTab('dashboard'))}
-            className="w-full justify-start h-12 text-left"
-          >
-            <BarChart3 className="w-5 h-5 mr-3" />
-            Dashboard
-          </Button>
-          <Button
-            variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-            onClick={() => handleMenuAction(() => setActiveTab('calendar'))}
-            className="w-full justify-start h-12 text-left"
-          >
-            <Calendar className="w-5 h-5 mr-3" />
-            Calendario
-          </Button>
-          <Button
-            onClick={() => handleMenuAction(onNewContent)}
-            className="w-full justify-start h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
-          >
-            <Plus className="w-5 h-5 mr-3" />
-            Nuevo Contenido
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => handleMenuAction(onProfileSetup)}
-            className="w-full justify-start h-12 hover:bg-gray-100"
-          >
-            <Settings className="w-5 h-5 mr-3" />
-            Configuración
-          </Button>
-          
-          <div className="border-t border-gray-200 pt-6 mt-6">
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-gray-600 to-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">{userEmail}</p>
-                <p className="text-xs text-gray-500">Usuario</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={() => handleMenuAction(onSignOut)}
-              className="w-full justify-start h-12 text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Cerrar Sesión
-            </Button>
-          </div>
-        </div>
+    <div className="md:hidden bg-white border-t border-gray-200">
+      <div className="px-4 py-4 space-y-2">
+        <Button
+          variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+          onClick={() => handleTabChange('dashboard')}
+          className="w-full justify-start"
+        >
+          <BarChart3 className="w-4 h-4 mr-2" />
+          Dashboard
+        </Button>
+        <Button
+          variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+          onClick={() => handleTabChange('calendar')}
+          className="w-full justify-start"
+        >
+          <Calendar className="w-4 h-4 mr-2" />
+          Calendario
+        </Button>
+        <Button
+          variant={activeTab === 'integrations' ? 'default' : 'ghost'}
+          onClick={() => handleTabChange('integrations')}
+          className="w-full justify-start"
+        >
+          <Link className="w-4 h-4 mr-2" />
+          Integraciones
+        </Button>
+        <hr className="my-2" />
+        <Button onClick={handleNewContent} className="w-full justify-start">
+          <Plus className="w-4 h-4 mr-2" />
+          Nuevo Contenido
+        </Button>
       </div>
     </div>
   );

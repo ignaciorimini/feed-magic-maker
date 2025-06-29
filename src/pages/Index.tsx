@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { contentService, ContentEntry } from '@/services/contentService';
 import { profileService } from '@/services/profileService';
 import { toast } from '@/hooks/use-toast';
+import IntegrationsManager from '@/components/integrations/IntegrationsManager';
 
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
@@ -454,6 +455,10 @@ const Index = () => {
         ) : activeTab === 'calendar' ? (
           <div className="space-y-6 sm:space-y-8">
             <CalendarView entries={transformedEntries} />
+          </div>
+        ) : activeTab === 'integrations' ? (
+          <div className="space-y-6 sm:space-y-8">
+            <IntegrationsManager />
           </div>
         ) : (
           <DashboardContent

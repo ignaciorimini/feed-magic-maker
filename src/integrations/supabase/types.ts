@@ -98,6 +98,33 @@ export type Database = {
           },
         ]
       }
+      integration_guides: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          service: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          service: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          service?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           brand_guidelines: Json | null
@@ -188,6 +215,56 @@ export type Database = {
             columns: ["content_platform_id"]
             isOneToOne: false
             referencedRelation: "content_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_credentials: {
+        Row: {
+          access_token: string | null
+          client_id: string | null
+          client_secret: string | null
+          created_at: string
+          credential_type: string
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          service: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          credential_type: string
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          service: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          credential_type?: string
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          service?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_credentials_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
