@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -207,8 +208,8 @@ const PlatformPreview = ({
     }
   };
 
-  const handleUploadImage = async (file: File) => {
-    if (!safeContent.platformId) {
+  const handleUploadImage = async (platformId: string, file: File) => {
+    if (!platformId) {
       toast({
         title: "Error",
         description: "No se puede subir la imagen en este momento.",
@@ -222,7 +223,7 @@ const PlatformPreview = ({
       reader.onload = async (e) => {
         const imageUrl = e.target?.result as string;
         
-        const { error } = await contentService.uploadCustomImage(safeContent.platformId!, imageUrl);
+        const { error } = await contentService.uploadCustomImage(platformId, imageUrl);
         
         if (error) {
           toast({
@@ -250,8 +251,8 @@ const PlatformPreview = ({
     }
   };
 
-  const handleDeleteImage = async (imageUrl: string, isUploaded: boolean) => {
-    if (!safeContent.platformId) {
+  const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
+    if (!platformId) {
       toast({
         title: "Error",
         description: "No se puede eliminar la imagen en este momento.",
@@ -261,7 +262,7 @@ const PlatformPreview = ({
     }
 
     try {
-      const { error } = await contentService.deleteImageFromPlatform(safeContent.platformId, imageUrl, isUploaded);
+      const { error } = await contentService.deleteImageFromPlatform(platformId, imageUrl, isUploaded);
       
       if (error) {
         toast({
@@ -421,3 +422,4 @@ const PlatformPreview = ({
 };
 
 export default PlatformPreview;
+
