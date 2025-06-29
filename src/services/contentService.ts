@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -141,23 +140,32 @@ export const contentService = {
 
   async deleteContentEntry(entryId: string) {
     try {
+      console.log('Deleting content entry with ID:', entryId);
+      
       // Get all platforms for this entry
       const { data: platforms, error: platformsError } = await supabase
         .from('content_platforms')
         .select('id')
         .eq('content_entry_id', entryId);
 
-      if (platformsError) throw platformsError;
+      if (platformsError) {
+        console.error('Error fetching platforms for deletion:', platformsError);
+        throw platformsError;
+      }
+
+      console.log('Found platforms to delete:', platforms);
 
       // Delete slide images for all platforms
       if (platforms && platforms.length > 0) {
         const platformIds = platforms.map(p => p.id);
         
+        console.log('Deleting slide images for platforms:', platformIds);
         await supabase
           .from('slide_images')
           .delete()
           .in('content_platform_id', platformIds);
 
+        console.log('Deleting uploaded images for platforms:', platformIds);
         await supabase
           .from('uploaded_images')
           .delete()
@@ -165,21 +173,30 @@ export const contentService = {
       }
 
       // Delete all platforms for this entry
+      console.log('Deleting platforms for entry:', entryId);
       const { error: deletePlatformsError } = await supabase
         .from('content_platforms')
         .delete()
         .eq('content_entry_id', entryId);
 
-      if (deletePlatformsError) throw deletePlatformsError;
+      if (deletePlatformsError) {
+        console.error('Error deleting platforms:', deletePlatformsError);
+        throw deletePlatformsError;
+      }
 
       // Delete the main entry
+      console.log('Deleting main entry:', entryId);
       const { error: deleteEntryError } = await supabase
         .from('content_entries')
         .delete()
         .eq('id', entryId);
 
-      if (deleteEntryError) throw deleteEntryError;
+      if (deleteEntryError) {
+        console.error('Error deleting main entry:', deleteEntryError);
+        throw deleteEntryError;
+      }
 
+      console.log('Successfully deleted content entry:', entryId);
       return { error: null };
     } catch (error) {
       console.error('Error deleting content entry:', error);
@@ -232,6 +249,8 @@ export const contentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
+      console.log('Generating image for platform:', platformId, platform);
+
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('webhook_url')
@@ -242,19 +261,23 @@ export const contentService = {
         throw new Error('Webhook URL not configured');
       }
 
+      const webhookPayload = {
+        action: 'generate_image',
+        platform: platform,
+        platformId: platformId,
+        topic: topic,
+        description: description,
+        userEmail: user.email
+      };
+
+      console.log('Sending webhook payload:', webhookPayload);
+
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'generate_image',
-          platform: platform,
-          platformId: platformId,
-          topic: topic,
-          description: description,
-          userEmail: user.email
-        }),
+        body: JSON.stringify(webhookPayload),
       });
 
       if (!response.ok) {
@@ -262,20 +285,51 @@ export const contentService = {
       }
 
       const result = await response.json();
+      console.log('Webhook response:', result);
       
-      if (result.imageUrl) {
-        // Update the platform with the new image
+      // Handle the array response format
+      if (Array.isArray(result) && result.length > 0) {
+        const responseData = result[0]?.response?.body;
+        if (responseData?.imageURL) {
+          console.log('Updating platform with new image URL:', responseData.imageURL);
+          
+          // Update the platform with the new image
+          const { error: updateError } = await supabase
+            .from('content_platforms')
+            .update({
+              images: [responseData.imageURL]
+            })
+            .eq('id', platformId);
+
+          if (updateError) {
+            console.error('Error updating platform with image:', updateError);
+            throw updateError;
+          }
+
+          return { data: { imageUrl: responseData.imageURL }, error: null };
+        }
+      }
+
+      // Fallback for direct response format
+      if (result.imageURL) {
+        console.log('Updating platform with new image URL (direct format):', result.imageURL);
+        
         const { error: updateError } = await supabase
           .from('content_platforms')
           .update({
-            images: [result.imageUrl]
+            images: [result.imageURL]
           })
           .eq('id', platformId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Error updating platform with image:', updateError);
+          throw updateError;
+        }
+
+        return { data: { imageUrl: result.imageURL }, error: null };
       }
 
-      return { data: result, error: null };
+      throw new Error('No image URL received from webhook');
     } catch (error) {
       console.error('Error generating image:', error);
       return { data: null, error };

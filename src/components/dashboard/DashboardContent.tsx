@@ -70,9 +70,9 @@ const DashboardContent = ({
   };
 
   const handleDeleteEntry = (entryId: string, platform: string) => {
-    // Extract the original entry ID (remove platform suffix)
-    const originalEntryId = entryId.split('-')[0];
-    console.log('Deleting entry:', originalEntryId);
+    // Extract the original entry ID (remove platform suffix if present)
+    const originalEntryId = entryId.includes('-') ? entryId.split('-')[0] : entryId;
+    console.log('Attempting to delete entry with ID:', originalEntryId, 'from entryId:', entryId);
     onDeleteEntry(originalEntryId);
   };
 

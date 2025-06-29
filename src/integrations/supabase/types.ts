@@ -15,7 +15,6 @@ export type Database = {
           created_date: string
           description: string | null
           id: string
-          image_url: string | null
           published_links: Json | null
           topic: string
           type: string
@@ -27,7 +26,6 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
-          image_url?: string | null
           published_links?: Json | null
           topic: string
           type: string
@@ -39,7 +37,6 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
-          image_url?: string | null
           published_links?: Json | null
           topic?: string
           type?: string
@@ -54,7 +51,7 @@ export type Database = {
           created_at: string | null
           generated_at: string | null
           id: string
-          images: string[] | null
+          images: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date: string | null
           published_at: string | null
@@ -68,7 +65,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
-          images?: string[] | null
+          images?: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null
@@ -82,7 +79,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
-          images?: string[] | null
+          images?: string | null
           platform?: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null
