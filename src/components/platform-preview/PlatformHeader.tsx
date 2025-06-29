@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge';
 
 interface PlatformHeaderProps {
   platform: 'instagram' | 'linkedin' | 'wordpress';
+  platformId: string;
+  topic: string;
+  description: string;
   isSlidePost: boolean;
   hasSlidesURL: boolean;
   canGenerateImage: boolean;
@@ -14,11 +17,14 @@ interface PlatformHeaderProps {
   publishedLink?: string;
   onEdit: () => void;
   onDownloadSlides: () => void;
-  onGenerateImage: () => void;
+  onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
 }
 
 const PlatformHeader = ({
   platform,
+  platformId,
+  topic,
+  description,
   isSlidePost,
   hasSlidesURL,
   canGenerateImage,
@@ -48,14 +54,14 @@ const PlatformHeader = ({
 
   return (
     <div className="space-y-2">
-      {/* FIXED: Botones de configuración arriba */}
+      {/* Botones de configuración arriba */}
       <div className="flex justify-end">
         <div className="flex items-center space-x-1">
           {canGenerateImage && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onGenerateImage}
+              onClick={() => onGenerateImage(platformId, platform, topic, description)}
               disabled={isGeneratingImage}
               className="h-7 w-7 p-0"
               title="Generar imagen"
@@ -74,7 +80,7 @@ const PlatformHeader = ({
         </div>
       </div>
 
-      {/* FIXED: Plataforma y estado en la misma línea horizontal */}
+      {/* Plataforma y estado en la misma línea horizontal */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className={`w-5 h-5 bg-gradient-to-r ${config.color} rounded flex items-center justify-center`}>

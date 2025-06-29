@@ -120,7 +120,6 @@ const Index = () => {
   };
 
   const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
-    // Find the platform ID for the specific entry and platform
     const { data: rawEntries } = await contentService.getUserContentEntries();
     const entry = rawEntries?.find(e => e.id === entryId);
     const platformData = entry?.platforms.find(p => p.platform === platform);
@@ -143,11 +142,108 @@ const Index = () => {
         variant: "destructive",
       });
     } else {
-      // Reload entries to show updated content
       await loadEntries();
       toast({
         title: "Contenido actualizado",
         description: "Los cambios se han guardado correctamente.",
+      });
+    }
+  };
+
+  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
+    console.log(`Generating image for platform ${platform}:`, { platformId, topic, description });
+    
+    try {
+      const { data, error } = await contentService.generateImageForPlatform(platformId, platform, topic, description);
+      
+      if (error) {
+        toast({
+          title: "Error al generar imagen",
+          description: "No se pudo generar la imagen. Verifica tu webhook.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Imagen generada exitosamente",
+          description: `Se generó la imagen para ${platform}.`,
+        });
+        
+        // Reload entries to show updated image
+        await loadEntries();
+      }
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al generar la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUploadImage = async (platformId: string, file: File) => {
+    console.log(`Uploading image for platform:`, { platformId, fileName: file.name });
+    
+    try {
+      // Convert file to base64 for storage (in a real app, you'd upload to storage)
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string;
+        
+        const { error } = await contentService.uploadCustomImage(platformId, imageUrl);
+        
+        if (error) {
+          toast({
+            title: "Error al subir imagen",
+            description: "No se pudo subir la imagen personalizada.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Imagen subida exitosamente",
+            description: "Tu imagen personalizada se ha guardado.",
+          });
+          
+          await loadEntries();
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al subir la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
+    console.log(`Deleting image:`, { platformId, imageUrl, isUploaded });
+    
+    try {
+      const { error } = await contentService.deleteImageFromPlatform(platformId, imageUrl, isUploaded);
+      
+      if (error) {
+        toast({
+          title: "Error al eliminar imagen",
+          description: "No se pudo eliminar la imagen.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Imagen eliminada",
+          description: "La imagen ha sido eliminada exitosamente.",
+        });
+        
+        await loadEntries();
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al eliminar la imagen.",
+        variant: "destructive",
       });
     }
   };
@@ -241,19 +337,25 @@ const Index = () => {
     const status: any = {};
     const slideImages: string[] = [];
 
-    // Ensure entry.platforms exists and is an array
     if (!entry.platforms || !Array.isArray(entry.platforms)) {
       console.error('Entry platforms is missing or not an array:', entry);
       return null;
     }
 
     entry.platforms.forEach(platform => {
-      // Create safe platform content with defaults
+      // Combine generated and uploaded images
+      const allImages = [
+        ...(platform.images || []),
+        ...(platform.uploadedImages || [])
+      ];
+
       const safeContent = {
         text: platform.text || '',
-        images: platform.images || [],
+        images: allImages,
+        uploadedImages: platform.uploadedImages || [],
         publishDate: platform.publish_date,
         slidesURL: platform.slides_url,
+        platformId: platform.id, // NEW: Include platform ID for operations
         ...(platform.platform === 'wordpress' && {
           title: entry.topic || '',
           description: entry.description || '',
@@ -264,7 +366,6 @@ const Index = () => {
       platformContent[platform.platform] = safeContent;
       console.log(`Platform content for ${platform.platform}:`, safeContent);
 
-      // Convert new status to old status format for ContentCard
       switch (platform.status) {
         case 'published':
           status[platform.platform] = 'published';
@@ -278,7 +379,6 @@ const Index = () => {
           break;
       }
 
-      // Collect slide images from any platform
       if (platform.slideImages && platform.slideImages.length > 0) {
         slideImages.push(...platform.slideImages);
       }
@@ -361,6 +461,9 @@ const Index = () => {
             onUpdateContent={handleUpdateContent}
             onDeleteEntry={handleDeleteEntry}
             onDownloadSlides={handleDownloadSlides}
+            onGenerateImage={handleGenerateImage}
+            onUploadImage={handleUploadImage}
+            onDeleteImage={handleDeleteImage}
           />
         )}
       </main>

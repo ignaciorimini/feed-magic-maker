@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { profileService } from '@/services/profileService';
 
@@ -15,6 +16,7 @@ export interface ContentPlatform {
   created_at: string;
   updated_at: string;
   slideImages?: string[];
+  uploadedImages?: string[];
   publishedLink?: string;
 }
 
@@ -28,7 +30,6 @@ export interface ContentEntry {
   created_at: string;
   updated_at: string;
   published_links?: any;
-  imageUrl?: string;
   platforms: ContentPlatform[];
 }
 
@@ -65,23 +66,19 @@ export const contentService = {
       const platformEntries = entryData.selectedPlatforms.map(platform => {
         const platformKey = platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
         
-        // Map the webhook content structure to the correct field names
         let platformText = '';
         let platformStatus: 'pending' | 'generated' = 'pending';
         let slidesUrl = null;
 
         if (entryData.generatedContent) {
-          // Handle both array and object responses from webhook
           let webhookContent = entryData.generatedContent;
           
-          // If it's an array, take the first element
           if (Array.isArray(webhookContent) && webhookContent.length > 0) {
             webhookContent = webhookContent[0];
           }
 
           console.log('Processing webhook content:', webhookContent);
 
-          // Map webhook response fields to platform text
           switch (platformKey) {
             case 'instagram':
               platformText = webhookContent.instagramContent || '';
@@ -97,12 +94,10 @@ export const contentService = {
               break;
           }
 
-          // If we have content from webhook, set status to generated
           if (platformText) {
             platformStatus = 'generated';
           }
 
-          // Map slides URL
           slidesUrl = webhookContent.slidesURL || null;
         }
 
@@ -146,7 +141,8 @@ export const contentService = {
           *,
           platforms:content_platforms(
             *,
-            slideImages:slide_images(image_url, position)
+            slideImages:slide_images(image_url, position),
+            uploadedImages:uploaded_images(image_url)
           )
         `)
         .eq('user_id', user.id)
@@ -154,14 +150,14 @@ export const contentService = {
 
       if (entriesError) throw entriesError;
 
-      // Transform the data to match the expected format
       const transformedEntries = entries?.map(entry => ({
         ...entry,
         platforms: entry.platforms?.map((platform: any) => ({
           ...platform,
           slideImages: platform.slideImages
             ?.sort((a: any, b: any) => a.position - b.position)
-            ?.map((img: any) => img.image_url) || []
+            ?.map((img: any) => img.image_url) || [],
+          uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
         })) || []
       })) || [];
 
@@ -211,20 +207,116 @@ export const contentService = {
     }
   },
 
-  // Add the missing updateImageUrl method
-  async updateImageUrl(entryId: string, imageUrl: string | null) {
+  // Generate image for specific platform
+  async generateImageForPlatform(platformId: string, platform: string, topic: string, description: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.webhook_url) {
+        throw new Error('No webhook URL configured');
+      }
+
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate_image',
+          platform,
+          platformId: platformId,
+          topic,
+          description,
+          userEmail: user.email
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook responded with status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Update platform with generated image
+      if (result.imageUrl) {
+        const { error } = await supabase
+          .from('content_platforms')
+          .update({ 
+            images: [result.imageUrl],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', platformId);
+
+        if (error) throw error;
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Error generating image for platform:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Upload custom image for platform
+  async uploadCustomImage(platformId: string, imageUrl: string) {
     try {
       const { error } = await supabase
-        .from('content_entries')
-        .update({ 
-          image_url: imageUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', entryId);
+        .from('uploaded_images')
+        .insert({
+          content_platform_id: platformId,
+          image_url: imageUrl
+        });
 
       return { error };
     } catch (error) {
-      console.error('Error updating image URL:', error);
+      console.error('Error uploading custom image:', error);
+      return { error };
+    }
+  },
+
+  // Delete image from platform
+  async deleteImageFromPlatform(platformId: string, imageUrl: string, isUploaded: boolean = false) {
+    try {
+      if (isUploaded) {
+        // Delete from uploaded_images table
+        const { error } = await supabase
+          .from('uploaded_images')
+          .delete()
+          .eq('content_platform_id', platformId)
+          .eq('image_url', imageUrl);
+
+        return { error };
+      } else {
+        // Remove from images array in content_platforms
+        const { data: platform } = await supabase
+          .from('content_platforms')
+          .select('images')
+          .eq('id', platformId)
+          .single();
+
+        if (platform) {
+          const updatedImages = platform.images?.filter(img => img !== imageUrl) || [];
+          
+          const { error } = await supabase
+            .from('content_platforms')
+            .update({ 
+              images: updatedImages,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', platformId);
+
+          return { error };
+        }
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error('Error deleting image:', error);
       return { error };
     }
   },
@@ -244,16 +336,14 @@ export const contentService = {
     }
   },
 
-  // Add the missing saveSlideImages method
+  // Save slide images
   async saveSlideImages(platformId: string, slideImages: string[]) {
     try {
-      // First, delete existing slide images for this platform
       await supabase
         .from('slide_images')
         .delete()
         .eq('content_platform_id', platformId);
 
-      // Insert new slide images
       if (slideImages.length > 0) {
         const slideImageData = slideImages.map((imageUrl, index) => ({
           content_platform_id: platformId,
@@ -307,7 +397,6 @@ export const contentService = {
 
       const webhookResponse = await response.json();
       
-      // Create entry with generated content
       return await this.createContentEntry({
         topic,
         description,
@@ -376,7 +465,6 @@ export const contentService = {
         throw new Error('No webhook URL configured');
       }
 
-      // Get platform content
       const { data: platformData } = await supabase
         .from('content_platforms')
         .select(`
@@ -413,7 +501,6 @@ export const contentService = {
 
       const result = await response.json();
 
-      // Update status to published if successful
       if (result.success) {
         await this.updatePlatformStatus(platformId, 'published');
       }
