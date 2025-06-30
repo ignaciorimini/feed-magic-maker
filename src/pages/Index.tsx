@@ -101,41 +101,47 @@ const Index = () => {
 
   const handleNewContent = async (formData: any) => {
     try {
-      // Transform the generated content to match our expected format
+      // The webhook now returns the new format directly
+      const generatedContent = formData.generatedContent;
+      
+      // Transform the new format to match our expected format
       const transformedContent: any = {};
       
       formData.selectedPlatforms.forEach((platform: string) => {
         const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-        let content: any = { text: '' };
+        const platformData = generatedContent[platformKey];
         
-        switch (platform) {
-          case 'instagram':
-            content.text = formData.generatedContent.instagramContent || '';
-            break;
-          case 'linkedin':
-            content.text = formData.generatedContent.linkedinContent || '';
-            break;
-          case 'twitter':
-            if (formData.generatedContent.twitterThreadPosts) {
-              content.threadPosts = formData.generatedContent.twitterThreadPosts;
-              content.text = formData.generatedContent.twitterThreadPosts.join('\n\n');
-            } else {
-              content.text = formData.generatedContent.twitterContent || '';
-            }
-            break;
-          case 'wordpress':
-            content.text = formData.generatedContent.wordpressContent || '';
-            content.title = formData.generatedContent.wordpressTitle || '';
-            content.description = formData.generatedContent.wordpressDescription || '';
-            content.slug = formData.generatedContent.wordpressSlug || '';
-            break;
+        if (platformData) {
+          let content: any = {};
+          
+          switch (platform) {
+            case 'instagram':
+            case 'linkedin':
+              content = {
+                text: platformData.text || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+            case 'wordpress':
+              content = {
+                text: platformData.text || '',
+                title: platformData.title || '',
+                description: platformData.description || '',
+                slug: platformData.slug || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+            case 'twitter':
+              // Twitter still uses the old format for now
+              content = {
+                text: platformData.text || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+          }
+          
+          transformedContent[platformKey] = content;
         }
-        
-        if (formData.generatedContent.slidesURL) {
-          content.slidesURL = formData.generatedContent.slidesURL;
-        }
-        
-        transformedContent[platformKey] = content;
       });
 
       const { data, error } = await contentService.createContentEntry({

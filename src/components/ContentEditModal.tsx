@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -137,13 +136,54 @@ const ContentEditModal = ({
 
     setIsGeneratingImage(true);
     try {
-      await onGenerateImage(entryId, platform, topic, description);
-      // The parent component will handle updating the image and reloading data
-      // We just need to update our local state when the parent updates
-      setShowImageOptions(false);
+      console.log("=== GENERATING IMAGE FROM MODAL ===");
+      console.log("Entry ID:", entryId);
+      console.log("Platform:", platform);
+      console.log("Topic:", topic);
+      console.log("Description:", description);
+      
+      // Use the same approach as PlatformCard - call generateImageForPlatform service
+      const { data, error } = await contentService.generateImageForPlatform(
+        entryId, 
+        platform, 
+        topic, 
+        description
+      );
+      
+      if (error) {
+        console.error('Error from generateImageForPlatform:', error);
+        toast({
+          title: "Error al generar imagen",
+          description: `No se pudo generar la imagen: ${error.message || 'Verifica tu webhook'}`,
+          variant: "destructive",
+        });
+      } else {
+        console.log('Image generated successfully:', data);
+        
+        // Update local state with the new image URL
+        if (data && data.imageURL) {
+          setCurrentImageUrl(data.imageURL);
+        }
+        
+        toast({
+          title: "¡Imagen generada exitosamente!",
+          description: "La imagen ha sido generada y guardada.",
+        });
+        
+        setShowImageOptions(false);
+        
+        // Force reload of entries to ensure consistency
+        if (onUpdateImage && data && data.imageURL) {
+          await onUpdateImage(entryId, data.imageURL);
+        }
+      }
     } catch (error) {
-      console.error('Error generating image:', error);
-      // Error handling is done in the parent component
+      console.error('Unexpected error generating image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al generar la imagen.",
+        variant: "destructive",
+      });
     } finally {
       setIsGeneratingImage(false);
     }
@@ -160,12 +200,24 @@ const ContentEditModal = ({
     }
 
     try {
+      console.log('=== REMOVING IMAGE FROM MODAL ===');
+      console.log('Entry ID:', entryId);
+      
       await onUpdateImage(entryId, null);
       setCurrentImageUrl(null);
       setShowImageOptions(false);
+      
+      toast({
+        title: "Imagen eliminada",
+        description: "La imagen ha sido eliminada exitosamente.",
+      });
     } catch (error) {
       console.error('Error removing image:', error);
-      // Error handling is done in the parent component
+      toast({
+        title: "Error al eliminar imagen",
+        description: "Hubo un problema al eliminar la imagen.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -321,7 +373,7 @@ const ContentEditModal = ({
             {isSlidePost && (
               <div className="space-y-4">
                 {content.slidesURL && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-600">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1 flex items-center">
