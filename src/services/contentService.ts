@@ -142,9 +142,10 @@ export const contentService = {
         .update({
           text: content.text,
           slides_url: content.slidesURL,
+          image_url: content.image_url ?? null, // 🟢 agregar esta línea
         })
         .eq('id', platformId);
-
+  
       if (error) throw error;
       return { error: null };
     } catch (error) {
