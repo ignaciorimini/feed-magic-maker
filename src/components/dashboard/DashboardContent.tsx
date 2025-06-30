@@ -46,7 +46,7 @@ const DashboardContent = ({
           cards.push({
             ...entry,
             platform: platformKey,
-            id: `${entry.id}-${platform}` // Unique ID for each platform card
+            id: `${entry.id}__${platform}` // Changed separator to __ to avoid UUID conflicts
           });
         }
       });
@@ -56,30 +56,75 @@ const DashboardContent = ({
   });
 
   const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
-    // Extract the original entry ID (remove platform suffix)
-    const originalEntryId = entryId.split('-')[0];
-    console.log('Updating status for entry:', originalEntryId, 'platform:', platform, 'status:', newStatus);
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE STATUS DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Status:', newStatus);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+    
     // Status updates would need to be handled by the parent component
   };
 
   const handleUpdateLink = async (entryId: string, platform: string, link: string) => {
-    // Extract the original entry ID (remove platform suffix)
-    const originalEntryId = entryId.split('-')[0];
-    console.log('Updating link for entry:', originalEntryId, 'platform:', platform, 'link:', link);
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE LINK DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Link:', link);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+    
     // Link updates would need to be handled by the parent component
   };
 
   const handleDeleteEntry = (entryId: string, platform: string) => {
-    // Extract the original entry ID (remove platform suffix if present)
-    const originalEntryId = entryId.includes('-') ? entryId.split('-')[0] : entryId;
-    console.log('Attempting to delete entry with ID:', originalEntryId, 'from entryId:', entryId);
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+    console.log('=== DELETE ENTRY DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+    
+    console.log('✅ Passing complete UUID to delete function:', originalEntryId);
     onDeleteEntry(originalEntryId);
   };
 
   const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
-    // Extract the original entry ID (remove platform suffix)
-    const originalEntryId = entryId.split('-')[0];
-    console.log('Updating image for entry:', originalEntryId, 'imageUrl:', imageUrl);
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE IMAGE DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Image URL:', imageUrl);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return Promise.resolve();
+    }
+    
     // Image updates would need to be handled by the parent component
     return Promise.resolve();
   };

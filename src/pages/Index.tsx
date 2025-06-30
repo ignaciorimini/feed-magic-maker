@@ -131,8 +131,28 @@ const Index = () => {
   };
 
   const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
+    // Extract the original entry ID if it contains the new separator
+    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+    
+    console.log('=== UPDATE CONTENT DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      toast({
+        title: "Error al actualizar contenido",
+        description: "ID de contenido inválido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { data: rawEntries } = await contentService.getUserContentEntries();
-    const entry = rawEntries?.find(e => e.id === entryId);
+    const entry = rawEntries?.find(e => e.id === originalEntryId);
     const platformData = entry?.platforms.find(p => p.platform === platform);
     
     if (!platformData) {
@@ -167,8 +187,14 @@ const Index = () => {
     console.log('Entry ID type:', typeof entryId);
     console.log('Entry ID length:', entryId ? entryId.length : 'undefined');
     
+    // Extract the original entry ID if it contains the new separator
+    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+    
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Extracted ID length:', originalEntryId ? originalEntryId.length : 'undefined');
+    
     // Validate that we have a complete UUID before proceeding
-    if (!entryId) {
+    if (!originalEntryId) {
       console.error('No entry ID provided for deletion');
       toast({
         title: "Error",
@@ -179,8 +205,8 @@ const Index = () => {
     }
 
     // Check if the ID looks like a complete UUID (36 characters with dashes)
-    if (entryId.length !== 36 || !entryId.includes('-')) {
-      console.error('Invalid entry ID format:', entryId);
+    if (originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid entry ID format:', originalEntryId);
       toast({
         title: "Error",
         description: "ID de contenido inválido. No se puede eliminar.",
@@ -190,8 +216,8 @@ const Index = () => {
     }
     
     try {
-      console.log('Attempting to delete entry with complete ID:', entryId);
-      const { error } = await contentService.deleteContentEntry(entryId);
+      console.log('✅ Attempting to delete entry with complete UUID:', originalEntryId);
+      const { error } = await contentService.deleteContentEntry(originalEntryId);
       
       if (error) {
         console.error('Delete error:', error);
@@ -202,14 +228,14 @@ const Index = () => {
         });
       } else {
         // Remove from local state only after successful deletion
-        setEntries(prev => prev.filter(entry => entry.id !== entryId));
+        setEntries(prev => prev.filter(entry => entry.id !== originalEntryId));
         
         toast({
           title: "Contenido eliminado",
           description: "El contenido ha sido eliminado exitosamente.",
         });
         
-        console.log('Entry deleted successfully with ID:', entryId);
+        console.log('✅ Entry deleted successfully with ID:', originalEntryId);
       }
     } catch (error) {
       console.error('Unexpected error during deletion:', error);
@@ -598,7 +624,7 @@ const Index = () => {
       publishedLinks: entry.published_links || {}
     };
 
-    console.log('Transformed entry:', transformedEntry.id, transformedEntry.topic);
+    console.log('✅ Transformed entry with complete ID:', transformedEntry.id, transformedEntry.topic);
     return transformedEntry;
   });
 
