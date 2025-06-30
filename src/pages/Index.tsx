@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
@@ -291,6 +292,96 @@ const Index = () => {
     }
   };
 
+  const handleGenerateImage = async (entryId: string, platform: string, topic: string, description: string) => {
+    try {
+      console.log('=== GENERATING IMAGE ===');
+      console.log('Entry ID:', entryId);
+      console.log('Platform:', platform);
+      
+      const { data, error } = await contentService.generateImageForPlatform(entryId, platform, topic, description);
+      
+      if (error) {
+        throw error;
+      }
+
+      // Reload entries to get the updated image
+      await loadEntries();
+      
+      toast({
+        title: "¡Imagen generada exitosamente!",
+        description: "La imagen ha sido generada y guardada.",
+      });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Error al generar imagen",
+        description: "Hubo un problema al generar la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+    try {
+      console.log('=== UPDATING IMAGE ===');
+      console.log('Entry ID:', entryId);
+      console.log('Image URL:', imageUrl);
+      
+      // Extract the original entry ID if it contains the separator
+      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+      
+      // Find all platforms for this entry
+      const { data: platforms, error: platformsError } = await supabase
+        .from('content_platforms')
+        .select('id, platform')
+        .eq('content_entry_id', originalEntryId);
+
+      if (platformsError || !platforms || platforms.length === 0) {
+        console.error('Error finding platforms:', platformsError);
+        throw new Error('No platforms found for this entry');
+      }
+
+      // Update all platforms with the new image URL
+      const updatePromises = platforms.map(platform => 
+        supabase
+          .from('content_platforms')
+          .update({ image_url: imageUrl })
+          .eq('id', platform.id)
+      );
+
+      const results = await Promise.all(updatePromises);
+      
+      // Check if any updates failed
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        console.error('Some updates failed:', errors);
+        throw new Error('Failed to update some platforms');
+      }
+
+      // Reload entries to reflect the changes
+      await loadEntries();
+      
+      if (imageUrl) {
+        toast({
+          title: "Imagen actualizada",
+          description: "La imagen ha sido actualizada exitosamente.",
+        });
+      } else {
+        toast({
+          title: "Imagen eliminada",
+          description: "La imagen ha sido eliminada exitosamente.",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating image:', error);
+      toast({
+        title: "Error al actualizar imagen",
+        description: "Hubo un problema al actualizar la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (showNewContent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -325,10 +416,11 @@ const Index = () => {
           onUpdateContent={handleUpdateContent}
           onDeleteEntry={handleDeleteEntry}
           onDownloadSlides={handleDownloadSlides}
-          onGenerateImage={() => {}} // Not used anymore
+          onGenerateImage={handleGenerateImage}
           onUploadImage={() => {}} // Not used anymore  
           onDeleteImage={() => {}} // Not used anymore
           onReloadEntries={loadEntries}
+          onUpdateImage={handleUpdateImage}
         />
       </div>
     </div>

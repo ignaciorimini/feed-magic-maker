@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,8 +9,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink } from 'lucide-react';
 import { contentService } from '@/services/contentService';
-import { profileService } from '@/services/profileService';
-import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
 import { Switch } from '@/components/ui/switch';
@@ -36,6 +35,7 @@ interface ContentEditModalProps {
   slideImages?: string[];
   imageUrl?: string;
   onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
+  onGenerateImage?: (entryId: string, platform: string, topic: string, description: string) => Promise<void>;
 }
 
 const ContentEditModal = ({ 
@@ -50,7 +50,8 @@ const ContentEditModal = ({
   description,
   slideImages,
   imageUrl,
-  onUpdateImage
+  onUpdateImage,
+  onGenerateImage
 }: ContentEditModalProps) => {
   const [editedContent, setEditedContent] = useState(content);
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || []);
@@ -63,13 +64,6 @@ const ContentEditModal = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
-  const { user } = useAuth();
-  
-  const imageGenerationRef = useRef<{
-    isGenerating: boolean;
-    webhookUrl?: string;
-    payload?: any;
-  }>({ isGenerating: false });
 
   useEffect(() => {
     setEditedContent(content);
@@ -132,7 +126,7 @@ const ContentEditModal = ({
   };
 
   const handleGenerateImage = async () => {
-    if (!user || !entryId) {
+    if (!onGenerateImage || !topic || !description) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -141,100 +135,43 @@ const ContentEditModal = ({
       return;
     }
 
-    if (imageGenerationRef.current.isGenerating) {
-      toast({
-        title: "Generación en progreso",
-        description: "Ya hay una imagen siendo generada. Por favor espera.",
-      });
-      return;
-    }
-
     setIsGeneratingImage(true);
-    imageGenerationRef.current.isGenerating = true;
-
     try {
-      console.log("Obteniendo webhook del perfil del usuario para generar imagen...");
-      
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      
-      if (profileError || !profile?.webhook_url) {
-        toast({
-          title: "Webhook no configurado",
-          description: "Debes configurar tu webhook URL en el perfil para generar imágenes.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const webhookPayload = {
-        action: 'generate_image',
-        topic: topic,
-        description: description,
-        platform: platform,
-        userEmail: user.email
-      };
-
-      imageGenerationRef.current.webhookUrl = profile.webhook_url;
-      imageGenerationRef.current.payload = webhookPayload;
-
-      console.log("Enviando solicitud de generación de imagen al webhook:", profile.webhook_url);
-      
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookPayload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Respuesta de generación de imagen:", result);
-
-      if (result.imageURL && onUpdateImage) {
-        await onUpdateImage(entryId, result.imageURL);
-        setCurrentImageUrl(result.imageURL);
-        setShowImageOptions(false);
-        
-        toast({
-          title: "¡Imagen generada exitosamente!",
-          description: "La imagen ha sido generada y actualizada.",
-        });
-      } else {
-        throw new Error("No se recibió una URL de imagen válida");
-      }
+      await onGenerateImage(entryId, platform, topic, description);
+      // The parent component will handle updating the image and reloading data
+      // We just need to update our local state when the parent updates
+      setShowImageOptions(false);
     } catch (error) {
-      console.error('Error al generar imagen:', error);
-      toast({
-        title: "Error al generar imagen",
-        description: "Hubo un problema al generar la imagen. Inténtalo nuevamente.",
-        variant: "destructive",
-      });
+      console.error('Error generating image:', error);
+      // Error handling is done in the parent component
     } finally {
       setIsGeneratingImage(false);
-      imageGenerationRef.current.isGenerating = false;
     }
   };
 
   const handleRemoveImage = async () => {
-    if (onUpdateImage) {
+    if (!onUpdateImage) {
+      toast({
+        title: "Error",
+        description: "No se puede eliminar la imagen en este momento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
       await onUpdateImage(entryId, null);
       setCurrentImageUrl(null);
       setShowImageOptions(false);
-      
-      toast({
-        title: "Imagen eliminada",
-        description: "La imagen ha sido eliminada.",
-      });
+    } catch (error) {
+      console.error('Error removing image:', error);
+      // Error handling is done in the parent component
     }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !onUpdateImage) return;
 
     if (!file.type.startsWith('image/')) {
       toast({
@@ -258,16 +195,9 @@ const ContentEditModal = ({
       const reader = new FileReader();
       reader.onload = async (e) => {
         const dataUrl = e.target?.result as string;
-        if (onUpdateImage) {
-          await onUpdateImage(entryId, dataUrl);
-          setCurrentImageUrl(dataUrl);
-          setShowImageOptions(false);
-          
-          toast({
-            title: "Imagen subida exitosamente",
-            description: "Tu imagen ha sido guardada.",
-          });
-        }
+        await onUpdateImage(entryId, dataUrl);
+        setCurrentImageUrl(dataUrl);
+        setShowImageOptions(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
@@ -514,7 +444,7 @@ const ContentEditModal = ({
                           variant="outline"
                           size="sm"
                           onClick={handleGenerateImage}
-                          disabled={isGeneratingImage}
+                          disabled={isGeneratingImage || !onGenerateImage}
                         >
                           {isGeneratingImage ? (
                             <>
@@ -547,7 +477,7 @@ const ContentEditModal = ({
                         variant="outline"
                         size="sm"
                         onClick={handleGenerateImage}
-                        disabled={isGeneratingImage}
+                        disabled={isGeneratingImage || !onGenerateImage}
                         className="h-7 px-2 text-xs"
                       >
                         {isGeneratingImage ? (
