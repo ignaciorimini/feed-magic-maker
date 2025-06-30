@@ -17,6 +17,7 @@ interface DashboardContentProps {
   onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
   onUploadImage: (platformId: string, file: File) => void;
   onDeleteImage: (platformId: string, imageUrl: string, isUploaded: boolean) => void;
+  onReloadEntries?: () => void;
 }
 
 const DashboardContent = ({
@@ -29,7 +30,8 @@ const DashboardContent = ({
   onDownloadSlides,
   onGenerateImage,
   onUploadImage,
-  onDeleteImage
+  onDeleteImage,
+  onReloadEntries
 }: DashboardContentProps) => {
   // Transform entries to create individual platform cards only for platforms that have content
   const platformCards = entries.flatMap(entry => {
@@ -46,7 +48,7 @@ const DashboardContent = ({
           cards.push({
             ...entry,
             platform: platformKey,
-            id: `${entry.id}__${platform}` // Changed separator to __ to avoid UUID conflicts
+            id: `${entry.id}__${platform}` // Use __ separator to avoid UUID conflicts
           });
         }
       });
@@ -186,6 +188,7 @@ const DashboardContent = ({
                 onUpdateStatus={handleUpdateStatus}
                 onUpdateLink={handleUpdateLink}
                 onUpdateImage={handleUpdateImage}
+                onReloadEntries={onReloadEntries}
               />
             ))}
           </div>

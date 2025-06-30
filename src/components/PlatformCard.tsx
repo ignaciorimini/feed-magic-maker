@@ -49,9 +49,10 @@ interface PlatformCardProps {
   onUpdateStatus?: (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => void;
   onUpdateLink?: (entryId: string, platform: string, link: string) => void;
   onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
+  onReloadEntries?: () => void;
 }
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
@@ -124,7 +125,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   };
 
   const handleGenerateImage = async () => {
-    if (!user || !content?.platformId) {
+    if (!user || !localEntry.id) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -136,14 +137,14 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     setIsGeneratingImage(true);
     try {
       console.log("=== GENERATING IMAGE ===");
-      console.log("Platform ID from content:", content.platformId);
+      console.log("Entry ID:", localEntry.id);
       console.log("Platform:", platform);
       console.log("Topic:", localEntry.topic);
       console.log("Description:", localEntry.description);
       
-      // Use the generateImageForPlatform service which handles the webhook and database update
+      // Use the generateImageForPlatform service which handles finding the platformId and updating the database
       const { data, error } = await contentService.generateImageForPlatform(
-        content.platformId, 
+        localEntry.id, 
         platform, 
         localEntry.topic, 
         localEntry.description
@@ -164,8 +165,10 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           description: `Se generó la imagen para ${config.name}.`,
         });
         
-        // The parent component will reload entries to show the new image from database
-        // No need to update local state manually since the image is now persisted
+        // Reload entries to show the new image from database
+        if (onReloadEntries) {
+          onReloadEntries();
+        }
       }
     } catch (error) {
       console.error('Unexpected error generating image:', error);

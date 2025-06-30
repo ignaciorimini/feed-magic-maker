@@ -1,703 +1,324 @@
+
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import ContentForm from '@/components/ContentForm';
-import CalendarView from '@/components/CalendarView';
-import ProfileSetup from '@/components/ProfileSetup';
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import DashboardContent from '@/components/dashboard/DashboardContent';
 import { useAuth } from '@/hooks/useAuth';
-import { contentService, ContentEntry } from '@/services/contentService';
-import { profileService } from '@/services/profileService';
+import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
-import IntegrationsManager from '@/components/integrations/IntegrationsManager';
-import { checkAndLogRLSPolicies } from '@/utils/checkRLSPolicies';
+import ContentForm from '@/components/ContentForm';
+import DashboardContent from '@/components/dashboard/DashboardContent';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
 
 const Index = () => {
-  const [showForm, setShowForm] = useState(false);
-  const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
-  const [entries, setEntries] = useState<ContentEntry[]>([]);
+  const { user } = useAuth();
+  const [showNewContent, setShowNewContent] = useState(false);
+  const [entries, setEntries] = useState<any[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress']);
-  const { user, loading: authLoading, signOut } = useAuth();
-  const navigate = useNavigate();
 
-  // Redirect to auth if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-
-  // Check profile setup and load platforms
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (user) {
-        // Check RLS policies for debugging
-        await checkAndLogRLSPolicies();
-        
-        const { needsSetup } = await profileService.checkProfileSetup(user.id);
-        setNeedsProfileSetup(needsSetup);
-        if (needsSetup) {
-          setShowProfileSetup(true);
-        } else {
-          const { data: profile } = await profileService.getUserProfile(user.id);
-          if (profile?.selected_platforms && Array.isArray(profile.selected_platforms)) {
-            setSelectedPlatforms(profile.selected_platforms.filter((p): p is string => typeof p === 'string'));
-          }
-        }
-      }
-    };
-    checkProfile();
-  }, [user]);
-
-  // Load content entries
   const loadEntries = async () => {
-    if (user && !needsProfileSetup) {
-      setLoading(true);
-      console.log('=== LOADING ENTRIES ===');
-      console.log('User ID:', user.id);
-      
+    if (!user) return;
+    
+    setLoading(true);
+    try {
       const { data, error } = await contentService.getUserContentEntries();
       
       if (error) {
         console.error('Error loading entries:', error);
         toast({
           title: "Error al cargar contenido",
-          description: `No se pudo cargar tu contenido: ${error.message || 'Error desconocido'}`,
+          description: error.message || "No se pudieron cargar las entradas",
           variant: "destructive",
         });
-      } else if (data) {
-        console.log('Raw entries loaded:', data);
-        setEntries(data);
-        console.log('Entries set in state:', data.length, 'entries');
-      } else {
-        console.log('No data returned from contentService.getUserContentEntries()');
-        setEntries([]);
+        return;
       }
+
+      if (data) {
+        // Transform the data to match the expected format
+        const transformedEntries = data.map(entry => {
+          const platformContent: any = {};
+          const status: any = {};
+          const publishedLinks: any = {};
+          
+          // Get the main image from the first platform that has one
+          let entryImageUrl = null;
+          
+          entry.platforms.forEach(platform => {
+            const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+            
+            // Set platform content
+            platformContent[platformKey] = {
+              text: platform.text || '',
+              image_url: platform.image_url,
+              images: platform.image_url ? [platform.image_url] : [],
+              slidesURL: platform.slides_url,
+              slideImages: platform.slideImages || [],
+              uploadedImages: platform.uploadedImages || []
+            };
+            
+            // Set platform status (convert new status to old format for compatibility)
+            status[platformKey] = platform.status === 'published' ? 'published' : 'pending';
+            
+            // If we don't have an entry image yet and this platform has one, use it
+            if (!entryImageUrl && platform.image_url) {
+              entryImageUrl = platform.image_url;
+            }
+          });
+
+          return {
+            id: entry.id,
+            topic: entry.topic,
+            description: entry.description || '',
+            type: entry.type,
+            createdDate: new Date(entry.created_date).toLocaleDateString(),
+            status,
+            platformContent,
+            publishedLinks: entry.published_links || {},
+            imageUrl: entryImageUrl, // Set the entry-level image URL
+            slideImages: [] // This will be populated from platforms if needed
+          };
+        });
+
+        console.log('Transformed entries:', transformedEntries);
+        setEntries(transformedEntries);
+      }
+    } catch (error) {
+      console.error('Unexpected error loading entries:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al cargar el contenido",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     loadEntries();
-  }, [user, needsProfileSetup]);
+  }, [user]);
 
-  const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (!error) {
-      navigate('/auth');
-    }
-  };
+  const handleNewContent = async (formData: any) => {
+    try {
+      // Transform the generated content to match our expected format
+      const transformedContent: any = {};
+      
+      formData.selectedPlatforms.forEach((platform: string) => {
+        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+        let content: any = { text: '' };
+        
+        switch (platform) {
+          case 'instagram':
+            content.text = formData.generatedContent.instagramContent || '';
+            break;
+          case 'linkedin':
+            content.text = formData.generatedContent.linkedinContent || '';
+            break;
+          case 'twitter':
+            if (formData.generatedContent.twitterThreadPosts) {
+              content.threadPosts = formData.generatedContent.twitterThreadPosts;
+              content.text = formData.generatedContent.twitterThreadPosts.join('\n\n');
+            } else {
+              content.text = formData.generatedContent.twitterContent || '';
+            }
+            break;
+          case 'wordpress':
+            content.text = formData.generatedContent.wordpressContent || '';
+            content.title = formData.generatedContent.wordpressTitle || '';
+            content.description = formData.generatedContent.wordpressDescription || '';
+            content.slug = formData.generatedContent.wordpressSlug || '';
+            break;
+        }
+        
+        if (formData.generatedContent.slidesURL) {
+          content.slidesURL = formData.generatedContent.slidesURL;
+        }
+        
+        transformedContent[platformKey] = content;
+      });
 
-  const handleProfileSetupComplete = () => {
-    setShowProfileSetup(false);
-    setNeedsProfileSetup(false);
-    window.location.reload();
-  };
+      const { data, error } = await contentService.createContentEntry({
+        topic: formData.topic,
+        description: formData.description,
+        type: formData.type,
+        selectedPlatforms: formData.selectedPlatforms,
+        generatedContent: transformedContent
+      });
 
-  const handleNewEntry = async (entryData: any) => {
-    console.log('Creating new entry with data:', entryData);
-    
-    const { data, error } = await contentService.createContentEntry({
-      topic: entryData.topic,
-      description: entryData.description,
-      type: entryData.type,
-      selectedPlatforms: entryData.selectedPlatforms,
-      generatedContent: entryData.generatedContent
-    });
+      if (error) {
+        throw error;
+      }
 
-    if (error) {
+      await loadEntries();
+      setShowNewContent(false);
+      
+      toast({
+        title: "¡Contenido creado exitosamente!",
+        description: "El contenido ha sido generado y está listo para editar o publicar.",
+      });
+    } catch (error) {
       console.error('Error creating content:', error);
       toast({
         title: "Error al crear contenido",
-        description: "No se pudo crear el contenido. Inténtalo nuevamente.",
+        description: "Hubo un problema al guardar el contenido generado.",
         variant: "destructive",
-      });
-    } else if (data) {
-      console.log('Content created successfully:', data);
-      
-      await loadEntries();
-      
-      setShowForm(false);
-      toast({
-        title: "Contenido creado exitosamente",
-        description: "Tu contenido ha sido generado para las plataformas seleccionadas.",
       });
     }
   };
 
-  const handleUpdateContent = async (entryId: string, platform: string, content: any): Promise<void> => {
-    // Extract the original entry ID if it contains the new separator
-    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
-    
-    console.log('=== UPDATE CONTENT DEBUG ===');
-    console.log('Entry ID received:', entryId);
-    console.log('Extracted original entry ID:', originalEntryId);
-    console.log('Original ID length:', originalEntryId.length);
-    console.log('Platform:', platform);
-    
-    // Validate extracted ID is a complete UUID
-    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
-      console.error('Invalid extracted entry ID format:', originalEntryId);
-      toast({
-        title: "Error al actualizar contenido",
-        description: "ID de contenido inválido.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
+    try {
+      console.log('=== UPDATE CONTENT DEBUG ===');
+      console.log('Entry ID received:', entryId);
+      console.log('Platform:', platform);
+      
+      // Extract the original entry ID if it contains the separator
+      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+      console.log('Extracted original entry ID:', originalEntryId);
+      console.log('Original ID length:', originalEntryId.length);
+      
+      // Validate extracted ID is a complete UUID
+      if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+        console.error('Invalid extracted entry ID format:', originalEntryId);
+        throw new Error(`Invalid entry ID format: ${originalEntryId}`);
+      }
+      
+      // Find the platform record to get the platformId
+      const { data: platformRecord, error: platformError } = await supabase
+        .from('content_platforms')
+        .select('id')
+        .eq('content_entry_id', originalEntryId)
+        .eq('platform', platform)
+        .single();
 
-    const { data: rawEntries } = await contentService.getUserContentEntries();
-    const entry = rawEntries?.find(e => e.id === originalEntryId);
-    const platformData = entry?.platforms.find(p => p.platform === platform);
-    
-    if (!platformData) {
-      toast({
-        title: "Error al actualizar contenido",
-        description: "No se pudo encontrar la plataforma especificada.",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (platformError || !platformRecord) {
+        console.error('Error finding platform record:', platformError);
+        throw new Error('Platform record not found');
+      }
 
-    const { error } = await contentService.updatePlatformContent(platformData.id, content);
-    
-    if (error) {
-      toast({
-        title: "Error al actualizar contenido",
-        description: "No se pudo actualizar el contenido.",
-        variant: "destructive",
-      });
-    } else {
+      const { error } = await contentService.updatePlatformContent(platformRecord.id, content);
+      
+      if (error) {
+        throw error;
+      }
+
       await loadEntries();
+      
       toast({
         title: "Contenido actualizado",
-        description: "Los cambios se han guardado correctamente.",
+        description: "Los cambios han sido guardados exitosamente.",
+      });
+    } catch (error) {
+      console.error('Error updating content:', error);
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudieron guardar los cambios.",
+        variant: "destructive",
       });
     }
   };
 
   const handleDeleteEntry = async (entryId: string) => {
-    console.log('=== HANDLING DELETE ENTRY ===');
-    console.log('Entry ID received:', entryId);
-    console.log('Entry ID type:', typeof entryId);
-    console.log('Entry ID length:', entryId ? entryId.length : 'undefined');
-    
-    // Extract the original entry ID if it contains the new separator
-    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
-    
-    console.log('Extracted original entry ID:', originalEntryId);
-    console.log('Extracted ID length:', originalEntryId ? originalEntryId.length : 'undefined');
-    
-    // Validate that we have a complete UUID before proceeding
-    if (!originalEntryId) {
-      console.error('No entry ID provided for deletion');
-      toast({
-        title: "Error",
-        description: "No se pudo identificar el contenido a eliminar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if the ID looks like a complete UUID (36 characters with dashes)
-    if (originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
-      console.error('Invalid entry ID format:', originalEntryId);
-      toast({
-        title: "Error",
-        description: "ID de contenido inválido. No se puede eliminar.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
-      console.log('✅ Attempting to delete entry with complete UUID:', originalEntryId);
-      const { error } = await contentService.deleteContentEntry(originalEntryId);
+      console.log('=== HANDLING DELETE ENTRY ===');
+      console.log('Entry ID received:', entryId);
+      console.log('Entry ID type:', typeof entryId);
+      console.log('Entry ID length:', entryId.length);
       
-      if (error) {
-        console.error('Delete error:', error);
+      // Validate that we have a complete UUID
+      if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
+        console.error('Invalid entry ID format for deletion:', entryId);
         toast({
-          title: "Error al eliminar contenido",
-          description: `No se pudo eliminar el contenido: ${error.message || 'Error desconocido'}`,
+          title: "Error de validación",
+          description: `ID de entrada inválido: ${entryId}`,
           variant: "destructive",
         });
-      } else {
-        // Remove from local state only after successful deletion
-        setEntries(prev => prev.filter(entry => entry.id !== originalEntryId));
-        
-        toast({
-          title: "Contenido eliminado",
-          description: "El contenido ha sido eliminado exitosamente.",
-        });
-        
-        console.log('✅ Entry deleted successfully with ID:', originalEntryId);
+        return;
       }
-    } catch (error) {
-      console.error('Unexpected error during deletion:', error);
-      toast({
-        title: "Error inesperado",
-        description: "Ocurrió un error inesperado al eliminar el contenido.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
-    console.log('=== HANDLING GENERATE IMAGE ===');
-    console.log('Platform ID received:', platformId);
-    console.log('Platform ID type:', typeof platformId);
-    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
-    console.log('Platform:', platform);
-    
-    // Validate that we have a complete platform UUID before proceeding
-    if (!platformId) {
-      console.error('No platform ID provided for image generation');
-      toast({
-        title: "Error",
-        description: "No se pudo identificar la plataforma para generar la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if the ID looks like a complete UUID (36 characters with dashes)
-    if (platformId.length !== 36 || !platformId.includes('-')) {
-      console.error('Invalid platform ID format:', platformId);
-      toast({
-        title: "Error",
-        description: "ID de plataforma inválido. No se puede generar la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      console.log('Generating image for platform with complete ID:', platformId);
-      const { data, error } = await contentService.generateImageForPlatform(platformId, platform, topic, description);
+      
+      console.log('✅ Valid UUID format, proceeding with deletion');
+      
+      const { error } = await contentService.deleteContentEntry(entryId);
       
       if (error) {
-        console.error('Error from generateImageForPlatform:', error);
-        toast({
-          title: "Error al generar imagen",
-          description: `No se pudo generar la imagen: ${error.message || 'Verifica tu webhook'}`,
-          variant: "destructive",
-        });
-      } else {
-        console.log('Image generated successfully:', data);
-        
-        toast({
-          title: "Imagen generada exitosamente",
-          description: `Se generó la imagen para ${platform}.`,
-        });
-        
-        // Reload entries to show the new image from database
-        console.log('Reloading entries to show new image...');
-        await loadEntries();
+        console.error('Error from deleteContentEntry:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Unexpected error generating image:', error);
-      toast({
-        title: "Error inesperado",
-        description: "Ocurrió un error al generar la imagen.",
-        variant: "destructive",
-      });
-    }
-  };
 
-  const handleUploadImage = async (platformId: string, file: File) => {
-    console.log('=== HANDLING UPLOAD IMAGE ===');
-    console.log('Platform ID received:', platformId);
-    console.log('Platform ID type:', typeof platformId);
-    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
-    console.log('File name:', file.name);
-    
-    // Validate that we have a complete platform UUID before proceeding
-    if (!platformId) {
-      console.error('No platform ID provided for image upload');
-      toast({
-        title: "Error",
-        description: "No se pudo identificar la plataforma para subir la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if the ID looks like a complete UUID (36 characters with dashes)
-    if (platformId.length !== 36 || !platformId.includes('-')) {
-      console.error('Invalid platform ID format:', platformId);
-      toast({
-        title: "Error",
-        description: "ID de plataforma inválido. No se puede subir la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const imageUrl = e.target?.result as string;
-        
-        console.log('Uploading image for platform with complete ID:', platformId);
-        const { error } = await contentService.uploadCustomImage(platformId, imageUrl);
-        
-        if (error) {
-          toast({
-            title: "Error al subir imagen",
-            description: "No se pudo subir la imagen personalizada.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Imagen subida exitosamente",
-            description: "Tu imagen personalizada se ha guardado.",
-          });
-          
-          await loadEntries();
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast({
-        title: "Error inesperado",
-        description: "Ocurrió un error al subir la imagen.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
-    console.log('=== HANDLING DELETE IMAGE ===');
-    console.log('Platform ID received:', platformId);
-    console.log('Platform ID type:', typeof platformId);
-    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
-    console.log('Image URL:', imageUrl);
-    console.log('Is uploaded:', isUploaded);
-    
-    // Validate that we have a complete platform UUID before proceeding
-    if (!platformId) {
-      console.error('No platform ID provided for image deletion');
-      toast({
-        title: "Error",
-        description: "No se pudo identificar la plataforma para eliminar la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if the ID looks like a complete UUID (36 characters with dashes)
-    if (platformId.length !== 36 || !platformId.includes('-')) {
-      console.error('Invalid platform ID format:', platformId);
-      toast({
-        title: "Error",
-        description: "ID de plataforma inválido. No se puede eliminar la imagen.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      console.log('Deleting image for platform with complete ID:', platformId);
-      const { error } = await contentService.deleteImageFromPlatform(platformId, imageUrl, isUploaded);
+      console.log('✅ Entry deleted successfully');
+      await loadEntries();
       
-      if (error) {
-        toast({
-          title: "Error al eliminar imagen",
-          description: "No se pudo eliminar la imagen.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Imagen eliminada",
-          description: "La imagen ha sido eliminada exitosamente.",
-        });
-        
-        await loadEntries();
-      }
-    } catch (error) {
-      console.error('Error deleting image:', error);
       toast({
-        title: "Error inesperado",
-        description: "Ocurrió un error al eliminar la imagen.",
+        title: "Contenido eliminado",
+        description: "La entrada ha sido eliminada exitosamente.",
+      });
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar la entrada.",
         variant: "destructive",
       });
     }
   };
 
   const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
-    if (!slidesURL) {
-      toast({
-        title: "Error",
-        description: "No hay URL de slides disponible para descargar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      const entry = entries.find(e => e.id === entryId);
-      if (!entry) return;
-
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, entry.topic);
+      // Extract the original entry ID if it contains the separator
+      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
       
-      if (error) throw error;
-
-      let slideImages: string[] = [];
-      if (Array.isArray(data) && data.length > 0 && data[0]?.slideImages) {
-        slideImages = data[0].slideImages;
+      // Find the entry to get the topic
+      const entry = entries.find(e => e.id === originalEntryId);
+      const topic = entry?.topic || 'slides';
+      
+      const { data, error } = await contentService.downloadSlidesWithUserWebhook(slidesURL, topic);
+      
+      if (error) {
+        throw error;
       }
 
-      if (slideImages.length > 0) {
-        toast({
-          title: "¡Slides descargadas exitosamente!",
-          description: `Se descargaron ${slideImages.length} imágenes de las slides.`,
-        });
-        
-        await loadEntries();
-      } else {
-        toast({
-          title: "Descarga completada",
-          description: "Las slides han sido procesadas por tu webhook.",
-        });
-      }
+      toast({
+        title: "Descarga iniciada",
+        description: "Las slides se están descargando. Recibirás un email cuando estén listas.",
+      });
     } catch (error) {
       console.error('Error downloading slides:', error);
       toast({
-        title: "Error al descargar slides",
-        description: "Hubo un problema al conectar con tu webhook para descargar las slides.",
+        title: "Error en descarga",
+        description: "No se pudieron descargar las slides.",
         variant: "destructive",
       });
     }
   };
 
-  // Transform entries for ContentCard compatibility with improved image handling
-  const transformedEntries = entries.map(entry => {
-    console.log('=== TRANSFORMING ENTRY ===');
-    console.log('Entry ID:', entry.id);
-    console.log('Entry ID type:', typeof entry.id);
-    console.log('Entry ID length:', entry.id ? entry.id.length : 'undefined');
-    console.log('Entry topic:', entry.topic);
-    
-    const platformContent: any = {};
-    const status: any = {};
-    const slideImages: string[] = [];
-
-    if (!entry.platforms || !Array.isArray(entry.platforms)) {
-      console.error('Entry platforms is missing or not an array:', entry);
-      return {
-        id: entry.id,
-        topic: entry.topic || '',
-        description: entry.description || '',
-        type: entry.type || '',
-        createdDate: new Date(entry.created_at).toLocaleDateString(),
-        status: {},
-        platformContent: {},
-        slideImages: undefined,
-        publishedLinks: entry.published_links || {}
-      };
-    }
-
-    entry.platforms.forEach(platform => {
-      try {
-        console.log(`Processing platform ${platform.platform} for entry ${entry.id}:`, platform);
-        console.log(`Platform ID: ${platform.id} (type: ${typeof platform.id}, length: ${platform.id ? platform.id.length : 'undefined'})`);
-        
-        // Validate platform ID
-        if (!platform.id || platform.id.length !== 36 || !platform.id.includes('-')) {
-          console.warn(`Invalid platform ID format for ${platform.platform}:`, platform.id);
-        }
-        
-        // Use image_url directly from database as a single string
-        const imageUrl = platform.image_url || null;
-        console.log(`Image URL for ${platform.platform}:`, imageUrl);
-
-        // Safe parsing of uploaded images (keep as array for backward compatibility)
-        let uploadedImages: string[] = [];
-        if (platform.uploadedImages) {
-          if (typeof platform.uploadedImages === 'string') {
-            try {
-              const parsed = JSON.parse(platform.uploadedImages);
-              uploadedImages = Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              console.warn('Failed to parse uploadedImages JSON for platform', platform.platform, ':', e);
-              uploadedImages = [];
-            }
-          } else if (Array.isArray(platform.uploadedImages)) {
-            uploadedImages = platform.uploadedImages;
-          }
-        }
-
-        // Safe parsing of slide images
-        let slideImagesArray: string[] = [];
-        if (platform.slideImages) {
-          if (typeof platform.slideImages === 'string') {
-            try {
-              const parsed = JSON.parse(platform.slideImages);
-              slideImagesArray = Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              console.warn('Failed to parse slideImages JSON for platform', platform.platform, ':', e);
-              slideImagesArray = [];
-            }
-          } else if (Array.isArray(platform.slideImages)) {
-            slideImagesArray = platform.slideImages;
-          }
-        }
-
-        // Create images array for compatibility - include image_url if it exists
-        const images: string[] = [];
-        if (imageUrl) {
-          images.push(imageUrl);
-        }
-
-        const safeContent = {
-          text: platform.text || '',
-          image_url: imageUrl, // Direct single image URL from database
-          images: imageUrl ? [imageUrl] : [], // Keep for backward compatibility
-          uploadedImages: uploadedImages,
-          publishDate: platform.publish_date,
-          slidesURL: platform.slides_url,
-          platformId: platform.id, // Make sure this is the complete platform ID
-          ...(platform.platform === 'wordpress' && {
-            title: entry.topic || '',
-            description: entry.description || '',
-            slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
-          })
-        };
-
-        platformContent[platform.platform] = safeContent;
-        console.log(`Platform content for ${platform.platform}:`, safeContent);
-
-        // Set status safely
-        switch (platform.status) {
-          case 'published':
-            status[platform.platform] = 'published';
-            break;
-          case 'pending':
-          case 'generated':
-          case 'edited':
-          case 'scheduled':
-          default:
-            status[platform.platform] = 'pending';
-            break;
-        }
-
-        // Add slide images to the main slideImages array
-        if (slideImagesArray.length > 0) {
-          slideImages.push(...slideImagesArray);
-        }
-
-      } catch (error) {
-        console.error('Error transforming platform data for', platform.platform, ':', error);
-        // Provide safe fallback for this platform
-        platformContent[platform.platform] = {
-          text: platform.text || '',
-          images: platform.image_url ? [platform.image_url] : [],
-          uploadedImages: [],
-          publishDate: platform.publish_date,
-          slidesURL: platform.slides_url,
-          platformId: platform.id,
-          ...(platform.platform === 'wordpress' && {
-            title: entry.topic || '',
-            description: entry.description || '',
-            slug: (entry.topic || '').toLowerCase().replace(/\s+/g, '-')
-          })
-        };
-        status[platform.platform] = 'pending';
-      }
-    });
-
-    const transformedEntry = {
-      id: entry.id, // Ensure this is the complete entry ID
-      topic: entry.topic || '',
-      description: entry.description || '',
-      type: entry.type || '',
-      createdDate: new Date(entry.created_at).toLocaleDateString(),
-      status,
-      platformContent,
-      slideImages: slideImages.length > 0 ? slideImages : undefined,
-      publishedLinks: entry.published_links || {}
-    };
-
-    console.log('✅ Transformed entry with complete ID:', transformedEntry.id, transformedEntry.topic);
-    return transformedEntry;
-  });
-
-  console.log('Final transformed entries:', transformedEntries.length);
-
-  // Show loading screen while checking authentication
-  if (authLoading) {
+  if (showNewContent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
-          <p className="text-gray-600">Cargando...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        <div className="container mx-auto px-4 py-8">
+          <ContentForm 
+            onSubmit={handleNewContent}
+            onCancel={() => setShowNewContent(false)}
+          />
         </div>
       </div>
     );
   }
 
-  if (!user) return null;
-
-  if (showProfileSetup) {
-    return (
-      <ProfileSetup
-        userId={user.id}
-        onComplete={handleProfileSetupComplete}
-        isFirstTime={needsProfileSetup}
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <DashboardHeader
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        showMobileMenu={showMobileMenu}
-        setShowMobileMenu={setShowMobileMenu}
-        onNewContent={() => setShowForm(true)}
-        onProfileSetup={() => setShowProfileSetup(true)}
-        onSignOut={handleSignOut}
-        userEmail={user?.email}
-      />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {showForm ? (
-          <div className="max-w-2xl mx-auto">
-            <ContentForm 
-              onSubmit={handleNewEntry}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        ) : activeTab === 'calendar' ? (
-          <div className="space-y-6 sm:space-y-8">
-            <CalendarView entries={transformedEntries} />
-          </div>
-        ) : activeTab === 'integrations' ? (
-          <div className="space-y-6 sm:space-y-8">
-            <IntegrationsManager />
-          </div>
-        ) : (
-          <DashboardContent
-            entries={transformedEntries}
-            selectedPlatforms={selectedPlatforms}
-            loading={loading}
-            onNewContent={() => setShowForm(true)}
-            onUpdateContent={handleUpdateContent}
-            onDeleteEntry={handleDeleteEntry}
-            onDownloadSlides={handleDownloadSlides}
-            onGenerateImage={handleGenerateImage}
-            onUploadImage={handleUploadImage}
-            onDeleteImage={handleDeleteImage}
-          />
-        )}
-      </main>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <DashboardHeader onNewContent={() => setShowNewContent(true)} />
+        <DashboardContent
+          entries={entries}
+          selectedPlatforms={selectedPlatforms}
+          loading={loading}
+          onNewContent={() => setShowNewContent(true)}
+          onUpdateContent={handleUpdateContent}
+          onDeleteEntry={handleDeleteEntry}
+          onDownloadSlides={handleDownloadSlides}
+          onGenerateImage={() => {}} // Not used anymore
+          onUploadImage={() => {}} // Not used anymore  
+          onDeleteImage={() => {}} // Not used anymore
+        />
+      </div>
     </div>
   );
 };

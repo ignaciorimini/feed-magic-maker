@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -270,26 +269,19 @@ export const contentService = {
     }
   },
 
-  async generateImageForPlatform(platformId: string, platform: string, topic: string, description: string) {
+  async generateImageForPlatform(entryId: string, platform: string, topic: string, description: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
       console.log('=== GENERATING IMAGE FOR PLATFORM ===');
-      console.log('Platform ID:', platformId);
-      console.log('Platform ID type:', typeof platformId);
-      console.log('Platform ID length:', platformId.length);
+      console.log('Entry ID:', entryId);
       console.log('Platform:', platform);
       console.log('User ID:', user.id);
 
-      // Ensure we have a complete platform UUID
-      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
-        console.error('Invalid platform ID format:', platformId);
-        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
-      }
-
-      // First, verify the platform exists and belongs to the user
-      const { data: platformCheck, error: checkError } = await supabase
+      // First, find the platformId by querying content_platforms table
+      console.log('Finding platform record...');
+      const { data: platformRecord, error: platformError } = await supabase
         .from('content_platforms')
         .select(`
           id,
@@ -297,19 +289,21 @@ export const contentService = {
           platform,
           content_entries!inner(user_id)
         `)
-        .eq('id', platformId) // Use complete platform ID
+        .eq('content_entry_id', entryId)
+        .eq('platform', platform)
         .single();
 
-      if (checkError) {
-        console.error('Error checking platform:', checkError);
-        throw new Error(`Platform not found: ${checkError.message}`);
+      if (platformError) {
+        console.error('Error finding platform record:', platformError);
+        throw new Error(`Platform record not found: ${platformError.message}`);
       }
 
-      if (platformCheck.content_entries.user_id !== user.id) {
+      if (platformRecord.content_entries.user_id !== user.id) {
         throw new Error('Platform does not belong to authenticated user');
       }
 
-      console.log('Platform verified:', platformCheck);
+      console.log('Platform record found:', platformRecord);
+      const platformId = platformRecord.id;
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -324,7 +318,7 @@ export const contentService = {
       const webhookPayload = {
         action: 'generate_image',
         platform: platform,
-        platformId: platformId, // Use complete platform ID
+        platformId: platformId,
         topic: topic,
         description: description,
         userEmail: user.email
@@ -371,14 +365,14 @@ export const contentService = {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Step 1: Update the platform with the new image URL using complete platform ID
+      // Update the platform with the new image URL
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
           image_url: imageUrl,
           status: 'generated'
         })
-        .eq('id', platformId) // Use complete platform ID
+        .eq('id', platformId)
         .select('id, image_url, platform, status')
         .single();
 
@@ -389,11 +383,11 @@ export const contentService = {
 
       console.log('Platform updated successfully:', updateData);
 
-      // Step 2: Verify the update was successful by fetching the record again
+      // Verify the update was successful by fetching the record again
       const { data: verifyData, error: verifyError } = await supabase
         .from('content_platforms')
         .select('id, image_url, platform, status')
-        .eq('id', platformId) // Use complete platform ID
+        .eq('id', platformId)
         .single();
 
       if (verifyError) {
@@ -409,25 +403,6 @@ export const contentService = {
         } else {
           console.log('✅ Image URL saved correctly in database');
         }
-      }
-
-      // Step 3: Test that we can query the updated record with our current user context
-      const { data: userContextTest, error: userContextError } = await supabase
-        .from('content_platforms')
-        .select(`
-          id, 
-          image_url, 
-          platform,
-          content_entries!inner(user_id, topic)
-        `)
-        .eq('id', platformId) // Use complete platform ID
-        .single();
-
-      if (userContextError) {
-        console.error('Error testing user context after update:', userContextError);
-        console.warn('Update succeeded but user context test failed - this might be an RLS issue');
-      } else {
-        console.log('✅ User context test passed:', userContextTest);
       }
 
       return { data: { imageUrl }, error: null };
