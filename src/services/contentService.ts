@@ -269,22 +269,18 @@ export const contentService = {
     }
   },
 
-  async generateImageForPlatform(
-    entryId: string,
-    platform: 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
-    topic: string,
-    description: string
-  ) {
+  async generateImageForPlatform(entryId: string, platform: string, topic: string, description: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
-  
+
       console.log('=== GENERATING IMAGE FOR PLATFORM ===');
       console.log('Entry ID:', entryId);
       console.log('Platform:', platform);
       console.log('User ID:', user.id);
-  
-      // Buscar el registro de la plataforma y validar usuario
+
+      // First, find the platformId by querying content_platforms table
+      console.log('Finding platform record...');
       const { data: platformRecord, error: platformError } = await supabase
         .from('content_platforms')
         .select(`
@@ -294,94 +290,127 @@ export const contentService = {
           content_entries!inner(user_id)
         `)
         .eq('content_entry_id', entryId)
-        .eq('platform', platform)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
-  
-      if (platformError) throw new Error(`Platform record not found: ${platformError.message}`);
-  
+
+      if (platformError) {
+        console.error('Error finding platform record:', platformError);
+        throw new Error(`Platform record not found: ${platformError.message}`);
+      }
+
       if (platformRecord.content_entries.user_id !== user.id) {
         throw new Error('Platform does not belong to authenticated user');
       }
-  
+
+      console.log('Platform record found:', platformRecord);
       const platformId = platformRecord.id;
-  
-      // Obtener webhook_url del perfil
+
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('webhook_url')
         .eq('id', user.id)
         .single();
-  
-      if (profileError || !profile?.webhook_url) throw new Error('Webhook URL not configured');
-  
-      // Payload para el webhook
+
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook URL not configured');
+      }
+
       const webhookPayload = {
         action: 'generate_image',
-        platform,
-        platformId,
-        topic,
-        description,
+        platform: platform,
+        platformId: platformId,
+        topic: topic,
+        description: description,
         userEmail: user.email
       };
-  
+
       console.log('Sending webhook payload:', webhookPayload);
-  
+
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(webhookPayload),
       });
-  
-      if (!response.ok) throw new Error(`Webhook error: ${response.status}`);
-  
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
       const result = await response.json();
-      console.log('Webhook response:', result);
-  
-      // Extraer URL de imagen robustamente
-      let imageUrl: string | null = null;
-  
-      if (Array.isArray(result) && result.length > 0 && result[0].imageURL) {
-        imageUrl = result[0].imageURL;
-      } else if (result && typeof result === 'object' && 'imageURL' in result) {
+      console.log('Webhook response for image generation:', result);
+      
+      // Handle different webhook response formats more robustly
+      let imageUrl = null;
+      
+      // Handle array format: [{ "imageURL": "..." }]
+      if (Array.isArray(result) && result.length > 0) {
+        const firstResult = result[0];
+        if (firstResult.imageURL) {
+          imageUrl = firstResult.imageURL;
+        }
+      }
+      // Handle direct object format: { "imageURL": "..." }
+      else if (result && typeof result === 'object' && result.imageURL) {
         imageUrl = result.imageURL;
       }
-  
-      if (!imageUrl) throw new Error('No image URL received from webhook');
-  
-      console.log('Updating content_platforms with image URL:', imageUrl);
-  
-      // Actualizar tabla con la URL de la imagen y estado
+
+      if (!imageUrl) {
+        console.error('No imageURL in webhook response:', result);
+        throw new Error('No image URL received from webhook');
+      }
+
+      console.log('=== UPDATING PLATFORM WITH IMAGE URL ===');
+      console.log('Platform ID:', platformId);
+      console.log('Image URL:', imageUrl);
+      
+      // Update the platform with the new image URL using the correct platformId
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
-        .update({ image_url: imageUrl, status: 'generated' })
+        .update({
+          image_url: imageUrl,
+          status: 'generated'
+        })
         .eq('id', platformId)
-        .select()
+        .select('id, image_url, platform, status')
         .single();
-  
-      if (updateError) throw updateError;
-  
-      // Verificar que se haya guardado bien
+
+      if (updateError) {
+        console.error('Error updating platform with image:', updateError);
+        throw updateError;
+      }
+
+      console.log('Platform updated successfully:', updateData);
+
+      // Verify the update was successful by fetching the record again
       const { data: verifyData, error: verifyError } = await supabase
         .from('content_platforms')
-        .select('image_url')
+        .select('id, image_url, platform, status')
         .eq('id', platformId)
         .single();
-  
-      if (verifyError) throw verifyError;
-  
-      if (verifyData.image_url !== imageUrl) {
-        throw new Error('Image URL was not saved correctly in database');
+
+      if (verifyError) {
+        console.error('Error verifying update:', verifyError);
+        throw verifyError;
+      } else {
+        console.log('Verification: Platform after update:', verifyData);
+        if (verifyData.image_url !== imageUrl) {
+          console.error('WARNING: Image URL was not saved correctly!');
+          console.error('Expected:', imageUrl);
+          console.error('Actual:', verifyData.image_url);
+          throw new Error('Image URL was not saved correctly in database');
+        } else {
+          console.log('✅ Image URL saved correctly in database');
+        }
       }
-  
-      console.log('✅ Image URL saved correctly in database');
-  
+
       return { data: { imageUrl }, error: null };
     } catch (error) {
       console.error('Error generating image:', error);
       return { data: null, error };
     }
   },
-
 
   async uploadCustomImage(platformId: string, imageUrl: string) {
     try {
