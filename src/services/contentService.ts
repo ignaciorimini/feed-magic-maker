@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -155,13 +156,23 @@ export const contentService = {
 
   async deleteContentEntry(entryId: string) {
     try {
-      console.log('Deleting content entry with ID:', entryId);
+      console.log('=== DELETING CONTENT ENTRY ===');
+      console.log('Entry ID received:', entryId);
+      console.log('Entry ID type:', typeof entryId);
+      console.log('Entry ID length:', entryId.length);
       
-      // Get all platforms for this entry
+      // Ensure we have a complete UUID (36 characters with dashes)
+      if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
+        console.error('Invalid entry ID format:', entryId);
+        throw new Error(`Invalid entry ID format: ${entryId}. Expected full UUID.`);
+      }
+      
+      // Get all platforms for this entry using the complete entry ID
+      console.log('Fetching platforms for entry ID:', entryId);
       const { data: platforms, error: platformsError } = await supabase
         .from('content_platforms')
         .select('id')
-        .eq('content_entry_id', entryId);
+        .eq('content_entry_id', entryId); // Use complete entry ID
 
       if (platformsError) {
         console.error('Error fetching platforms for deletion:', platformsError);
@@ -187,24 +198,24 @@ export const contentService = {
           .in('content_platform_id', platformIds);
       }
 
-      // Delete all platforms for this entry
+      // Delete all platforms for this entry using complete entry ID
       console.log('Deleting platforms for entry:', entryId);
       const { error: deletePlatformsError } = await supabase
         .from('content_platforms')
         .delete()
-        .eq('content_entry_id', entryId);
+        .eq('content_entry_id', entryId); // Use complete entry ID
 
       if (deletePlatformsError) {
         console.error('Error deleting platforms:', deletePlatformsError);
         throw deletePlatformsError;
       }
 
-      // Delete the main entry
+      // Delete the main entry using complete entry ID
       console.log('Deleting main entry:', entryId);
       const { error: deleteEntryError } = await supabase
         .from('content_entries')
         .delete()
-        .eq('id', entryId);
+        .eq('id', entryId); // Use complete entry ID
 
       if (deleteEntryError) {
         console.error('Error deleting main entry:', deleteEntryError);
@@ -266,8 +277,16 @@ export const contentService = {
 
       console.log('=== GENERATING IMAGE FOR PLATFORM ===');
       console.log('Platform ID:', platformId);
+      console.log('Platform ID type:', typeof platformId);
+      console.log('Platform ID length:', platformId.length);
       console.log('Platform:', platform);
       console.log('User ID:', user.id);
+
+      // Ensure we have a complete platform UUID
+      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
+        console.error('Invalid platform ID format:', platformId);
+        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
+      }
 
       // First, verify the platform exists and belongs to the user
       const { data: platformCheck, error: checkError } = await supabase
@@ -278,7 +297,7 @@ export const contentService = {
           platform,
           content_entries!inner(user_id)
         `)
-        .eq('id', platformId)
+        .eq('id', platformId) // Use complete platform ID
         .single();
 
       if (checkError) {
@@ -305,7 +324,7 @@ export const contentService = {
       const webhookPayload = {
         action: 'generate_image',
         platform: platform,
-        platformId: platformId,
+        platformId: platformId, // Use complete platform ID
         topic: topic,
         description: description,
         userEmail: user.email
@@ -326,7 +345,7 @@ export const contentService = {
       }
 
       const result = await response.json();
-      console.log('Respuesta de generación de imagen:', result);
+      console.log('Webhook response for image generation:', result);
       
       // Handle different webhook response formats more robustly
       let imageUrl = null;
@@ -352,14 +371,14 @@ export const contentService = {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Step 1: Update the platform with the new image URL
+      // Step 1: Update the platform with the new image URL using complete platform ID
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
           image_url: imageUrl,
           status: 'generated'
         })
-        .eq('id', platformId)
+        .eq('id', platformId) // Use complete platform ID
         .select('id, image_url, platform, status')
         .single();
 
@@ -374,7 +393,7 @@ export const contentService = {
       const { data: verifyData, error: verifyError } = await supabase
         .from('content_platforms')
         .select('id, image_url, platform, status')
-        .eq('id', platformId)
+        .eq('id', platformId) // Use complete platform ID
         .single();
 
       if (verifyError) {
@@ -401,7 +420,7 @@ export const contentService = {
           platform,
           content_entries!inner(user_id, topic)
         `)
-        .eq('id', platformId)
+        .eq('id', platformId) // Use complete platform ID
         .single();
 
       if (userContextError) {
@@ -420,10 +439,22 @@ export const contentService = {
 
   async uploadCustomImage(platformId: string, imageUrl: string) {
     try {
+      console.log('=== UPLOADING CUSTOM IMAGE ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform ID type:', typeof platformId);
+      console.log('Platform ID length:', platformId.length);
+      console.log('Image URL:', imageUrl);
+
+      // Ensure we have a complete platform UUID
+      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
+        console.error('Invalid platform ID format:', platformId);
+        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
+      }
+
       const { error } = await supabase
         .from('uploaded_images')
         .insert({
-          content_platform_id: platformId,
+          content_platform_id: platformId, // Use complete platform ID
           image_url: imageUrl
         });
 
@@ -437,12 +468,25 @@ export const contentService = {
 
   async deleteImageFromPlatform(platformId: string, imageUrl: string, isUploaded: boolean) {
     try {
+      console.log('=== DELETING IMAGE FROM PLATFORM ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform ID type:', typeof platformId);
+      console.log('Platform ID length:', platformId.length);
+      console.log('Image URL:', imageUrl);
+      console.log('Is uploaded:', isUploaded);
+
+      // Ensure we have a complete platform UUID
+      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
+        console.error('Invalid platform ID format:', platformId);
+        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
+      }
+
       if (isUploaded) {
-        // Delete from uploaded_images table
+        // Delete from uploaded_images table using complete platform ID
         const { error } = await supabase
           .from('uploaded_images')
           .delete()
-          .eq('content_platform_id', platformId)
+          .eq('content_platform_id', platformId) // Use complete platform ID
           .eq('image_url', imageUrl);
 
         if (error) throw error;
@@ -457,15 +501,27 @@ export const contentService = {
 
   async saveSlideImages(platformId: string, slideImages: string[]) {
     try {
-      // First, delete existing slide images for this platform
+      console.log('=== SAVING SLIDE IMAGES ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform ID type:', typeof platformId);
+      console.log('Platform ID length:', platformId.length);
+      console.log('Slide images count:', slideImages.length);
+
+      // Ensure we have a complete platform UUID
+      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
+        console.error('Invalid platform ID format:', platformId);
+        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
+      }
+
+      // First, delete existing slide images for this platform using complete platform ID
       await supabase
         .from('slide_images')
         .delete()
-        .eq('content_platform_id', platformId);
+        .eq('content_platform_id', platformId); // Use complete platform ID
 
-      // Insert new slide images
+      // Insert new slide images using complete platform ID
       const slideImagesData = slideImages.map((imageUrl, index) => ({
-        content_platform_id: platformId,
+        content_platform_id: platformId, // Use complete platform ID
         image_url: imageUrl,
         position: index
       }));
@@ -484,6 +540,18 @@ export const contentService = {
 
   async publishContent(platformId: string, platform: string) {
     try {
+      console.log('=== PUBLISHING CONTENT ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform ID type:', typeof platformId);
+      console.log('Platform ID length:', platformId.length);
+      console.log('Platform:', platform);
+
+      // Ensure we have a complete platform UUID
+      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
+        console.error('Invalid platform ID format:', platformId);
+        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
@@ -504,7 +572,7 @@ export const contentService = {
         },
         body: JSON.stringify({
           action: 'publish_content',
-          platformId: platformId,
+          platformId: platformId, // Use complete platform ID
           platform: platform,
           userEmail: user.email
         }),

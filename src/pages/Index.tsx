@@ -161,11 +161,97 @@ const Index = () => {
     }
   };
 
-  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
-    console.log(`=== HANDLING GENERATE IMAGE ===`);
-    console.log(`Platform ${platform}:`, { platformId, topic, description });
+  const handleDeleteEntry = async (entryId: string) => {
+    console.log('=== HANDLING DELETE ENTRY ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Entry ID type:', typeof entryId);
+    console.log('Entry ID length:', entryId ? entryId.length : 'undefined');
+    
+    // Validate that we have a complete UUID before proceeding
+    if (!entryId) {
+      console.error('No entry ID provided for deletion');
+      toast({
+        title: "Error",
+        description: "No se pudo identificar el contenido a eliminar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the ID looks like a complete UUID (36 characters with dashes)
+    if (entryId.length !== 36 || !entryId.includes('-')) {
+      console.error('Invalid entry ID format:', entryId);
+      toast({
+        title: "Error",
+        description: "ID de contenido inválido. No se puede eliminar.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
+      console.log('Attempting to delete entry with complete ID:', entryId);
+      const { error } = await contentService.deleteContentEntry(entryId);
+      
+      if (error) {
+        console.error('Delete error:', error);
+        toast({
+          title: "Error al eliminar contenido",
+          description: `No se pudo eliminar el contenido: ${error.message || 'Error desconocido'}`,
+          variant: "destructive",
+        });
+      } else {
+        // Remove from local state only after successful deletion
+        setEntries(prev => prev.filter(entry => entry.id !== entryId));
+        
+        toast({
+          title: "Contenido eliminado",
+          description: "El contenido ha sido eliminado exitosamente.",
+        });
+        
+        console.log('Entry deleted successfully with ID:', entryId);
+      }
+    } catch (error) {
+      console.error('Unexpected error during deletion:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error inesperado al eliminar el contenido.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
+    console.log('=== HANDLING GENERATE IMAGE ===');
+    console.log('Platform ID received:', platformId);
+    console.log('Platform ID type:', typeof platformId);
+    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
+    console.log('Platform:', platform);
+    
+    // Validate that we have a complete platform UUID before proceeding
+    if (!platformId) {
+      console.error('No platform ID provided for image generation');
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la plataforma para generar la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the ID looks like a complete UUID (36 characters with dashes)
+    if (platformId.length !== 36 || !platformId.includes('-')) {
+      console.error('Invalid platform ID format:', platformId);
+      toast({
+        title: "Error",
+        description: "ID de plataforma inválido. No se puede generar la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      console.log('Generating image for platform with complete ID:', platformId);
       const { data, error } = await contentService.generateImageForPlatform(platformId, platform, topic, description);
       
       if (error) {
@@ -177,9 +263,6 @@ const Index = () => {
         });
       } else {
         console.log('Image generated successfully:', data);
-        console.log('Updating image for entry:', entries.find(e => 
-          e.platforms.some(p => p.id === platformId)
-        )?.id, 'imageUrl:', data?.imageUrl);
         
         toast({
           title: "Imagen generada exitosamente",
@@ -201,13 +284,40 @@ const Index = () => {
   };
 
   const handleUploadImage = async (platformId: string, file: File) => {
-    console.log(`Uploading image for platform:`, { platformId, fileName: file.name });
+    console.log('=== HANDLING UPLOAD IMAGE ===');
+    console.log('Platform ID received:', platformId);
+    console.log('Platform ID type:', typeof platformId);
+    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
+    console.log('File name:', file.name);
+    
+    // Validate that we have a complete platform UUID before proceeding
+    if (!platformId) {
+      console.error('No platform ID provided for image upload');
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la plataforma para subir la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the ID looks like a complete UUID (36 characters with dashes)
+    if (platformId.length !== 36 || !platformId.includes('-')) {
+      console.error('Invalid platform ID format:', platformId);
+      toast({
+        title: "Error",
+        description: "ID de plataforma inválido. No se puede subir la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const imageUrl = e.target?.result as string;
         
+        console.log('Uploading image for platform with complete ID:', platformId);
         const { error } = await contentService.uploadCustomImage(platformId, imageUrl);
         
         if (error) {
@@ -237,9 +347,37 @@ const Index = () => {
   };
 
   const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
-    console.log(`Deleting image:`, { platformId, imageUrl, isUploaded });
+    console.log('=== HANDLING DELETE IMAGE ===');
+    console.log('Platform ID received:', platformId);
+    console.log('Platform ID type:', typeof platformId);
+    console.log('Platform ID length:', platformId ? platformId.length : 'undefined');
+    console.log('Image URL:', imageUrl);
+    console.log('Is uploaded:', isUploaded);
+    
+    // Validate that we have a complete platform UUID before proceeding
+    if (!platformId) {
+      console.error('No platform ID provided for image deletion');
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la plataforma para eliminar la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the ID looks like a complete UUID (36 characters with dashes)
+    if (platformId.length !== 36 || !platformId.includes('-')) {
+      console.error('Invalid platform ID format:', platformId);
+      toast({
+        title: "Error",
+        description: "ID de plataforma inválido. No se puede eliminar la imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
+      console.log('Deleting image for platform with complete ID:', platformId);
       const { error } = await contentService.deleteImageFromPlatform(platformId, imageUrl, isUploaded);
       
       if (error) {
@@ -261,39 +399,6 @@ const Index = () => {
       toast({
         title: "Error inesperado",
         description: "Ocurrió un error al eliminar la imagen.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteEntry = async (entryId: string) => {
-    console.log('Attempting to delete entry:', entryId);
-    
-    try {
-      const { error } = await contentService.deleteContentEntry(entryId);
-      
-      if (error) {
-        console.error('Delete error:', error);
-        toast({
-          title: "Error al eliminar contenido",
-          description: "No se pudo eliminar el contenido. Inténtalo nuevamente.",
-          variant: "destructive",
-        });
-      } else {
-        setEntries(prev => prev.filter(entry => entry.id !== entryId));
-        
-        toast({
-          title: "Contenido eliminado",
-          description: "El contenido ha sido eliminado exitosamente.",
-        });
-        
-        console.log('Entry deleted successfully');
-      }
-    } catch (error) {
-      console.error('Unexpected error during deletion:', error);
-      toast({
-        title: "Error inesperado",
-        description: "Ocurrió un error inesperado al eliminar el contenido.",
         variant: "destructive",
       });
     }
@@ -347,7 +452,11 @@ const Index = () => {
 
   // Transform entries for ContentCard compatibility with improved image handling
   const transformedEntries = entries.map(entry => {
-    console.log('Transforming entry:', entry.id, entry.topic);
+    console.log('=== TRANSFORMING ENTRY ===');
+    console.log('Entry ID:', entry.id);
+    console.log('Entry ID type:', typeof entry.id);
+    console.log('Entry ID length:', entry.id ? entry.id.length : 'undefined');
+    console.log('Entry topic:', entry.topic);
     
     const platformContent: any = {};
     const status: any = {};
@@ -371,6 +480,12 @@ const Index = () => {
     entry.platforms.forEach(platform => {
       try {
         console.log(`Processing platform ${platform.platform} for entry ${entry.id}:`, platform);
+        console.log(`Platform ID: ${platform.id} (type: ${typeof platform.id}, length: ${platform.id ? platform.id.length : 'undefined'})`);
+        
+        // Validate platform ID
+        if (!platform.id || platform.id.length !== 36 || !platform.id.includes('-')) {
+          console.warn(`Invalid platform ID format for ${platform.platform}:`, platform.id);
+        }
         
         // Use image_url directly from database as a single string
         const imageUrl = platform.image_url || null;
@@ -416,11 +531,12 @@ const Index = () => {
 
         const safeContent = {
           text: platform.text || '',
-          images: images, // This will contain the single image_url from database
+          image_url: imageUrl, // Direct single image URL from database
+          images: imageUrl ? [imageUrl] : [], // Keep for backward compatibility
           uploadedImages: uploadedImages,
           publishDate: platform.publish_date,
           slidesURL: platform.slides_url,
-          platformId: platform.id,
+          platformId: platform.id, // Make sure this is the complete platform ID
           ...(platform.platform === 'wordpress' && {
             title: entry.topic || '',
             description: entry.description || '',
@@ -471,7 +587,7 @@ const Index = () => {
     });
 
     const transformedEntry = {
-      id: entry.id,
+      id: entry.id, // Ensure this is the complete entry ID
       topic: entry.topic || '',
       description: entry.description || '',
       type: entry.type || '',
