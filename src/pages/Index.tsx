@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
@@ -100,25 +101,61 @@ const Index = () => {
 
   const handleNewContent = async (formData: any) => {
     try {
-      console.log('=== CREATING NEW CONTENT ===');
-      console.log('Form data received:', formData);
-      console.log('Generated content:', formData.generatedContent);
+      // The webhook now returns the new format directly
+      const generatedContent = formData.generatedContent;
+      
+      // Transform the new format to match our expected format
+      const transformedContent: any = {};
+      
+      formData.selectedPlatforms.forEach((platform: string) => {
+        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+        const platformData = generatedContent[platformKey];
+        
+        if (platformData) {
+          let content: any = {};
+          
+          switch (platform) {
+            case 'instagram':
+            case 'linkedin':
+              content = {
+                text: platformData.text || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+            case 'wordpress':
+              content = {
+                text: platformData.text || '',
+                title: platformData.title || '',
+                description: platformData.description || '',
+                slug: platformData.slug || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+            case 'twitter':
+              // Twitter still uses the old format for now
+              content = {
+                text: platformData.text || '',
+                slidesURL: platformData.slidesURL || null
+              };
+              break;
+          }
+          
+          transformedContent[platformKey] = content;
+        }
+      });
 
       const { data, error } = await contentService.createContentEntry({
         topic: formData.topic,
         description: formData.description,
         type: formData.type,
         selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: formData.generatedContent
+        generatedContent: transformedContent
       });
 
       if (error) {
-        console.error('Error creating content entry:', error);
         throw error;
       }
 
-      console.log('Content entry created successfully:', data);
-      
       await loadEntries();
       setShowNewContent(false);
       

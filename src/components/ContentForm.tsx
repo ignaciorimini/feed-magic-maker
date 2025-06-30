@@ -17,14 +17,15 @@ interface ContentFormProps {
 }
 
 interface WebhookResponse {
-  instagramContent?: string;
-  linkedinContent?: string;
+  instagramContent: string;
+  linkedinContent: string;
   twitterContent?: string;
   twitterThreadPosts?: string[];
-  wordpressTitle?: string;
-  wordpressDescription?: string;
-  wordpressSlug?: string;
-  wordpressContent?: string;
+  wordpressTitle: string;
+  wordpressDescription: string;
+  wordpressSlug: string;
+  wordpressContent: string;
+  // imageURL is no longer returned here - images will be generated separately
   slidesURL?: string;
 }
 
@@ -111,55 +112,15 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         throw new Error(`Error del servidor: ${response.status}`);
       }
 
-      const webhookData = await response.json();
-      console.log("Respuesta del webhook recibida:", webhookData);
-
-      // Transform the webhook response to match our expected format
-      const transformedContent: any = {};
-      
-      // Handle Instagram content
-      if (formData.selectedPlatforms.includes('instagram') && webhookData.instagramContent) {
-        transformedContent.instagram = {
-          text: webhookData.instagramContent,
-          slidesURL: webhookData.slidesURL || null
-        };
-      }
-
-      // Handle LinkedIn content  
-      if (formData.selectedPlatforms.includes('linkedin') && webhookData.linkedinContent) {
-        transformedContent.linkedin = {
-          text: webhookData.linkedinContent,
-          slidesURL: webhookData.slidesURL || null
-        };
-      }
-
-      // Handle Twitter content
-      if (formData.selectedPlatforms.includes('twitter') && webhookData.twitterContent) {
-        transformedContent.twitter = {
-          text: webhookData.twitterContent,
-          slidesURL: webhookData.slidesURL || null
-        };
-      }
-
-      // Handle WordPress content
-      if (formData.selectedPlatforms.includes('wordpress') && webhookData.wordpressContent) {
-        transformedContent.wordpress = {
-          text: webhookData.wordpressContent,
-          title: webhookData.wordpressTitle || '',
-          description: webhookData.wordpressDescription || '',
-          slug: webhookData.wordpressSlug || '',
-          slidesURL: webhookData.slidesURL || null
-        };
-      }
-
-      console.log("Contenido transformado:", transformedContent);
+      const generatedContent: WebhookResponse = await response.json();
+      console.log("Contenido generado recibido:", generatedContent);
 
       const newEntry = {
         topic: formData.topic,
         description: formData.description,
         type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
         selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: transformedContent
+        generatedContent: generatedContent
       };
 
       onSubmit(newEntry);
