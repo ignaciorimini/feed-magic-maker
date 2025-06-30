@@ -177,12 +177,16 @@ const Index = () => {
         });
       } else {
         console.log('Image generated successfully:', data);
+        console.log('Updating image for entry:', entries.find(e => 
+          e.platforms.some(p => p.id === platformId)
+        )?.id, 'imageUrl:', data?.imageUrl);
+        
         toast({
           title: "Imagen generada exitosamente",
           description: `Se generó la imagen para ${platform}.`,
         });
         
-        // Reload entries to show the new image
+        // Reload entries to show the new image from database
         console.log('Reloading entries to show new image...');
         await loadEntries();
       }
@@ -341,7 +345,7 @@ const Index = () => {
     }
   };
 
-  // Transform entries for ContentCard compatibility with enhanced error checking
+  // Transform entries for ContentCard compatibility with improved image handling
   const transformedEntries = entries.map(entry => {
     console.log('Transforming entry:', entry.id, entry.topic);
     
@@ -368,16 +372,11 @@ const Index = () => {
       try {
         console.log(`Processing platform ${platform.platform} for entry ${entry.id}:`, platform);
         
-        // Handle image_url from the database
-        const images: string[] = [];
-        if (platform.image_url && typeof platform.image_url === 'string') {
-          console.log(`Found image_url for ${platform.platform}:`, platform.image_url);
-          images.push(platform.image_url);
-        } else {
-          console.log(`No image_url found for ${platform.platform}, image_url:`, platform.image_url);
-        }
+        // Use image_url directly from database as a single string
+        const imageUrl = platform.image_url || null;
+        console.log(`Image URL for ${platform.platform}:`, imageUrl);
 
-        // Safe parsing of uploaded images
+        // Safe parsing of uploaded images (keep as array for backward compatibility)
         let uploadedImages: string[] = [];
         if (platform.uploadedImages) {
           if (typeof platform.uploadedImages === 'string') {
@@ -409,15 +408,15 @@ const Index = () => {
           }
         }
 
-        // Combine all images safely
-        const allImages = [
-          ...images,
-          ...uploadedImages
-        ];
+        // Create images array for compatibility - include image_url if it exists
+        const images: string[] = [];
+        if (imageUrl) {
+          images.push(imageUrl);
+        }
 
         const safeContent = {
           text: platform.text || '',
-          images: allImages,
+          images: images, // This will contain the single image_url from database
           uploadedImages: uploadedImages,
           publishDate: platform.publish_date,
           slidesURL: platform.slides_url,

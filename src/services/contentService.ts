@@ -108,17 +108,25 @@ export const contentService = {
 
       console.log('Raw entries from database:', entries);
 
-      // Transform the data to include slideImages as an array of URLs
+      // Transform the data with improved image_url handling
       const transformedEntries = entries?.map(entry => ({
         ...entry,
-        platforms: entry.platforms.map((platform: any) => ({
-          ...platform,
-          slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
-          uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
-        }))
+        platforms: entry.platforms.map((platform: any) => {
+          console.log(`Processing platform ${platform.platform} - image_url:`, platform.image_url);
+          
+          return {
+            ...platform,
+            // Keep image_url as a single string (the main field from database)
+            image_url: platform.image_url || null,
+            // Transform slideImages array
+            slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
+            // Transform uploadedImages array  
+            uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
+          };
+        })
       })) || [];
 
-      console.log('Transformed entries:', transformedEntries);
+      console.log('Transformed entries with image_url handling:', transformedEntries);
 
       return { data: transformedEntries, error: null };
     } catch (error) {
@@ -318,16 +326,21 @@ export const contentService = {
       }
 
       const result = await response.json();
-      console.log('Webhook response:', result);
+      console.log('Respuesta de generación de imagen:', result);
       
-      // Handle the new webhook response format: [{ "imageURL": "..." }]
+      // Handle different webhook response formats more robustly
       let imageUrl = null;
       
+      // Handle array format: [{ "imageURL": "..." }]
       if (Array.isArray(result) && result.length > 0) {
         const firstResult = result[0];
         if (firstResult.imageURL) {
           imageUrl = firstResult.imageURL;
         }
+      }
+      // Handle direct object format: { "imageURL": "..." }
+      else if (result && typeof result === 'object' && result.imageURL) {
+        imageUrl = result.imageURL;
       }
 
       if (!imageUrl) {
