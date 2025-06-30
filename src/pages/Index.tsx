@@ -188,7 +188,7 @@ const Index = () => {
         .from('content_platforms')
         .select('id')
         .eq('content_entry_id', originalEntryId)
-        .eq('platform', platform)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
       if (platformError || !platformRecord) {
@@ -313,8 +313,9 @@ const Index = () => {
           setActiveTab={setActiveTab}
           showMobileMenu={showMobileMenu}
           setShowMobileMenu={setShowMobileMenu}
-          entries={entries}
-          selectedPlatforms={selectedPlatforms}
+          onProfileSetup={() => {}}
+          onSignOut={() => {}}
+          userEmail={user?.email}
         />
         <DashboardContent
           entries={entries}
