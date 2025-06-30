@@ -279,6 +279,9 @@ export const contentService = {
       console.log('Platform:', platform);
       console.log('User ID:', user.id);
 
+      const pureEntryId = entryId.split('__')[0];  // Extrae solo la parte UUID
+      console.log('Pure Entry ID:', pureEntryId);
+
       // First, find the platformId by querying content_platforms table
       console.log('Finding platform record...');
       const { data: platformRecord, error: platformError } = await supabase
@@ -289,7 +292,7 @@ export const contentService = {
           platform,
           content_entries!inner(user_id)
         `)
-        .eq('content_entry_id', entryId)
+        .eq('content_entry_id', pureEntryId)
         .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
