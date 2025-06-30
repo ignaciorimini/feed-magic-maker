@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -123,7 +124,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   };
 
   const handleGenerateImage = async () => {
-    if (!user || !localEntry.id) {
+    if (!user || !content?.platformId) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -134,69 +135,43 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
     setIsGeneratingImage(true);
     try {
-      console.log("Obteniendo webhook del perfil del usuario para generar imagen...");
+      console.log("=== GENERATING IMAGE ===");
+      console.log("Platform ID from content:", content.platformId);
+      console.log("Platform:", platform);
+      console.log("Topic:", localEntry.topic);
+      console.log("Description:", localEntry.description);
       
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
+      // Use the generateImageForPlatform service which handles the webhook and database update
+      const { data, error } = await contentService.generateImageForPlatform(
+        content.platformId, 
+        platform, 
+        localEntry.topic, 
+        localEntry.description
+      );
       
-      if (profileError || !profile?.webhook_url) {
+      if (error) {
+        console.error('Error from generateImageForPlatform:', error);
         toast({
-          title: "Webhook no configurado",
-          description: "Debes configurar tu webhook URL en el perfil para generar imágenes.",
+          title: "Error al generar imagen",
+          description: `No se pudo generar la imagen: ${error.message || 'Verifica tu webhook'}`,
           variant: "destructive",
         });
-        return;
-      }
-
-      console.log("Enviando solicitud de generación de imagen al webhook:", profile.webhook_url);
-      
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'generate_image',
-          topic: localEntry.topic,
-          description: localEntry.description,
-          platform: platform,
-          userEmail: user.email
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Respuesta de generación de imagen:", result);
-
-      if (result.imageURL && typeof result.imageURL === 'string') {
-        // Update local state to reflect the new image
-        setLocalEntry(prev => ({
-          ...prev,
-          imageUrl: result.imageURL
-        }));
-
-        // Also update the platform content if needed (for backward compatibility)
-        const updatedContent = {
-          ...content,
-          images: [result.imageURL]
-        };
-        
-        await onUpdateContent(localEntry.id, platform, updatedContent);
+      } else {
+        console.log('Image generated successfully:', data);
         
         toast({
           title: "¡Imagen generada exitosamente!",
-          description: "La imagen ha sido generada y guardada.",
+          description: `Se generó la imagen para ${config.name}.`,
         });
-      } else {
-        throw new Error("No se recibió una URL de imagen válida");
+        
+        // The parent component will reload entries to show the new image from database
+        // No need to update local state manually since the image is now persisted
       }
     } catch (error) {
-      console.error('Error al generar imagen:', error);
+      console.error('Unexpected error generating image:', error);
       toast({
-        title: "Error al generar imagen",
-        description: "Hubo un problema al generar la imagen. Inténtalo nuevamente.",
+        title: "Error inesperado",
+        description: "Ocurrió un error al generar la imagen.",
         variant: "destructive",
       });
     } finally {
@@ -211,7 +186,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return null;
   };
 
-  const displayImage = localEntry.imageUrl || getValidImageUrl(content?.images?.[0]);
+  const displayImage = localEntry.imageUrl || getValidImageUrl(content?.images?.[0]) || getValidImageUrl(content?.image_url);
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage;
 
