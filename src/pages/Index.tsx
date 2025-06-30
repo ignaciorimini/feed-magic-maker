@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import ContentForm from '@/components/ContentForm';
 import DashboardContent from '@/components/dashboard/DashboardContent';
@@ -13,6 +13,8 @@ const Index = () => {
   const [entries, setEntries] = useState<any[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('content');
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const loadEntries = async () => {
     if (!user) return;
@@ -305,7 +307,15 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="container mx-auto px-4 py-6 space-y-6">
-        <DashboardHeader onNewContent={() => setShowNewContent(true)} />
+        <DashboardHeader 
+          onNewContent={() => setShowNewContent(true)}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          showMobileMenu={showMobileMenu}
+          setShowMobileMenu={setShowMobileMenu}
+          entries={entries}
+          selectedPlatforms={selectedPlatforms}
+        />
         <DashboardContent
           entries={entries}
           selectedPlatforms={selectedPlatforms}
@@ -317,6 +327,7 @@ const Index = () => {
           onGenerateImage={() => {}} // Not used anymore
           onUploadImage={() => {}} // Not used anymore  
           onDeleteImage={() => {}} // Not used anymore
+          onReloadEntries={loadEntries}
         />
       </div>
     </div>

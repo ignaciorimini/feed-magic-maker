@@ -290,7 +290,7 @@ export const contentService = {
           content_entries!inner(user_id)
         `)
         .eq('content_entry_id', entryId)
-        .eq('platform', platform)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
       if (platformError) {
@@ -365,7 +365,7 @@ export const contentService = {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Update the platform with the new image URL
+      // Update the platform with the new image URL using the correct platformId
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
