@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ContentEntry {
@@ -340,14 +339,15 @@ export const contentService = {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Update the platform with the new image URL in the image_url field
+      // Step 1: Update the platform with the new image URL
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
-          image_url: imageUrl
+          image_url: imageUrl,
+          status: 'generated'
         })
         .eq('id', platformId)
-        .select('id, image_url, platform')
+        .select('id, image_url, platform, status')
         .single();
 
       if (updateError) {
@@ -357,24 +357,45 @@ export const contentService = {
 
       console.log('Platform updated successfully:', updateData);
 
-      // Verify the update was successful by fetching the record again
+      // Step 2: Verify the update was successful by fetching the record again
       const { data: verifyData, error: verifyError } = await supabase
         .from('content_platforms')
-        .select('id, image_url, platform')
+        .select('id, image_url, platform, status')
         .eq('id', platformId)
         .single();
 
       if (verifyError) {
         console.error('Error verifying update:', verifyError);
+        throw verifyError;
       } else {
         console.log('Verification: Platform after update:', verifyData);
         if (verifyData.image_url !== imageUrl) {
           console.error('WARNING: Image URL was not saved correctly!');
           console.error('Expected:', imageUrl);
           console.error('Actual:', verifyData.image_url);
+          throw new Error('Image URL was not saved correctly in database');
         } else {
-          console.log('✅ Image URL saved correctly');
+          console.log('✅ Image URL saved correctly in database');
         }
+      }
+
+      // Step 3: Test that we can query the updated record with our current user context
+      const { data: userContextTest, error: userContextError } = await supabase
+        .from('content_platforms')
+        .select(`
+          id, 
+          image_url, 
+          platform,
+          content_entries!inner(user_id, topic)
+        `)
+        .eq('id', platformId)
+        .single();
+
+      if (userContextError) {
+        console.error('Error testing user context after update:', userContextError);
+        console.warn('Update succeeded but user context test failed - this might be an RLS issue');
+      } else {
+        console.log('✅ User context test passed:', userContextTest);
       }
 
       return { data: { imageUrl }, error: null };
