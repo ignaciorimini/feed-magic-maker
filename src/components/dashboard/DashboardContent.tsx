@@ -1,4 +1,3 @@
-
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ interface DashboardContentProps {
   onUploadImage: (platformId: string, file: File) => void;
   onDeleteImage: (platformId: string, imageUrl: string, isUploaded: boolean) => void;
   onReloadEntries?: () => void;
+  onUpdateImage: (entryId: string, imageUrl: string | null) => Promise<void>;
 }
 
 const DashboardContent = ({
@@ -31,7 +31,8 @@ const DashboardContent = ({
   onGenerateImage,
   onUploadImage,
   onDeleteImage,
-  onReloadEntries
+  onReloadEntries,
+  onUpdateImage
 }: DashboardContentProps) => {
   // Transform entries to create individual platform cards only for platforms that have content
   const platformCards = entries.flatMap(entry => {
@@ -187,7 +188,7 @@ const DashboardContent = ({
                 onDownloadSlides={onDownloadSlides}
                 onUpdateStatus={handleUpdateStatus}
                 onUpdateLink={handleUpdateLink}
-                onUpdateImage={handleUpdateImage}
+                onUpdateImage={onUpdateImage}
                 onReloadEntries={onReloadEntries}
               />
             ))}
