@@ -198,7 +198,6 @@ const WordPressPreview = ({
             title: wpData.title,
             description: wpData.description,
             slug: wpData.slug,
-            content: wpData.content,
             images: content.images
           }}
           contentType={contentType}

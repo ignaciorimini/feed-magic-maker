@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { FileText, Presentation, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -150,18 +149,26 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         const platformData = generatedContent[platformKey];
         
         if (platformData) {
-          transformedContent[platform] = {
-            text: platformData.text || '',
-            slidesURL: platformData.slidesURL || null,
-            contentType: formData.platformTypes[platform],
-            // Add WordPress specific fields
-            ...(platform === 'wordpress' && platformData && 'title' in platformData && {
-              title: platformData.title || '',
-              description: platformData.description || '',
-              slug: platformData.slug || '',
-              content: platformData.content || ''
-            })
-          };
+          if (platform === 'wordpress') {
+            // WordPress has different structure
+            const wpData = platformData as { title: string; description: string; slug: string; content: string; slidesURL?: string | null; };
+            transformedContent[platform] = {
+              title: wpData.title || '',
+              description: wpData.description || '',
+              slug: wpData.slug || '',
+              content: wpData.content || '',
+              slidesURL: wpData.slidesURL || null,
+              contentType: formData.platformTypes[platform]
+            };
+          } else {
+            // Other platforms have text structure
+            const textData = platformData as { text: string; slidesURL?: string | null; };
+            transformedContent[platform] = {
+              text: textData.text || '',
+              slidesURL: textData.slidesURL || null,
+              contentType: formData.platformTypes[platform]
+            };
+          }
         }
       });
 
@@ -408,7 +415,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-800">
                 🤖 <strong>Generación automática:</strong> El sistema generará contenido específico 
-                para each plataforma según el tipo seleccionado. Las imágenes se pueden generar después por separado.
+                para cada plataforma según el tipo seleccionado. Las imágenes se pueden generar después por separado.
               </p>
             </div>
 
