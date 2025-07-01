@@ -44,12 +44,19 @@ const DashboardContent = ({
         const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
         const platformContent = entry.platformContent[platformKey];
         
-        // Only create a card if this platform has actual content (not empty)
-        if (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0))) {
+        // For WordPress, check if we have content or title (WordPress posts)
+        // For other platforms, check if we have text or images
+        const hasContent = platformKey === 'wordpress' 
+          ? (platformContent && (platformContent.title || platformContent.content || platformContent.text))
+          : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
+        
+        if (hasContent) {
           cards.push({
             ...entry,
             platform: platformKey,
-            id: `${entry.id}__${platform}` // Use __ separator to avoid UUID conflicts
+            id: `${entry.id}__${platform}`, // Use __ separator to avoid UUID conflicts
+            // Override the type with the platform-specific content type
+            type: platformContent.contentType || entry.type
           });
         }
       });

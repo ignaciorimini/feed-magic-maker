@@ -54,6 +54,7 @@ const Index = () => {
                 description: wpPost.description || '',
                 slug: wpPost.slug || '',
                 content: wpPost.content || '',
+                text: wpPost.content || '', // Add text field for compatibility
                 image_url: platform.image_url,
                 images: platform.image_url ? [platform.image_url] : [],
                 slidesURL: platform.slides_url,
