@@ -16,9 +16,9 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
 import { contentService } from '@/services/contentService';
-import { StatusBadge } from './StatusBadge';
-import { PublishButton } from './PublishButton';
-import { ImagePreview } from './platform-preview/ImagePreview';
+import StatusBadge from './StatusBadge';
+import PublishButton from './PublishButton';
+import ImagePreview from './platform-preview/ImagePreview';
 
 interface PlatformCardProps {
   id: string;
@@ -202,7 +202,7 @@ const PlatformCard = ({
               <Badge variant="outline" className="text-xs">
                 {formatContentType(contentType)}
               </Badge>
-              <StatusBadge status={status} />
+              <StatusBadge platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'} status={status as 'published' | 'pending' | 'error'} />
             </div>
             <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
               {topic}
@@ -327,9 +327,9 @@ const PlatformCard = ({
 
           <PublishButton
             platformId={id}
-            platform={platform}
-            status={status}
-            onRefresh={onRefresh}
+            platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'}
+            currentStatus={status as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published'}
+            onStatusChange={() => onRefresh()}
           />
 
           <Button
