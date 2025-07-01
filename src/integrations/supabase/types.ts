@@ -48,6 +48,7 @@ export type Database = {
       content_platforms: {
         Row: {
           content_entry_id: string
+          content_type: string | null
           created_at: string | null
           generated_at: string | null
           id: string
@@ -62,6 +63,7 @@ export type Database = {
         }
         Insert: {
           content_entry_id: string
+          content_type?: string | null
           created_at?: string | null
           generated_at?: string | null
           id?: string
@@ -76,6 +78,7 @@ export type Database = {
         }
         Update: {
           content_entry_id?: string
+          content_type?: string | null
           created_at?: string | null
           generated_at?: string | null
           id?: string
@@ -265,6 +268,47 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wordpress_posts: {
+        Row: {
+          content: string
+          content_platform_id: string
+          created_at: string
+          description: string | null
+          id: string
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          content_platform_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          content_platform_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wordpress_posts_content_platform_id_fkey"
+            columns: ["content_platform_id"]
+            isOneToOne: false
+            referencedRelation: "content_platforms"
             referencedColumns: ["id"]
           },
         ]

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
@@ -47,14 +46,23 @@ const Index = () => {
           entry.platforms.forEach(platform => {
             const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
             
-            // Set platform content with platform-specific slide images
+            // Set platform content with platform-specific data
             platformContent[platformKey] = {
               text: platform.text || '',
               image_url: platform.image_url,
               images: platform.image_url ? [platform.image_url] : [],
               slidesURL: platform.slides_url,
               slideImages: platform.slideImages || [],
-              uploadedImages: platform.uploadedImages || []
+              uploadedImages: platform.uploadedImages || [],
+              contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple'),
+              // Add WordPress specific fields
+              ...(platformKey === 'wordpress' && platform.wordpressPost && {
+                title: platform.wordpressPost.title,
+                description: platform.wordpressPost.description,
+                slug: platform.wordpressPost.slug,
+                content: platform.wordpressPost.content,
+                wordpressPost: platform.wordpressPost
+              })
             };
             
             // Set platform status (convert new status to old format for compatibility)
@@ -105,6 +113,7 @@ const Index = () => {
       console.log("Form data:", formData);
       console.log("Selected platforms:", formData.selectedPlatforms);
       console.log("Generated content:", formData.generatedContent);
+      console.log("Platform types:", formData.platformTypes);
 
       // Create the content entry in the database
       const { data, error } = await contentService.createContentEntry({
@@ -112,7 +121,8 @@ const Index = () => {
         description: formData.description,
         type: formData.type,
         selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: formData.generatedContent
+        generatedContent: formData.generatedContent,
+        platformTypes: formData.platformTypes
       });
 
       if (error) {
@@ -144,6 +154,7 @@ const Index = () => {
       console.log('=== UPDATE CONTENT DEBUG ===');
       console.log('Entry ID received:', entryId);
       console.log('Platform:', platform);
+      console.log('Content to update:', content);
       
       const { error } = await contentService.updatePlatformContent(entryId, content);
       

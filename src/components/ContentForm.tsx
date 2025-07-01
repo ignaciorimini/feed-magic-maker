@@ -30,7 +30,7 @@ interface WebhookResponse {
     title: string;
     description: string;
     slug: string;
-    text: string;
+    content: string;
     slidesURL?: string | null;
   };
   twitter?: {
@@ -44,8 +44,8 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
   const [formData, setFormData] = useState({
     topic: '',
     description: '',
-    contentType: 'simple',
-    selectedPlatforms: [] as string[]
+    selectedPlatforms: [] as string[],
+    platformTypes: {} as Record<string, string>
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,14 +54,31 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
     if (checked) {
       setFormData(prev => ({
         ...prev,
-        selectedPlatforms: [...prev.selectedPlatforms, platform]
+        selectedPlatforms: [...prev.selectedPlatforms, platform],
+        platformTypes: {
+          ...prev.platformTypes,
+          [platform]: platform === 'wordpress' ? 'article' : 'simple'
+        }
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        selectedPlatforms: prev.selectedPlatforms.filter(p => p !== platform)
+        selectedPlatforms: prev.selectedPlatforms.filter(p => p !== platform),
+        platformTypes: Object.fromEntries(
+          Object.entries(prev.platformTypes).filter(([key]) => key !== platform)
+        )
       }));
     }
+  };
+
+  const handlePlatformTypeChange = (platform: string, type: string) => {
+    setFormData(prev => ({
+      ...prev,
+      platformTypes: {
+        ...prev.platformTypes,
+        [platform]: type
+      }
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,8 +129,8 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
           action: 'generate_content',
           topic: formData.topic,
           description: formData.description,
-          contentType: formData.contentType,
           selectedPlatforms: formData.selectedPlatforms,
+          platformTypes: formData.platformTypes,
           userEmail: user.email
         }),
       });
@@ -136,11 +153,13 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
           transformedContent[platform] = {
             text: platformData.text || '',
             slidesURL: platformData.slidesURL || null,
+            contentType: formData.platformTypes[platform],
             // Add WordPress specific fields
             ...(platform === 'wordpress' && platformData && 'title' in platformData && {
               title: platformData.title || '',
               description: platformData.description || '',
-              slug: platformData.slug || ''
+              slug: platformData.slug || '',
+              content: platformData.content || ''
             })
           };
         }
@@ -149,9 +168,10 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
       const newEntry = {
         topic: formData.topic,
         description: formData.description,
-        type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
+        type: 'Mixed Content', // Since we now have different types per platform
         selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: transformedContent
+        generatedContent: transformedContent,
+        platformTypes: formData.platformTypes
       };
 
       onSubmit(newEntry);
@@ -173,6 +193,25 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
     }
   };
 
+  const getContentTypeOptions = (platform: string) => {
+    if (platform === 'wordpress') {
+      return [
+        { value: 'article', label: 'Artículo', description: 'Artículo completo para blog', icon: FileText }
+      ];
+    }
+    
+    const options = [
+      { value: 'simple', label: 'Simple Post', description: 'Post básico con texto', icon: FileText },
+      { value: 'slide', label: 'Slide Post', description: 'Presentación con slides', icon: Presentation }
+    ];
+
+    if (platform === 'twitter') {
+      options.push({ value: 'thread', label: 'Thread', description: 'Hilo de tweets', icon: FileText });
+    }
+
+    return options;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -187,7 +226,7 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         </Button>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Crear Nuevo Contenido</h2>
-          <p className="text-gray-600">Selecciona las redes sociales y completa los datos para generar contenido automáticamente</p>
+          <p className="text-gray-600">Selecciona las redes sociales y tipos de contenido para generar contenido automáticamente</p>
         </div>
       </div>
 
@@ -196,61 +235,12 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
         <CardHeader className="pb-6">
           <CardTitle className="text-xl">Detalles del Contenido</CardTitle>
           <CardDescription>
-            Selecciona las redes sociales y proporciona la información básica para generar contenido automáticamente.
+            Configura el tema y selecciona las plataformas con sus tipos de contenido específicos.
           </CardDescription>
         </CardHeader>
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Selección de redes sociales */}
-            <div className="space-y-4">
-              <Label className="text-sm font-medium text-gray-700">
-                Redes sociales *
-              </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-pink-50 to-rose-50">
-                  <Checkbox
-                    id="instagram"
-                    checked={formData.selectedPlatforms.includes('instagram')}
-                    onCheckedChange={(checked) => handlePlatformChange('instagram', checked as boolean)}
-                    disabled={isSubmitting}
-                  />
-                  <Label htmlFor="instagram" className="cursor-pointer font-medium">Instagram</Label>
-                </div>
-                
-                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50">
-                  <Checkbox
-                    id="linkedin"
-                    checked={formData.selectedPlatforms.includes('linkedin')}
-                    onCheckedChange={(checked) => handlePlatformChange('linkedin', checked as boolean)}
-                    disabled={isSubmitting}
-                  />
-                  <Label htmlFor="linkedin" className="cursor-pointer font-medium">LinkedIn</Label>
-                </div>
-                
-                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50">
-                  <Checkbox
-                    id="wordpress"
-                    checked={formData.selectedPlatforms.includes('wordpress')}
-                    onCheckedChange={(checked) => handlePlatformChange('wordpress', checked as boolean)}
-                    disabled={isSubmitting}
-                  />
-                  <Label htmlFor="wordpress" className="cursor-pointer font-medium">WordPress</Label>
-                </div>
-
-                <div className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-900 to-gray-700 text-white">
-                  <Checkbox
-                    id="twitter"
-                    checked={formData.selectedPlatforms.includes('twitter')}
-                    onCheckedChange={(checked) => handlePlatformChange('twitter', checked as boolean)}
-                    disabled={isSubmitting}
-                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
-                  />
-                  <Label htmlFor="twitter" className="cursor-pointer font-medium text-white">X (Twitter)</Label>
-                </div>
-              </div>
-            </div>
-
             {/* Tema del artículo */}
             <div className="space-y-2">
               <Label htmlFor="topic" className="text-sm font-medium text-gray-700">
@@ -281,68 +271,144 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
               />
             </div>
 
-            {/* Tipo de contenido - Para todas las plataformas excepto WordPress */}
-            {(formData.selectedPlatforms.includes('instagram') || 
-              formData.selectedPlatforms.includes('linkedin') || 
-              formData.selectedPlatforms.includes('twitter')) && (
+            {/* Selección de plataformas y tipos */}
+            <div className="space-y-4">
+              <Label className="text-sm font-medium text-gray-700">
+                Plataformas y tipos de contenido *
+              </Label>
+              
               <div className="space-y-4">
-                <Label className="text-sm font-medium text-gray-700">
-                  Tipo de contenido *
-                </Label>
-                <RadioGroup
-                  value={formData.contentType}
-                  onValueChange={(value) => setFormData({ ...formData, contentType: value })}
-                  className="space-y-3"
-                  disabled={isSubmitting}
-                >
-                  <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
-                    <RadioGroupItem value="simple" id="simple" className="mt-1" />
-                    <div className="flex-1">
-                      <Label htmlFor="simple" className="flex items-center space-x-2 cursor-pointer">
-                        <FileText className="w-4 h-4 text-blue-600" />
-                        <span className="font-medium">Simple Post</span>
-                      </Label>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Genera artículo completo (la imagen se generará por separado)
-                      </p>
-                    </div>
+                {/* Instagram */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-pink-50 to-rose-50">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Checkbox
+                      id="instagram"
+                      checked={formData.selectedPlatforms.includes('instagram')}
+                      onCheckedChange={(checked) => handlePlatformChange('instagram', checked as boolean)}
+                      disabled={isSubmitting}
+                    />
+                    <Label htmlFor="instagram" className="cursor-pointer font-medium">Instagram</Label>
                   </div>
                   
-                  <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
-                    <RadioGroupItem value="slide" id="slide" className="mt-1" />
-                    <div className="flex-1">
-                      <Label htmlFor="slide" className="flex items-center space-x-2 cursor-pointer">
-                        <Presentation className="w-4 h-4 text-indigo-600" />
-                        <span className="font-medium">Slide Post</span>
-                      </Label>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Duplica plantilla de Google Slides y reemplaza textos
-                      </p>
-                    </div>
-                  </div>
-
-                  {formData.selectedPlatforms.includes('twitter') && (
-                    <div className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg bg-white/30 hover:bg-white/50 transition-colors">
-                      <RadioGroupItem value="thread" id="thread" className="mt-1" />
-                      <div className="flex-1">
-                        <Label htmlFor="thread" className="flex items-center space-x-2 cursor-pointer">
-                          <FileText className="w-4 h-4 text-gray-800" />
-                          <span className="font-medium">Thread</span>
-                        </Label>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Genera un hilo de tweets sobre el tema
-                        </p>
-                      </div>
-                    </div>
+                  {formData.selectedPlatforms.includes('instagram') && (
+                    <RadioGroup
+                      value={formData.platformTypes.instagram || 'simple'}
+                      onValueChange={(value) => handlePlatformTypeChange('instagram', value)}
+                      className="ml-6"
+                    >
+                      {getContentTypeOptions('instagram').map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`instagram-${option.value}`} />
+                          <Label htmlFor={`instagram-${option.value}`} className="text-sm cursor-pointer">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-gray-600 ml-1">- {option.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                   )}
-                </RadioGroup>
+                </div>
+
+                {/* LinkedIn */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-cyan-50">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Checkbox
+                      id="linkedin"
+                      checked={formData.selectedPlatforms.includes('linkedin')}
+                      onCheckedChange={(checked) => handlePlatformChange('linkedin', checked as boolean)}
+                      disabled={isSubmitting}
+                    />
+                    <Label htmlFor="linkedin" className="cursor-pointer font-medium">LinkedIn</Label>
+                  </div>
+                  
+                  {formData.selectedPlatforms.includes('linkedin') && (
+                    <RadioGroup
+                      value={formData.platformTypes.linkedin || 'simple'}
+                      onValueChange={(value) => handlePlatformTypeChange('linkedin', value)}
+                      className="ml-6"
+                    >
+                      {getContentTypeOptions('linkedin').map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`linkedin-${option.value}`} />
+                          <Label htmlFor={`linkedin-${option.value}`} className="text-sm cursor-pointer">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-gray-600 ml-1">- {option.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+                </div>
+
+                {/* WordPress */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-gray-50 to-slate-50">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Checkbox
+                      id="wordpress"
+                      checked={formData.selectedPlatforms.includes('wordpress')}
+                      onCheckedChange={(checked) => handlePlatformChange('wordpress', checked as boolean)}
+                      disabled={isSubmitting}
+                    />
+                    <Label htmlFor="wordpress" className="cursor-pointer font-medium">WordPress</Label>
+                  </div>
+                  
+                  {formData.selectedPlatforms.includes('wordpress') && (
+                    <RadioGroup
+                      value={formData.platformTypes.wordpress || 'article'}
+                      onValueChange={(value) => handlePlatformTypeChange('wordpress', value)}
+                      className="ml-6"
+                    >
+                      {getContentTypeOptions('wordpress').map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`wordpress-${option.value}`} />
+                          <Label htmlFor={`wordpress-${option.value}`} className="text-sm cursor-pointer">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-gray-600 ml-1">- {option.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+                </div>
+
+                {/* Twitter */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Checkbox
+                      id="twitter"
+                      checked={formData.selectedPlatforms.includes('twitter')}
+                      onCheckedChange={(checked) => handlePlatformChange('twitter', checked as boolean)}
+                      disabled={isSubmitting}
+                      className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                    />
+                    <Label htmlFor="twitter" className="cursor-pointer font-medium text-white">X (Twitter)</Label>
+                  </div>
+                  
+                  {formData.selectedPlatforms.includes('twitter') && (
+                    <RadioGroup
+                      value={formData.platformTypes.twitter || 'simple'}
+                      onValueChange={(value) => handlePlatformTypeChange('twitter', value)}
+                      className="ml-6"
+                    >
+                      {getContentTypeOptions('twitter').map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`twitter-${option.value}`} className="border-white text-white" />
+                          <Label htmlFor={`twitter-${option.value}`} className="text-sm cursor-pointer text-white">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-gray-300 ml-1">- {option.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
 
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-800">
-                🤖 <strong>Generación automática:</strong> Una vez enviado, el sistema generará contenido 
-                específico para cada red social seleccionada. Las imágenes se pueden generar después por separado.
+                🤖 <strong>Generación automática:</strong> El sistema generará contenido específico 
+                para each plataforma según el tipo seleccionado. Las imágenes se pueden generar después por separado.
               </p>
             </div>
 

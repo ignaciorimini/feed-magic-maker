@@ -22,8 +22,15 @@ export interface ContentPlatform {
   image_url?: string;
   slides_url?: string;
   publish_date?: string;
+  content_type?: string;
   slideImages?: string[];
   uploadedImages?: string[];
+  wordpressPost?: {
+    title: string;
+    description: string;
+    slug: string;
+    content: string;
+  };
 }
 
 export const contentService = {
@@ -33,6 +40,7 @@ export const contentService = {
     type: string;
     selectedPlatforms: string[];
     generatedContent?: any;
+    platformTypes?: Record<string, string>;
   }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -71,6 +79,7 @@ export const contentService = {
           status: 'generated' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
           text: platformContent?.text || '',
           slides_url: platformContent?.slidesURL || null,
+          content_type: entryData.platformTypes?.[platform] || (platform === 'wordpress' ? 'article' : 'simple'),
         };
       });
 
@@ -87,6 +96,28 @@ export const contentService = {
       }
 
       console.log("Platform entries created:", platforms);
+
+      // Create WordPress posts for WordPress platforms
+      const wordpressPlatforms = platforms?.filter(p => p.platform === 'wordpress') || [];
+      for (const platform of wordpressPlatforms) {
+        const wordpressContent = entryData.generatedContent?.wordpress;
+        if (wordpressContent) {
+          const { error: wpError } = await supabase
+            .from('wordpress_posts')
+            .insert({
+              content_platform_id: platform.id,
+              title: wordpressContent.title || entryData.topic,
+              description: wordpressContent.description || entryData.description || '',
+              slug: wordpressContent.slug || entryData.topic.toLowerCase().replace(/\s+/g, '-'),
+              content: wordpressContent.content || wordpressContent.text || '',
+            });
+
+          if (wpError) {
+            console.error("Error creating WordPress post:", wpError);
+            // Don't throw here, just log the error
+          }
+        }
+      }
 
       return { data: { entry, platforms }, error: null };
     } catch (error) {
@@ -114,8 +145,10 @@ export const contentService = {
             image_url,
             slides_url,
             publish_date,
+            content_type,
             slideImages:slide_images(image_url, position),
-            uploadedImages:uploaded_images(image_url)
+            uploadedImages:uploaded_images(image_url),
+            wordpressPost:wordpress_posts(title, description, slug, content)
           )
         `)
         .eq('user_id', user.id)
@@ -141,12 +174,14 @@ export const contentService = {
             // Transform slideImages array - sorted by position
             slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
             // Transform uploadedImages array  
-            uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
+            uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || [],
+            // Transform WordPress post data
+            wordpressPost: platform.wordpressPost?.[0] || null
           };
         })
       })) || [];
 
-      console.log('Transformed entries with slide images:', transformedEntries);
+      console.log('Transformed entries with WordPress data:', transformedEntries);
 
       return { data: transformedEntries, error: null };
     } catch (error) {
@@ -170,6 +205,24 @@ export const contentService = {
         .eq('id', originalPlatformId);
 
       if (error) throw error;
+
+      // Update WordPress post if it exists
+      if (content.title || content.description || content.slug || content.content) {
+        const { error: wpError } = await supabase
+          .from('wordpress_posts')
+          .upsert({
+            content_platform_id: originalPlatformId,
+            title: content.title,
+            description: content.description,
+            slug: content.slug,
+            content: content.content,
+          });
+
+        if (wpError) {
+          console.error("Error updating WordPress post:", wpError);
+        }
+      }
+
       return { error: null };
     } catch (error) {
       console.error('Error updating platform content:', error);
@@ -215,6 +268,12 @@ export const contentService = {
         console.log('Deleting uploaded images for platforms:', platformIds);
         await supabase
           .from('uploaded_images')
+          .delete()
+          .in('content_platform_id', platformIds);
+
+        console.log('Deleting WordPress posts for platforms:', platformIds);
+        await supabase
+          .from('wordpress_posts')
           .delete()
           .in('content_platform_id', platformIds);
       }

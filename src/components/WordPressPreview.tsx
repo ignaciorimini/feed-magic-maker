@@ -15,6 +15,13 @@ interface WordPressPreviewProps {
     title?: string;
     description?: string;
     slug?: string;
+    content?: string;
+    wordpressPost?: {
+      title: string;
+      description: string;
+      slug: string;
+      content: string;
+    };
   };
   status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
@@ -53,6 +60,14 @@ const WordPressPreview = ({
 
   const currentImage = content.images && content.images.length > 0 ? content.images[0] : null;
 
+  // Get WordPress specific data
+  const wpData = content.wordpressPost || {
+    title: content.title || '',
+    description: content.description || '',
+    slug: content.slug || '',
+    content: content.content || content.text || ''
+  };
+
   return (
     <>
       <Card className="border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
@@ -85,21 +100,31 @@ const WordPressPreview = ({
         
         <CardContent className="pt-0 space-y-2">
           {/* Title Preview */}
-          {content.title && (
+          {wpData.title && (
             <div className="space-y-1">
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Título</span>
               <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-1.5 rounded">
-                {truncateText(content.title, 50)}
+                {truncateText(wpData.title, 50)}
               </p>
             </div>
           )}
 
           {/* Description Preview */}
-          {content.description && (
+          {wpData.description && (
             <div className="space-y-1">
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Descripción</span>
               <p className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-1.5 rounded">
-                {truncateText(content.description, 60)}
+                {truncateText(wpData.description, 60)}
+              </p>
+            </div>
+          )}
+
+          {/* Slug Preview */}
+          {wpData.slug && (
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Slug</span>
+              <p className="text-xs text-blue-600 dark:text-blue-400 bg-gray-50 dark:bg-gray-700 p-1.5 rounded font-mono">
+                /{truncateText(wpData.slug, 40)}
               </p>
             </div>
           )}
@@ -108,7 +133,7 @@ const WordPressPreview = ({
           <div className="space-y-1">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Contenido</span>
             <p className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-1.5 rounded">
-              {truncateText(content.text, 60)}
+              {truncateText(wpData.content, 60)}
             </p>
           </div>
 
@@ -168,7 +193,14 @@ const WordPressPreview = ({
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           platform="wordpress"
-          content={content}
+          content={{
+            text: wpData.content,
+            title: wpData.title,
+            description: wpData.description,
+            slug: wpData.slug,
+            content: wpData.content,
+            images: content.images
+          }}
           contentType={contentType}
           onSave={onUpdateContent}
           entryId={platformId}
