@@ -70,18 +70,18 @@ const PlatformCard = ({
     }
   };
 
-  const getPlatformColor = (platform: string) => {
+  const getPlatformGradient = (platform: string) => {
     switch (platform) {
       case 'instagram':
-        return 'bg-gradient-to-r from-pink-500 to-rose-500';
+        return 'bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500';
       case 'linkedin':
-        return 'bg-blue-600';
+        return 'bg-gradient-to-br from-blue-600 to-blue-800';
       case 'wordpress':
-        return 'bg-gray-700';
+        return 'bg-gradient-to-br from-gray-700 to-gray-900';
       case 'twitter':
-        return 'bg-black';
+        return 'bg-gradient-to-br from-sky-400 to-blue-600';
       default:
-        return 'bg-gray-500';
+        return 'bg-gradient-to-br from-gray-500 to-gray-700';
     }
   };
 
@@ -149,7 +149,6 @@ const PlatformCard = ({
         throw error;
       }
 
-      // If slide images were returned, save them to the database
       if (data?.slideImages && Array.isArray(data.slideImages)) {
         console.log('Saving slide images for platform:', id);
         const { error: saveError } = await contentService.saveSlideImages(id, data.slideImages);
@@ -252,31 +251,33 @@ const PlatformCard = ({
   const shouldShowSlideDownload = contentType === 'slide' && slidesUrl;
 
   return (
-    <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-      <CardHeader className="pb-4">
+    <Card className={`${getPlatformGradient(platform)} border-0 shadow-lg hover:shadow-xl transition-all duration-300 text-white overflow-hidden`}>
+      <CardHeader className="pb-4 relative">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Badge className={`${getPlatformColor(platform)} text-white border-0`}>
+              <Badge className="bg-white/20 text-white border-white/20 backdrop-blur-sm">
                 {platform.charAt(0).toUpperCase() + platform.slice(1)}
               </Badge>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs bg-white/10 text-white border-white/20">
                 {formatContentType(contentType)}
               </Badge>
-              <StatusBadge platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'} status={status as 'published' | 'pending' | 'error'} />
+              <div className="ml-auto">
+                <StatusBadge platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'} status={status as 'published' | 'pending' | 'error'} />
+              </div>
             </div>
-            <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
+            <CardTitle className="text-lg font-semibold text-white line-clamp-2">
               {topic}
             </CardTitle>
             {description && (
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+              <p className="text-sm text-white/80 mt-1 line-clamp-2">
                 {description}
               </p>
             )}
           </div>
         </div>
         
-        <div className="text-xs text-gray-500 flex items-center gap-1">
+        <div className="text-xs text-white/70 flex items-center gap-1">
           <Calendar className="w-3 h-3" />
           {formatDistanceToNow(parseISO(createdAt), { addSuffix: true, locale: es })}
         </div>
@@ -285,8 +286,8 @@ const PlatformCard = ({
       <CardContent className="pt-0">
         {/* Content preview */}
         {text && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-700 line-clamp-3">
+          <div className="mb-4 p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <p className="text-sm text-white/90 line-clamp-3">
               {text.length > 150 ? `${text.substring(0, 150)}...` : text}
             </p>
           </div>
@@ -321,7 +322,7 @@ const PlatformCard = ({
         {/* Slide images preview */}
         {slideImages.length > 0 && (
           <div className="mb-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">
+            <h4 className="text-sm font-medium text-white/90 mb-2">
               Slides ({slideImages.length})
             </h4>
             <div className="grid grid-cols-3 gap-2">
@@ -330,11 +331,11 @@ const PlatformCard = ({
                   key={index}
                   src={slide.image_url}
                   alt={`Slide ${index + 1}`}
-                  className="w-full h-16 object-cover rounded border"
+                  className="w-full h-16 object-cover rounded border border-white/20"
                 />
               ))}
               {slideImages.length > 6 && (
-                <div className="w-full h-16 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-500">
+                <div className="w-full h-16 bg-white/10 rounded border border-white/20 flex items-center justify-center text-xs text-white/70">
                   +{slideImages.length - 6} más
                 </div>
               )}
@@ -344,19 +345,19 @@ const PlatformCard = ({
 
         {/* Slides URL info */}
         {shouldShowSlideDownload && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <ExternalLink className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">Slides disponibles</span>
+              <ExternalLink className="w-4 h-4 text-white" />
+              <span className="text-sm font-medium text-white">Slides disponibles</span>
             </div>
-            <p className="text-xs text-blue-600 mb-2">
+            <p className="text-xs text-white/80 mb-2">
               Modifica las slides antes de descargar si es necesario
             </p>
             <a 
               href={slidesUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:text-blue-800 underline break-all"
+              className="text-xs text-white/90 hover:text-white underline break-all"
             >
               Ver slides →
             </a>
@@ -369,7 +370,7 @@ const PlatformCard = ({
             variant="outline"
             size="sm"
             onClick={onEdit}
-            className="flex-1 min-w-0"
+            className="flex-1 min-w-0 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
           >
             <Edit className="w-4 h-4 mr-1" />
             Editar
@@ -381,7 +382,7 @@ const PlatformCard = ({
               size="sm"
               onClick={handleGenerateImage}
               disabled={isGeneratingImage}
-              className="flex-1 min-w-0"
+              className="flex-1 min-w-0 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
             >
               <Sparkles className="w-4 h-4 mr-1" />
               {isGeneratingImage ? 'Generando...' : 'Generar Imagen'}
@@ -394,7 +395,7 @@ const PlatformCard = ({
               size="sm"
               onClick={handleDownloadSlides}
               disabled={isDownloadingSlides}
-              className="flex-1 min-w-0"
+              className="flex-1 min-w-0 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
             >
               <Download className="w-4 h-4 mr-1" />
               {isDownloadingSlides ? 'Descargando...' : 'Descargar Slides'}
@@ -412,7 +413,7 @@ const PlatformCard = ({
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="text-white/80 hover:text-white hover:bg-white/10"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
