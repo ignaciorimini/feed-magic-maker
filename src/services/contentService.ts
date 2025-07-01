@@ -225,6 +225,8 @@ class ContentService {
 
   async downloadSlidesWithUserWebhook(slidesURL: string, topic: string) {
     console.log('=== DOWNLOADING SLIDES WITH USER WEBHOOK ===');
+    console.log('Slides URL:', slidesURL);
+    console.log('Topic:', topic);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -244,6 +246,8 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
+      console.log('Calling webhook:', profile.webhook_url);
+
       // Call user's webhook for slide download
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
@@ -259,19 +263,14 @@ class ContentService {
       });
 
       if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Webhook response error:', errorText);
+        throw new Error(`Webhook error: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('Webhook result:', result);
       
-      // If the response contains slide images, save them to the database
-      if (result.slideImages && Array.isArray(result.slideImages)) {
-        console.log('Received slide images:', result.slideImages);
-        // Note: We'll need the platformId to save the slides
-        // This will be handled by the calling component
-        return { data: { ...result, slideImages: result.slideImages }, error: null };
-      }
-
       return { data: result, error: null };
     } catch (error) {
       console.error('Error downloading slides:', error);
@@ -425,16 +424,21 @@ class ContentService {
     try {
       console.log('=== SAVING SLIDE IMAGES ===');
       console.log('Platform ID:', platformId);
-      console.log('Slide images count:', slideImages.length);
+      console.log('Slide images:', slideImages);
 
       // Get the actual platform ID from composite ID if needed
       const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      console.log('Actual platform ID:', actualPlatformId);
 
       // First, delete existing slide images for this platform
-      await supabase
+      const { error: deleteError } = await supabase
         .from('slide_images')
         .delete()
         .eq('content_platform_id', actualPlatformId);
+
+      if (deleteError) {
+        console.error('Error deleting existing slide images:', deleteError);
+      }
 
       // Insert new slide images
       const slideImagesData = slideImages.map((imageUrl, index) => ({
@@ -443,11 +447,16 @@ class ContentService {
         position: index
       }));
 
+      console.log('Inserting slide images data:', slideImagesData);
+
       const { error } = await supabase
         .from('slide_images')
         .insert(slideImagesData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting slide images:', error);
+        throw error;
+      }
       
       console.log('✅ Slide images saved successfully');
       return { error: null };
