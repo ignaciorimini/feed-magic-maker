@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -30,7 +31,7 @@ class ContentService {
       console.error('Unexpected error in getUserContentEntries:', error);
       return { data: null, error };
     }
-  },
+  }
 
   async createContentEntry(data: any) {
     console.log('=== CREATING CONTENT ENTRY ===');
@@ -126,7 +127,7 @@ class ContentService {
       console.error('Error in createContentEntry:', error);
       return { data: null, error };
     }
-  },
+  }
 
   async updatePlatformContent(platformId: string, content: any) {
     console.log('=== UPDATING PLATFORM CONTENT ===');
@@ -195,7 +196,7 @@ class ContentService {
       console.error('Error updating platform content:', error);
       return { error };
     }
-  },
+  }
 
   async deleteContentEntry(entryId: string) {
     console.log('=== DELETING CONTENT ENTRY ===');
@@ -219,7 +220,7 @@ class ContentService {
       console.error('Error in deleteContentEntry:', error);
       return { error };
     }
-  },
+  }
 
   async downloadSlidesWithUserWebhook(slidesURL: string, topic: string) {
     console.log('=== DOWNLOADING SLIDES WITH USER WEBHOOK ===');
@@ -265,7 +266,7 @@ class ContentService {
       console.error('Error downloading slides:', error);
       return { data: null, error };
     }
-  },
+  }
 
   async generateImageForPlatform(platformId: string, platform: string, topic: string, description: string) {
     try {
@@ -349,7 +350,7 @@ class ContentService {
         error: error instanceof Error ? error : new Error('Error desconocido al generar imagen') 
       };
     }
-  },
+  }
 
   async uploadCustomImage(platformId: string, imageUrl: string) {
     try {
@@ -376,7 +377,7 @@ class ContentService {
       console.error('Error uploading custom image:', error);
       return { error };
     }
-  },
+  }
 
   async deleteImageFromPlatform(platformId: string, imageUrl: string, isUploaded: boolean) {
     try {
@@ -407,7 +408,7 @@ class ContentService {
       console.error('Error deleting image:', error);
       return { error };
     }
-  },
+  }
 
   async saveSlideImages(platformId: string, slideImages: string[]) {
     try {
@@ -443,7 +444,7 @@ class ContentService {
       console.error('Error saving slide images:', error);
       return { error };
     }
-  },
+  }
 
   async publishContent(platformId: string, platform: string) {
     try {
@@ -490,7 +491,7 @@ class ContentService {
       console.error('Error publishing content:', error);
       return { data: null, error };
     }
-  },
+  }
 
   // Helper function to get the actual platform ID from composite ID
   async getPlatformIdFromComposite(platformId: string): Promise<string> {
