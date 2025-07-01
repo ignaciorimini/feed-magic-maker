@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
@@ -46,7 +47,7 @@ const Index = () => {
           entry.platforms.forEach(platform => {
             const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
             
-            // Set platform content
+            // Set platform content with platform-specific slide images
             platformContent[platformKey] = {
               text: platform.text || '',
               image_url: platform.image_url,
@@ -144,31 +145,7 @@ const Index = () => {
       console.log('Entry ID received:', entryId);
       console.log('Platform:', platform);
       
-      // Extract the original entry ID if it contains the separator
-      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
-      console.log('Extracted original entry ID:', originalEntryId);
-      console.log('Original ID length:', originalEntryId.length);
-      
-      // Validate extracted ID is a complete UUID
-      if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
-        console.error('Invalid extracted entry ID format:', originalEntryId);
-        throw new Error(`Invalid entry ID format: ${originalEntryId}`);
-      }
-      
-      // Find the platform record to get the platformId
-      const { data: platformRecord, error: platformError } = await supabase
-        .from('content_platforms')
-        .select('id')
-        .eq('content_entry_id', originalEntryId)
-        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
-        .single();
-
-      if (platformError || !platformRecord) {
-        console.error('Error finding platform record:', platformError);
-        throw new Error('Platform record not found');
-      }
-
-      const { error } = await contentService.updatePlatformContent(platformRecord.id, content);
+      const { error } = await contentService.updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
@@ -194,8 +171,6 @@ const Index = () => {
     try {
       console.log('=== HANDLING DELETE ENTRY ===');
       console.log('Entry ID received:', entryId);
-      console.log('Entry ID type:', typeof entryId);
-      console.log('Entry ID length:', entryId.length);
       
       // Validate that we have a complete UUID
       if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
@@ -234,10 +209,10 @@ const Index = () => {
     }
   };
 
-  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
+  const handleDownloadSlides = async (platformId: string, slidesURL: string) => {
     try {
       // Extract the original entry ID if it contains the separator
-      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+      const originalEntryId = platformId.includes('__') ? platformId.split('__')[0] : platformId;
       
       // Find the entry to get the topic
       const entry = entries.find(e => e.id === originalEntryId);
@@ -292,41 +267,24 @@ const Index = () => {
     }
   };
 
-  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+  const handleUpdateImage = async (platformId: string, imageUrl: string | null) => {
     try {
-      console.log('=== UPDATING IMAGE ===');
-      console.log('Entry ID:', entryId);
+      console.log('=== UPDATING IMAGE FOR SPECIFIC PLATFORM ===');
+      console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Extract the original entry ID if it contains the separator
-      const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+      // Get the actual platform ID from the composite ID
+      const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
       
-      // Find all platforms for this entry
-      const { data: platforms, error: platformsError } = await supabase
+      // Update only the specific platform with the new image URL
+      const { error } = await supabase
         .from('content_platforms')
-        .select('id, platform')
-        .eq('content_entry_id', originalEntryId);
+        .update({ image_url: imageUrl })
+        .eq('id', actualPlatformId);
 
-      if (platformsError || !platforms || platforms.length === 0) {
-        console.error('Error finding platforms:', platformsError);
-        throw new Error('No platforms found for this entry');
-      }
-
-      // Update all platforms with the new image URL
-      const updatePromises = platforms.map(platform => 
-        supabase
-          .from('content_platforms')
-          .update({ image_url: imageUrl })
-          .eq('id', platform.id)
-      );
-
-      const results = await Promise.all(updatePromises);
-      
-      // Check if any updates failed
-      const errors = results.filter(result => result.error);
-      if (errors.length > 0) {
-        console.error('Some updates failed:', errors);
-        throw new Error('Failed to update some platforms');
+      if (error) {
+        console.error('Error updating platform image:', error);
+        throw new Error('Failed to update platform image');
       }
 
       // Reload entries to reflect the changes

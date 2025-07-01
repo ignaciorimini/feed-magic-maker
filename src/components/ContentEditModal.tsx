@@ -25,6 +25,7 @@ interface ContentEditModalProps {
     description?: string;
     slug?: string;
     slidesURL?: string;
+    slideImages?: string[];
   };
   contentType: string;
   onSave: (content: any) => Promise<void>;
@@ -53,7 +54,7 @@ const ContentEditModal = ({
   onGenerateImage
 }: ContentEditModalProps) => {
   const [editedContent, setEditedContent] = useState(content);
-  const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || []);
+  const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || content.slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [imagesForPreview, setImagesForPreview] = useState<string[]>([]);
@@ -66,7 +67,7 @@ const ContentEditModal = ({
 
   useEffect(() => {
     setEditedContent(content);
-    setDownloadedSlides(slideImages || []);
+    setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
   }, [content, slideImages, imageUrl]);
 
@@ -103,6 +104,7 @@ const ContentEditModal = ({
         const newSlideImages = data[0].slideImages;
         setDownloadedSlides(newSlideImages);
         
+        // Save slide images to database using the specific platform ID
         await contentService.saveSlideImages(entryId, newSlideImages);
         
         toast({
@@ -110,6 +112,8 @@ const ContentEditModal = ({
           description: `Se descargaron ${newSlideImages.length} imágenes de las slides.`,
         });
         
+        // Close modal and reload to show updated slides
+        onClose();
         window.location.reload();
       }
     } catch (error) {
@@ -620,26 +624,29 @@ const ContentEditModal = ({
               )}
             </div>
 
-            <div className="flex justify-end space-x-2 pt-4 border-t">
-              <Button variant="outline" onClick={onClose}>
+            {/* Action Buttons */}
+            <div className="flex space-x-2 pt-4 border-t">
+              <Button onClick={onClose} variant="outline" className="flex-1">
                 Cancelar
               </Button>
-              <Button onClick={handleSave} className="flex items-center space-x-2">
-                <Save className="w-4 h-4" />
-                <span>Guardar cambios</span>
+              <Button onClick={handleSave} className="flex-1">
+                <Save className="mr-2 h-4 w-4" />
+                Guardar Cambios
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <ImagePreviewModal
-        isOpen={showImagePreview}
-        onClose={() => setShowImagePreview(false)}
-        images={imagesForPreview}
-        startIndex={previewStartIndex}
-        alt="Vista previa de imagen"
-      />
+      {/* Image Preview Modal */}
+      {showImagePreview && (
+        <ImagePreviewModal
+          images={imagesForPreview}
+          startIndex={previewStartIndex}
+          isOpen={showImagePreview}
+          onClose={() => setShowImagePreview(false)}
+        />
+      )}
     </>
   );
 };

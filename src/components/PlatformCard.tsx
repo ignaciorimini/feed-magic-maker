@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -61,6 +60,9 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const [localEntry, setLocalEntry] = useState(entry);
   const { user } = useAuth();
 
+  // Get the platform ID by combining entry ID with platform
+  const platformId = `${entry.id}__${platform}`;
+
   useEffect(() => {
     setLocalEntry(entry);
     setImageError(false);
@@ -108,7 +110,9 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return text.substring(0, maxLength) + '...';
   };
 
-  const hasSlides = localEntry.slideImages && localEntry.slideImages.length > 0;
+  // Get slide images specific to this platform
+  const platformSlideImages = content?.slideImages || [];
+  const hasSlides = platformSlideImages && platformSlideImages.length > 0;
   const isSlidePost = localEntry.type === 'Slide Post';
 
   // Check if content is a thread for Twitter
@@ -120,7 +124,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
   const handleDownloadSlides = () => {
     if (content?.slidesURL && onDownloadSlides) {
-      onDownloadSlides(localEntry.id, content.slidesURL);
+      onDownloadSlides(platformId, content.slidesURL);
     }
   };
 
@@ -136,15 +140,15 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
     setIsGeneratingImage(true);
     try {
-      console.log("=== GENERATING IMAGE ===");
-      console.log("Entry ID:", localEntry.id);
+      console.log("=== GENERATING IMAGE FOR SPECIFIC PLATFORM ===");
+      console.log("Platform ID:", platformId);
       console.log("Platform:", platform);
       console.log("Topic:", localEntry.topic);
       console.log("Description:", localEntry.description);
       
-      // Use the generateImageForPlatform service which handles finding the platformId and updating the database
+      // Use the generateImageForPlatform service with the specific platformId
       const { data, error } = await contentService.generateImageForPlatform(
-        localEntry.id, 
+        platformId, 
         platform, 
         localEntry.topic, 
         localEntry.description
@@ -189,7 +193,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return null;
   };
 
-  const displayImage = getValidImageUrl(content?.image_url) || getValidImageUrl(content?.images?.[0]);
+  // Use the platform-specific image_url from content
+  const displayImage = getValidImageUrl(content?.image_url);
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage;
 
@@ -311,11 +316,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               {isSlidePost && hasSlides && (
                 <div className="flex-1">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
-                    Slides ({localEntry.slideImages!.length})
+                    Slides ({platformSlideImages.length})
                   </span>
                   <Carousel className="w-full">
                     <CarouselContent>
-                      {localEntry.slideImages!.map((imageUrl, index) => (
+                      {platformSlideImages.map((imageUrl: string, index: number) => (
                         <CarouselItem key={index}>
                           <div className="aspect-video bg-white rounded-md overflow-hidden border">
                             <img 
@@ -384,7 +389,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             {status === 'pending' && onUpdateStatus && onUpdateLink && (
               <div className="pt-2">
                 <PublishButton
-                  platformId={localEntry.id}
+                  platformId={platformId}
                   platform={platform}
                   currentStatus={convertStatusToNew(status)}
                   contentType={isThread ? 'Thread' : localEntry.type}
@@ -463,11 +468,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           platform={platform}
           content={content}
           contentType={isThread ? 'Thread' : localEntry.type}
-          onSave={async (updatedContent) => onUpdateContent(localEntry.id, platform, updatedContent)}
-          entryId={localEntry.id}
+          onSave={async (updatedContent) => onUpdateContent(platformId, platform, updatedContent)}
+          entryId={platformId}
           topic={localEntry.topic}
           description={localEntry.description}
-          slideImages={localEntry.slideImages}
+          slideImages={platformSlideImages}
           imageUrl={content?.image_url}
           onUpdateImage={onUpdateImage}
         />

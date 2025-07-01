@@ -128,7 +128,7 @@ export const contentService = {
 
       console.log('Raw entries from database:', entries);
 
-      // Transform the data with improved image_url handling
+      // Transform the data with improved image_url handling and slide images
       const transformedEntries = entries?.map(entry => ({
         ...entry,
         platforms: entry.platforms.map((platform: any) => {
@@ -138,7 +138,7 @@ export const contentService = {
             ...platform,
             // Keep image_url as a single string (the main field from database)
             image_url: platform.image_url || null,
-            // Transform slideImages array
+            // Transform slideImages array - sorted by position
             slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
             // Transform uploadedImages array  
             uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || []
@@ -146,7 +146,7 @@ export const contentService = {
         })
       })) || [];
 
-      console.log('Transformed entries with image_url handling:', transformedEntries);
+      console.log('Transformed entries with slide images:', transformedEntries);
 
       return { data: transformedEntries, error: null };
     } catch (error) {
@@ -157,13 +157,17 @@ export const contentService = {
 
   async updatePlatformContent(platformId: string, content: any) {
     try {
+      // Extract the original platform ID if it contains the separator
+      const originalPlatformId = platformId.includes('__') ? 
+        await this.getPlatformIdFromComposite(platformId) : platformId;
+
       const { error } = await supabase
         .from('content_platforms')
         .update({
           text: content.text,
           slides_url: content.slidesURL,
         })
-        .eq('id', platformId);
+        .eq('id', originalPlatformId);
 
       if (error) throw error;
       return { error: null };
@@ -177,8 +181,6 @@ export const contentService = {
     try {
       console.log('=== DELETING CONTENT ENTRY ===');
       console.log('Entry ID received:', entryId);
-      console.log('Entry ID type:', typeof entryId);
-      console.log('Entry ID length:', entryId.length);
       
       // Ensure we have a complete UUID (36 characters with dashes)
       if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
@@ -191,7 +193,7 @@ export const contentService = {
       const { data: platforms, error: platformsError } = await supabase
         .from('content_platforms')
         .select('id')
-        .eq('content_entry_id', entryId); // Use complete entry ID
+        .eq('content_entry_id', entryId);
 
       if (platformsError) {
         console.error('Error fetching platforms for deletion:', platformsError);
@@ -217,24 +219,24 @@ export const contentService = {
           .in('content_platform_id', platformIds);
       }
 
-      // Delete all platforms for this entry using complete entry ID
+      // Delete all platforms for this entry
       console.log('Deleting platforms for entry:', entryId);
       const { error: deletePlatformsError } = await supabase
         .from('content_platforms')
         .delete()
-        .eq('content_entry_id', entryId); // Use complete entry ID
+        .eq('content_entry_id', entryId);
 
       if (deletePlatformsError) {
         console.error('Error deleting platforms:', deletePlatformsError);
         throw deletePlatformsError;
       }
 
-      // Delete the main entry using complete entry ID
+      // Delete the main entry
       console.log('Deleting main entry:', entryId);
       const { error: deleteEntryError } = await supabase
         .from('content_entries')
         .delete()
-        .eq('id', entryId); // Use complete entry ID
+        .eq('id', entryId);
 
       if (deleteEntryError) {
         console.error('Error deleting main entry:', deleteEntryError);
@@ -297,37 +299,10 @@ export const contentService = {
       console.log('=== GENERATING IMAGE FOR PLATFORM ===');
       console.log('Entry ID:', entryId);
       console.log('Platform:', platform);
-      console.log('User ID:', user.id);
 
-      const pureEntryId = entryId.split('__')[0];  // Extrae solo la parte UUID
-      console.log('Pure Entry ID:', pureEntryId);
-
-      // First, find the platformId by querying content_platforms table
-      console.log('Finding platform record...');
-      const { data: platformRecord, error: platformError } = await supabase
-        .from('content_platforms')
-        .select(`
-          id,
-          content_entry_id,
-          platform,
-          content_entries!inner(user_id)
-        `)
-        .eq('content_entry_id', pureEntryId)
-        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
-        .single();
-
-      if (platformError) {
-        console.error('Error finding platform record:', platformError);
-        throw new Error(`Platform record not found: ${platformError.message}`);
-      }
-
-      if (platformRecord.content_entries.user_id !== user.id) {
-        throw new Error('Platform does not belong to authenticated user');
-      }
-
-      console.log('Platform record found:', platformRecord);
-      const platformId = platformRecord.id;
-
+      // Get the actual platform ID
+      const platformId = await this.getPlatformIdFromComposite(entryId, platform);
+      
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('webhook_url')
@@ -364,18 +339,15 @@ export const contentService = {
       const result = await response.json();
       console.log('Webhook response for image generation:', result);
       
-      // Handle different webhook response formats more robustly
+      // Handle different webhook response formats
       let imageUrl = null;
       
-      // Handle array format: [{ "imageURL": "..." }]
       if (Array.isArray(result) && result.length > 0) {
         const firstResult = result[0];
         if (firstResult.imageURL) {
           imageUrl = firstResult.imageURL;
         }
-      }
-      // Handle direct object format: { "imageURL": "..." }
-      else if (result && typeof result === 'object' && result.imageURL) {
+      } else if (result && typeof result === 'object' && result.imageURL) {
         imageUrl = result.imageURL;
       }
 
@@ -388,7 +360,7 @@ export const contentService = {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Update the platform with the new image URL using the correct platformId
+      // Update the specific platform with the new image URL
       const { data: updateData, error: updateError } = await supabase
         .from('content_platforms')
         .update({
@@ -405,29 +377,6 @@ export const contentService = {
       }
 
       console.log('Platform updated successfully:', updateData);
-
-      // Verify the update was successful by fetching the record again
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('content_platforms')
-        .select('id, image_url, platform, status')
-        .eq('id', platformId)
-        .single();
-
-      if (verifyError) {
-        console.error('Error verifying update:', verifyError);
-        throw verifyError;
-      } else {
-        console.log('Verification: Platform after update:', verifyData);
-        if (verifyData.image_url !== imageUrl) {
-          console.error('WARNING: Image URL was not saved correctly!');
-          console.error('Expected:', imageUrl);
-          console.error('Actual:', verifyData.image_url);
-          throw new Error('Image URL was not saved correctly in database');
-        } else {
-          console.log('✅ Image URL saved correctly in database');
-        }
-      }
-
       return { data: { imageUrl }, error: null };
     } catch (error) {
       console.error('Error generating image:', error);
@@ -439,8 +388,6 @@ export const contentService = {
     try {
       console.log('=== UPLOADING CUSTOM IMAGE ===');
       console.log('Platform ID:', platformId);
-      console.log('Platform ID type:', typeof platformId);
-      console.log('Platform ID length:', platformId.length);
       console.log('Image URL:', imageUrl);
 
       // Ensure we have a complete platform UUID
@@ -468,8 +415,6 @@ export const contentService = {
     try {
       console.log('=== DELETING IMAGE FROM PLATFORM ===');
       console.log('Platform ID:', platformId);
-      console.log('Platform ID type:', typeof platformId);
-      console.log('Platform ID length:', platformId.length);
       console.log('Image URL:', imageUrl);
       console.log('Is uploaded:', isUploaded);
 
@@ -501,25 +446,20 @@ export const contentService = {
     try {
       console.log('=== SAVING SLIDE IMAGES ===');
       console.log('Platform ID:', platformId);
-      console.log('Platform ID type:', typeof platformId);
-      console.log('Platform ID length:', platformId.length);
       console.log('Slide images count:', slideImages.length);
 
-      // Ensure we have a complete platform UUID
-      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
-        console.error('Invalid platform ID format:', platformId);
-        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
-      }
+      // Get the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
 
-      // First, delete existing slide images for this platform using complete platform ID
+      // First, delete existing slide images for this platform
       await supabase
         .from('slide_images')
         .delete()
-        .eq('content_platform_id', platformId); // Use complete platform ID
+        .eq('content_platform_id', actualPlatformId);
 
-      // Insert new slide images using complete platform ID
+      // Insert new slide images
       const slideImagesData = slideImages.map((imageUrl, index) => ({
-        content_platform_id: platformId, // Use complete platform ID
+        content_platform_id: actualPlatformId,
         image_url: imageUrl,
         position: index
       }));
@@ -529,6 +469,8 @@ export const contentService = {
         .insert(slideImagesData);
 
       if (error) throw error;
+      
+      console.log('✅ Slide images saved successfully');
       return { error: null };
     } catch (error) {
       console.error('Error saving slide images:', error);
@@ -540,15 +482,10 @@ export const contentService = {
     try {
       console.log('=== PUBLISHING CONTENT ===');
       console.log('Platform ID:', platformId);
-      console.log('Platform ID type:', typeof platformId);
-      console.log('Platform ID length:', platformId.length);
       console.log('Platform:', platform);
 
-      // Ensure we have a complete platform UUID
-      if (!platformId || platformId.length !== 36 || !platformId.includes('-')) {
-        console.error('Invalid platform ID format:', platformId);
-        throw new Error(`Invalid platform ID format: ${platformId}. Expected full UUID.`);
-      }
+      // Get the actual platform ID
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
@@ -570,7 +507,7 @@ export const contentService = {
         },
         body: JSON.stringify({
           action: 'publish_content',
-          platformId: platformId, // Use complete platform ID
+          platformId: actualPlatformId,
           platform: platform,
           userEmail: user.email
         }),
@@ -586,5 +523,51 @@ export const contentService = {
       console.error('Error publishing content:', error);
       return { data: null, error };
     }
+  },
+
+  // Helper function to get the actual platform ID from composite ID
+  async getPlatformIdFromComposite(compositeId: string, platform?: string): Promise<string> {
+    // If it's already a UUID, return as is
+    if (compositeId.length === 36 && compositeId.includes('-') && !compositeId.includes('__')) {
+      return compositeId;
+    }
+
+    // If it's a composite ID (entryId__platform), extract the parts
+    if (compositeId.includes('__')) {
+      const [entryId, platformName] = compositeId.split('__');
+      
+      // Query the database to get the actual platform ID
+      const { data: platformRecord, error } = await supabase
+        .from('content_platforms')
+        .select('id')
+        .eq('content_entry_id', entryId)
+        .eq('platform', platformName as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
+        .single();
+
+      if (error || !platformRecord) {
+        throw new Error(`Platform record not found for ${compositeId}`);
+      }
+
+      return platformRecord.id;
+    }
+
+    // If platform is provided, try to find by entry ID and platform
+    if (platform) {
+      const { data: platformRecord, error } = await supabase
+        .from('content_platforms')
+        .select('id')
+        .eq('content_entry_id', compositeId)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
+        .single();
+
+      if (error || !platformRecord) {
+        throw new Error(`Platform record not found for entry ${compositeId} and platform ${platform}`);
+      }
+
+      return platformRecord.id;
+    }
+
+    // If we get here, we couldn't resolve the ID
+    throw new Error(`Could not resolve platform ID from: ${compositeId}`);
   }
 };

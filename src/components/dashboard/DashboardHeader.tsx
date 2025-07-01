@@ -28,6 +28,7 @@ const DashboardHeader = ({
   userEmail
 }: DashboardHeaderProps) => {
   const navigate = useNavigate();
+  
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -44,7 +45,7 @@ const DashboardHeader = ({
             <nav className="hidden md:flex space-x-1">
               <Link to="/dashboard">
                 <Button
-                  variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+                  variant={window.location.pathname === '/dashboard' ? 'default' : 'ghost'}
                   className="flex items-center space-x-2"
                 >
                   <BarChart3 className="w-4 h-4" />
@@ -53,7 +54,7 @@ const DashboardHeader = ({
               </Link>
               <Link to="/calendar">
                 <Button
-                  variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+                  variant={window.location.pathname === '/calendar' ? 'default' : 'ghost'}
                   className="flex items-center space-x-2"
                 >
                   <Calendar className="w-4 h-4" />
@@ -62,7 +63,7 @@ const DashboardHeader = ({
               </Link>
               <Link to="/integrations">
                 <Button
-                  variant={activeTab === 'integrations' ? 'default' : 'ghost'}
+                  variant={window.location.pathname === '/integrations' ? 'default' : 'ghost'}
                   className="flex items-center space-x-2"
                 >
                   <LinkIcon className="w-4 h-4" />
