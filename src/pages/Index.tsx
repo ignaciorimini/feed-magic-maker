@@ -33,13 +33,79 @@ const Index = () => {
         return;
       }
 
-      console.log('Raw data from database:', data);
-
       if (data) {
-        // Pass the raw data directly to DashboardContent for processing
-        // This maintains compatibility with both old and new data formats
-        console.log('Setting entries with raw data from database');
-        setEntries(data);
+        // Transform the data to match the expected format
+        const transformedEntries = data.map(entry => {
+          const platformContent: any = {};
+          const status: any = {};
+          const publishedLinks: any = {};
+          
+          // Get the main image from the first platform that has one
+          let entryImageUrl = null;
+          
+          entry.platforms.forEach(platform => {
+            const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+            
+            // Handle WordPress content differently
+            if (platformKey === 'wordpress' && platform.wordpress_post && platform.wordpress_post.length > 0) {
+              const wpPost = platform.wordpress_post[0]; // Take the first WordPress post
+              platformContent[platformKey] = {
+                title: wpPost.title || '',
+                description: wpPost.description || '',
+                slug: wpPost.slug || '',
+                content: wpPost.content || '',
+                text: wpPost.content || '', // Add text field for compatibility
+                image_url: platform.image_url,
+                images: platform.image_url ? [platform.image_url] : [],
+                slidesURL: platform.slides_url,
+                slideImages: platform.slideImages || [],
+                uploadedImages: platform.uploadedImages || [],
+                contentType: platform.content_type || 'article',
+                wordpressPost: {
+                  title: wpPost.title || '',
+                  description: wpPost.description || '',
+                  slug: wpPost.slug || '',
+                  content: wpPost.content || ''
+                }
+              };
+            } else {
+              // Handle other platforms normally
+              platformContent[platformKey] = {
+                text: platform.text || '',
+                image_url: platform.image_url,
+                images: platform.image_url ? [platform.image_url] : [],
+                slidesURL: platform.slides_url,
+                slideImages: platform.slideImages || [],
+                uploadedImages: platform.uploadedImages || [],
+                contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple')
+              };
+            }
+            
+            // Set platform status (convert new status to old format for compatibility)
+            status[platformKey] = platform.status === 'published' ? 'published' : 'pending';
+            
+            // If we don't have an entry image yet and this platform has one, use it
+            if (!entryImageUrl && platform.image_url) {
+              entryImageUrl = platform.image_url;
+            }
+          });
+
+          return {
+            id: entry.id,
+            topic: entry.topic,
+            description: entry.description || '',
+            type: entry.type,
+            createdDate: new Date(entry.created_date).toLocaleDateString(),
+            status,
+            platformContent,
+            publishedLinks: entry.published_links || {},
+            imageUrl: entryImageUrl, // Set the entry-level image URL
+            slideImages: [] // This will be populated from platforms if needed
+          };
+        });
+
+        console.log('Transformed entries:', transformedEntries);
+        setEntries(transformedEntries);
       }
     } catch (error) {
       console.error('Unexpected error loading entries:', error);
