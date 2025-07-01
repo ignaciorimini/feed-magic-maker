@@ -15,7 +15,8 @@ class ContentService {
           *,
           platforms:content_platforms(
             *,
-            wordpress_post:wordpress_posts(*)
+            wordpress_post:wordpress_posts(*),
+            slide_images(*)
           )
         `)
         .order('created_at', { ascending: false });
@@ -243,7 +244,7 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
-      // Call user's webhook for slide download
+      // Call user's webhook for slide download - CORREGIDO: usar action en lugar de text
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -261,7 +262,17 @@ class ContentService {
         throw new Error(`Webhook error: ${response.status}`);
       }
 
-      return { data: 'Download initiated', error: null };
+      const result = await response.json();
+      
+      // Si el webhook devuelve slides, guardarlas en la base de datos
+      if (result.slideImages && Array.isArray(result.slideImages)) {
+        console.log('Received slide images from webhook:', result.slideImages);
+        // El platformId debe ser pasado desde donde se llama esta función
+        // Por ahora, retornamos las slides para que se procesen externamente
+        return { data: { ...result, slideImages: result.slideImages }, error: null };
+      }
+
+      return { data: result, error: null };
     } catch (error) {
       console.error('Error downloading slides:', error);
       return { data: null, error };
@@ -295,9 +306,9 @@ class ContentService {
       // Extract the actual platform ID from the composite ID
       const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
       
-      // Prepare the webhook payload
+      // Prepare the webhook payload - CORREGIDO: usar action
       const webhookPayload = {
-        type: 'generate_image',
+        action: 'generate_image',
         platform: platform,
         platformId: actualPlatformId,
         topic: topic,
@@ -446,6 +457,75 @@ class ContentService {
     }
   }
 
+  async downloadSlidesForPlatform(platformId: string, slidesURL: string, topic: string) {
+    try {
+      console.log('=== DOWNLOADING SLIDES FOR PLATFORM ===');
+      console.log('Platform ID:', platformId);
+      console.log('Slides URL:', slidesURL);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get user's webhook URL
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook URL not configured');
+      }
+
+      // Get the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+
+      // Call user's webhook for slide download - CORREGIDO: usar action
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'download_slides',
+          platformId: actualPlatformId,
+          slidesURL,
+          topic,
+          userEmail: user.email
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Webhook result for slides download:', result);
+
+      // Si el webhook devuelve slideImages, guardarlas en la base de datos
+      if (result.slideImages && Array.isArray(result.slideImages)) {
+        console.log('Saving slide images returned from webhook:', result.slideImages);
+        
+        const { error: saveError } = await this.saveSlideImages(platformId, result.slideImages);
+        
+        if (saveError) {
+          console.error('Error saving slide images:', saveError);
+          throw new Error('No se pudieron guardar las slides');
+        }
+        
+        console.log('✅ Slide images saved successfully to database');
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Error downloading slides for platform:', error);
+      return { data: null, error };
+    }
+  }
+
   async publishContent(platformId: string, platform: string) {
     try {
       console.log('=== PUBLISHING CONTENT ===');
@@ -468,6 +548,7 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
+      // CORREGIDO: usar action en lugar de text
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {

@@ -77,6 +77,28 @@ const DashboardContent = ({
     return cards;
   });
 
+  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
+    // Extract the original entry ID and get the topic
+    const originalEntryId = entryId.split('__')[0];
+    const entry = entries.find(e => e.id === originalEntryId);
+    
+    if (!entry) {
+      console.error('Entry not found for slides download');
+      return;
+    }
+
+    console.log('=== DASHBOARD DOWNLOAD SLIDES ===');
+    console.log('Entry ID:', entryId);
+    console.log('Slides URL:', slidesURL);
+    console.log('Topic:', entry.topic);
+    
+    // Use the new downloadSlidesForPlatform method via the contentService
+    // This will be handled directly by the PlatformCard component
+    if (onDownloadSlides) {
+      onDownloadSlides(entryId, slidesURL);
+    }
+  };
+
   const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
     // Extract the original entry ID using the new separator
     const originalEntryId = entryId.split('__')[0];
@@ -204,7 +226,7 @@ const DashboardContent = ({
                 platform={platformEntry.platform}
                 onUpdateContent={onUpdateContent}
                 onDeleteEntry={handleDeleteEntry}
-                onDownloadSlides={onDownloadSlides}
+                onDownloadSlides={handleDownloadSlides}
                 onUpdateStatus={handleUpdateStatus}
                 onUpdateLink={handleUpdateLink}
                 onUpdateImage={onUpdateImage}

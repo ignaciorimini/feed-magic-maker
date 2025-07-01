@@ -58,6 +58,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isDownloadingSlides, setIsDownloadingSlides] = useState(false);
   const [localEntry, setLocalEntry] = useState(entry);
   const { user } = useAuth();
 
@@ -126,9 +127,60 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     onDeleteEntry(localEntry.id, platform);
   };
 
-  const handleDownloadSlides = () => {
-    if (content?.slidesURL && onDownloadSlides) {
-      onDownloadSlides(platformId, content.slidesURL);
+  const handleDownloadSlides = async () => {
+    if (!content?.slidesURL) {
+      toast({
+        title: "Error",
+        description: "No hay URL de slides disponible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingSlides(true);
+    
+    try {
+      console.log("=== DOWNLOADING SLIDES FOR PLATFORM ===");
+      console.log("Platform ID:", platformId);
+      console.log("Slides URL:", content.slidesURL);
+      console.log("Topic:", localEntry.topic);
+      
+      // Usar el nuevo método específico para plataformas
+      const { data, error } = await contentService.downloadSlidesForPlatform(
+        platformId,
+        content.slidesURL,
+        localEntry.topic
+      );
+      
+      if (error) {
+        console.error('Error downloading slides:', error);
+        toast({
+          title: "Error al descargar slides",
+          description: `No se pudieron descargar las slides: ${error.message || 'Verifica tu webhook'}`,
+          variant: "destructive",
+        });
+      } else {
+        console.log('Slides downloaded successfully:', data);
+        
+        toast({
+          title: "¡Slides descargadas exitosamente!",
+          description: `Se descargaron las slides para ${config.name}.`,
+        });
+        
+        // Reload entries to show the new slides from database
+        if (onReloadEntries) {
+          onReloadEntries();
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error downloading slides:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al descargar las slides.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingSlides(false);
     }
   };
 
@@ -355,9 +407,18 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                         <div className="text-gray-600 break-all mb-2">
                           {content.slidesURL}
                         </div>
-                        <p className="text-gray-500 italic">
+                        <p className="text-gray-500 italic mb-3">
                           Modifica las slides antes de descargar
                         </p>
+                        <Button
+                          onClick={handleDownloadSlides}
+                          disabled={isDownloadingSlides}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          {isDownloadingSlides ? 'Descargando...' : 'Descargar slides'}
+                        </Button>
                       </div>
                     ) : hasImage ? (
                       <img 
@@ -433,9 +494,14 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                   variant="outline"
                   size="sm"
                   onClick={handleDownloadSlides}
+                  disabled={isDownloadingSlides}
                   className="text-xs"
                 >
-                  <Download className="w-3 h-3" />
+                  {isDownloadingSlides ? (
+                    <Download className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Download className="w-3 h-3" />
+                  )}
                 </Button>
               )}
               
