@@ -189,7 +189,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return null;
   };
 
-  const displayImage = localEntry.imageUrl || getValidImageUrl(content?.images?.[0]) || getValidImageUrl(content?.image_url);
+  const displayImage = getValidImageUrl(content?.image_url) || getValidImageUrl(content?.images?.[0]);
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage;
 
@@ -468,7 +468,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           topic={localEntry.topic}
           description={localEntry.description}
           slideImages={localEntry.slideImages}
-          imageUrl={localEntry.imageUrl}
+          imageUrl={content?.image_url}
           onUpdateImage={onUpdateImage}
         />
       )}

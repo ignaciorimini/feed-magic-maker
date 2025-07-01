@@ -1,8 +1,9 @@
 
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Calendar, BarChart3, Settings, User, LogOut, Menu, X, Link } from 'lucide-react';
+import { Plus, Calendar, BarChart3, Settings, User, LogOut, Menu, X, Link as LinkIcon } from 'lucide-react';
 import MobileMenu from './MobileMenu';
 
 interface DashboardHeaderProps {
@@ -26,44 +27,48 @@ const DashboardHeader = ({
   onSignOut,
   userEmail
 }: DashboardHeaderProps) => {
+  const navigate = useNavigate();
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-3">
+            <Link to="/dashboard" className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">CM</span>
+                <BarChart3 className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">Content Manager</h1>
-            </div>
+              <h1 className="text-xl font-bold text-gray-900">ContentFlow</h1>
+            </Link>
             
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-1">
-              <Button
-                variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('dashboard')}
-                className="flex items-center space-x-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Button>
-              <Button
-                variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('calendar')}
-                className="flex items-center space-x-2"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Calendario</span>
-              </Button>
-              <Button
-                variant={activeTab === 'integrations' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('integrations')}
-                className="flex items-center space-x-2"
-              >
-                <Link className="w-4 h-4" />
-                <span>Integraciones</span>
-              </Button>
+              <Link to="/dashboard">
+                <Button
+                  variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+                  className="flex items-center space-x-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Button>
+              </Link>
+              <Link to="/calendar">
+                <Button
+                  variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+                  className="flex items-center space-x-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Calendario</span>
+                </Button>
+              </Link>
+              <Link to="/integrations">
+                <Button
+                  variant={activeTab === 'integrations' ? 'default' : 'ghost'}
+                  className="flex items-center space-x-2"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                  <span>Integraciones</span>
+                </Button>
+              </Link>
             </nav>
           </div>
 
@@ -87,7 +92,7 @@ const DashboardHeader = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={onProfileSetup}>
+                <DropdownMenuItem onClick={() => navigate('/profile-setup')}>
                   <Settings className="w-4 h-4 mr-2" />
                   Configuración de Perfil
                 </DropdownMenuItem>
