@@ -38,6 +38,9 @@ export const contentService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
+      console.log("=== CREATING CONTENT ENTRY ===");
+      console.log("Entry data:", entryData);
+
       // Create the main content entry
       const { data: entry, error: entryError } = await supabase
         .from('content_entries')
@@ -50,23 +53,40 @@ export const contentService = {
         .select()
         .single();
 
-      if (entryError) throw entryError;
+      if (entryError) {
+        console.error("Error creating main entry:", entryError);
+        throw entryError;
+      }
 
-      // Create platform entries with proper type casting
-      const platformsData = entryData.selectedPlatforms.map(platform => ({
-        content_entry_id: entry.id,
-        platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
-        status: 'pending' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
-        text: entryData.generatedContent?.[platform]?.text || '',
-        slides_url: entryData.generatedContent?.[platform]?.slidesURL || null,
-      }));
+      console.log("Main entry created:", entry);
+
+      // Create platform entries with the generated content
+      const platformsData = entryData.selectedPlatforms.map(platform => {
+        const platformContent = entryData.generatedContent?.[platform];
+        console.log(`Processing platform ${platform}:`, platformContent);
+        
+        return {
+          content_entry_id: entry.id,
+          platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
+          status: 'generated' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
+          text: platformContent?.text || '',
+          slides_url: platformContent?.slidesURL || null,
+        };
+      });
+
+      console.log("Platform data to insert:", platformsData);
 
       const { data: platforms, error: platformsError } = await supabase
         .from('content_platforms')
         .insert(platformsData)
         .select();
 
-      if (platformsError) throw platformsError;
+      if (platformsError) {
+        console.error("Error creating platform entries:", platformsError);
+        throw platformsError;
+      }
+
+      console.log("Platform entries created:", platforms);
 
       return { data: { entry, platforms }, error: null };
     } catch (error) {

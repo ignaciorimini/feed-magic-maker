@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { FileText, Presentation, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,16 +18,25 @@ interface ContentFormProps {
 }
 
 interface WebhookResponse {
-  instagramContent: string;
-  linkedinContent: string;
-  twitterContent?: string;
-  twitterThreadPosts?: string[];
-  wordpressTitle: string;
-  wordpressDescription: string;
-  wordpressSlug: string;
-  wordpressContent: string;
-  // imageURL is no longer returned here - images will be generated separately
-  slidesURL?: string;
+  instagram?: {
+    text: string;
+    slidesURL?: string | null;
+  };
+  linkedin?: {
+    text: string;
+    slidesURL?: string | null;
+  };
+  wordpress?: {
+    title: string;
+    description: string;
+    slug: string;
+    text: string;
+    slidesURL?: string | null;
+  };
+  twitter?: {
+    text: string;
+    slidesURL?: string | null;
+  };
 }
 
 const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
@@ -115,12 +125,33 @@ const ContentForm = ({ onSubmit, onCancel }: ContentFormProps) => {
       const generatedContent: WebhookResponse = await response.json();
       console.log("Contenido generado recibido:", generatedContent);
 
+      // Transform the webhook response to match our expected format
+      const transformedContent: any = {};
+      
+      formData.selectedPlatforms.forEach((platform: string) => {
+        const platformKey = platform as keyof WebhookResponse;
+        const platformData = generatedContent[platformKey];
+        
+        if (platformData) {
+          transformedContent[platform] = {
+            text: platformData.text || '',
+            slidesURL: platformData.slidesURL || null,
+            // Add WordPress specific fields
+            ...(platform === 'wordpress' && platformData && 'title' in platformData && {
+              title: platformData.title || '',
+              description: platformData.description || '',
+              slug: platformData.slug || ''
+            })
+          };
+        }
+      });
+
       const newEntry = {
         topic: formData.topic,
         description: formData.description,
         type: formData.contentType === 'simple' ? 'Simple Post' : 'Slide Post',
         selectedPlatforms: formData.selectedPlatforms,
-        generatedContent: generatedContent
+        generatedContent: transformedContent
       };
 
       onSubmit(newEntry);
