@@ -51,12 +51,24 @@ const DashboardContent = ({
           : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
         
         if (hasContent) {
+          // Convert content_type to display format
+          let displayType = entry.type;
+          if (platformContent.contentType === 'simple') {
+            displayType = 'Simple Post';
+          } else if (platformContent.contentType === 'slide') {
+            displayType = 'Slide Post';
+          } else if (platformContent.contentType === 'article') {
+            displayType = 'Article';
+          }
+          
           cards.push({
             ...entry,
             platform: platformKey,
             id: `${entry.id}__${platform}`, // Use __ separator to avoid UUID conflicts
-            // Override the type with the platform-specific content type
-            type: platformContent.contentType || entry.type
+            // Override the type with the platform-specific content type for display
+            type: displayType,
+            // Keep the original content type for logic
+            contentType: platformContent.contentType || 'simple'
           });
         }
       });

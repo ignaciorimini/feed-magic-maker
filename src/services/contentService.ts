@@ -1,9 +1,8 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
 
-export const contentService = {
+class ContentService {
   async getUserContentEntries() {
     console.log('=== GETTING USER CONTENT ENTRIES ===');
     
@@ -269,68 +268,86 @@ export const contentService = {
   },
 
   async generateImageForPlatform(platformId: string, platform: string, topic: string, description: string) {
-    console.log('=== GENERATING IMAGE FOR PLATFORM ===');
-    console.log('Platform ID:', platformId);
-    console.log('Platform:', platform);
-    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      console.log('=== GENERATE IMAGE FOR PLATFORM ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform:', platform);
+      console.log('Topic:', topic);
+      console.log('Description:', description);
 
-      // Get user's webhook URL
+      // Get user profile to check for webhook URL
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('webhook_url')
-        .eq('id', user.id)
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (profileError || !profile?.webhook_url) {
-        throw new Error('Webhook URL not configured');
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw new Error('No se pudo obtener el perfil del usuario');
       }
 
-      // Call user's webhook for image generation
+      if (!profile?.webhook_url) {
+        throw new Error('No se ha configurado un webhook URL. Ve a tu perfil para configurarlo.');
+      }
+
+      // Extract the actual platform ID from the composite ID
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      
+      // Prepare the webhook payload
+      const webhookPayload = {
+        type: 'generate_image',
+        platform: platform,
+        platformId: actualPlatformId,
+        topic: topic,
+        description: description,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('Sending webhook payload:', webhookPayload);
+
+      // Send request to user's webhook
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'generate_image',
-          platform,
-          topic,
-          description,
-          platformId,
-          userEmail: user.email
-        }),
+        body: JSON.stringify(webhookPayload)
       });
 
       if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Webhook response error:', errorText);
+        throw new Error(`Error del webhook: ${response.status} - ${errorText}`);
       }
 
-      const result = await response.json();
-      
-      // If webhook returns an image URL, update the platform
-      if (result.imageUrl) {
-        const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      const webhookResult = await response.json();
+      console.log('Webhook result:', webhookResult);
+
+      // If the webhook returns an imageURL, save it to the database
+      if (webhookResult.imageURL) {
+        console.log('Saving image URL to database:', webhookResult.imageURL);
         
         const { error: updateError } = await supabase
           .from('content_platforms')
-          .update({ image_url: result.imageUrl })
+          .update({ image_url: webhookResult.imageURL })
           .eq('id', actualPlatformId);
 
         if (updateError) {
-          throw updateError;
+          console.error('Error updating image URL:', updateError);
+          throw new Error('No se pudo guardar la imagen generada');
         }
+
+        console.log('Image URL saved successfully');
       }
 
-      return { data: result, error: null };
+      return { data: webhookResult, error: null };
     } catch (error) {
-      console.error('Error generating image:', error);
-      return { data: null, error };
+      console.error('Error in generateImageForPlatform:', error);
+      return { 
+        data: null, 
+        error: error instanceof Error ? error : new Error('Error desconocido al generar imagen') 
+      };
     }
   },
 
@@ -502,4 +519,6 @@ export const contentService = {
     // If it's already a direct platform ID, return as is
     return platformId;
   }
-};
+}
+
+export const contentService = new ContentService();

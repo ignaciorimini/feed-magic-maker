@@ -19,6 +19,7 @@ interface PlatformCardProps {
     topic: string;
     description: string;
     type: string;
+    contentType?: string; // Add contentType to the interface
     createdDate: string;
     status: {
       instagram: 'published' | 'pending' | 'error';
@@ -113,7 +114,10 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   // Get slide images specific to this platform
   const platformSlideImages = content?.slideImages || [];
   const hasSlides = platformSlideImages && platformSlideImages.length > 0;
-  const isSlidePost = localEntry.type === 'Slide Post';
+  
+  // Use the contentType from the entry if available, otherwise determine from type
+  const contentType = localEntry.contentType || (localEntry.type === 'Slide Post' ? 'slide' : 'simple');
+  const isSlidePost = contentType === 'slide';
 
   // Check if content is a thread for Twitter
   const isThread = platform === 'twitter' && content?.threadPosts && content.threadPosts.length > 0;
@@ -196,7 +200,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   // Use the platform-specific image_url from content
   const displayImage = getValidImageUrl(content?.image_url);
   const hasImage = displayImage && !imageError;
-  const canGenerateImage = !isSlidePost && !hasImage;
+  const canGenerateImage = !isSlidePost && !hasImage; // Only show for simple posts without image
 
   // Convert old status to new status format
   const convertStatusToNew = (oldStatus: 'published' | 'pending' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
@@ -338,11 +342,24 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 </div>
               )}
 
-              {/* Single Image */}
+              {/* Single Image or Slide URL for Slide Posts */}
               {(!isSlidePost || !hasSlides) && (
                 <div className="flex-1">
                   <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
-                    {hasImage ? (
+                    {/* Show slides URL for slide posts */}
+                    {isSlidePost && content?.slidesURL ? (
+                      <div className="text-center text-xs text-gray-700 p-4">
+                        <div className="mb-2">
+                          <span className="text-sm font-medium">Slides URL disponible</span>
+                        </div>
+                        <div className="text-gray-600 break-all mb-2">
+                          {content.slidesURL}
+                        </div>
+                        <p className="text-gray-500 italic">
+                          Modifica las slides antes de descargar
+                        </p>
+                      </div>
+                    ) : hasImage ? (
                       <img 
                         src={displayImage!} 
                         alt="Previsualización de contenido"
@@ -353,7 +370,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                       <div className="text-center text-xs text-gray-500 p-2 flex flex-col items-center justify-center h-full">
                         <ImageIcon className="w-6 h-6 mx-auto mb-1 text-gray-400" />
                         <span className="mb-2">{imageError ? 'Error al cargar imagen' : 'Sin imagen'}</span>
-                        {/* Generate Image Button inside the image container */}
+                        {/* Generate Image Button only for simple posts */}
                         {canGenerateImage && (
                           <Button
                             variant="outline"
@@ -433,7 +450,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 </Button>
               )}
 
-              {/* Generate Image Button - Always visible for simple posts without image */}
+              {/* Generate Image Button - Only for simple posts without image */}
               {canGenerateImage && (
                 <Button
                   variant="outline"
