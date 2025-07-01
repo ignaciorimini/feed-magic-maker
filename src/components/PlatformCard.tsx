@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -330,7 +329,10 @@ const PlatformCard = ({
                 {formatContentType(contentType)}
               </Badge>
             </div>
-            <StatusBadge platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'} status={status as 'published' | 'pending' | 'error'} />
+            <StatusBadge 
+              platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'} 
+              status={status as 'published' | 'pending' | 'error'} 
+            />
           </div>
           
           <CardTitle className={`text-lg font-semibold ${getPlatformAccent(platform)} line-clamp-2`}>
