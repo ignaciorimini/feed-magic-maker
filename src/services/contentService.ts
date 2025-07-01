@@ -15,8 +15,7 @@ class ContentService {
           *,
           platforms:content_platforms(
             *,
-            wordpress_post:wordpress_posts(*),
-            slide_images:slide_images(*)
+            wordpress_post:wordpress_posts(*)
           )
         `)
         .order('created_at', { ascending: false });
@@ -262,17 +261,7 @@ class ContentService {
         throw new Error(`Webhook error: ${response.status}`);
       }
 
-      const result = await response.json();
-      
-      // If the response contains slide images, save them to the database
-      if (result.slideImages && Array.isArray(result.slideImages)) {
-        console.log('Received slide images:', result.slideImages);
-        // Note: We'll need the platformId to save the slides
-        // This will be handled by the calling component
-        return { data: { ...result, slideImages: result.slideImages }, error: null };
-      }
-
-      return { data: result, error: null };
+      return { data: 'Download initiated', error: null };
     } catch (error) {
       console.error('Error downloading slides:', error);
       return { data: null, error };
@@ -308,7 +297,7 @@ class ContentService {
       
       // Prepare the webhook payload
       const webhookPayload = {
-        action: 'generate_image',
+        type: 'generate_image',
         platform: platform,
         platformId: actualPlatformId,
         topic: topic,

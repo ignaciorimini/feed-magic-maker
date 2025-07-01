@@ -39,48 +39,88 @@ const DashboardContent = ({
     const cards = [];
     
     // Only create cards for platforms that actually have content in this entry
-    if (entry.platforms) {
-      entry.platforms.forEach((platform: any) => {
-        // Convert content_type to display format
-        let displayType = platform.content_type;
-        if (platform.content_type === 'simple') {
-          displayType = 'Simple Post';
-        } else if (platform.content_type === 'slide') {
-          displayType = 'Slide Post';
-        } else if (platform.content_type === 'article') {
-          displayType = 'Article';
-        }
+    if (entry.platformContent) {
+      Object.keys(entry.platformContent).forEach(platform => {
+        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+        const platformContent = entry.platformContent[platformKey];
         
-        cards.push({
-          id: `${entry.id}__${platform.platform}`, // Use __ separator to avoid UUID conflicts
-          platform: platform.platform,
-          contentType: platform.content_type,
-          topic: entry.topic,
-          description: entry.description,
-          text: platform.text || (platform.wordpress_post ? platform.wordpress_post.content : ''),
-          createdAt: entry.created_at,
-          status: platform.status || 'pending',
-          imageUrl: platform.image_url,
-          slidesUrl: platform.slides_url,
-          slideImages: platform.slide_images || [],
-          // Override the type with the platform-specific content type for display
-          type: displayType,
-          // Keep the original content type for logic
-          originalContentType: platform.content_type || 'simple'
-        });
+        // For WordPress, check if we have content or title (WordPress posts)
+        // For other platforms, check if we have text or images
+        const hasContent = platformKey === 'wordpress' 
+          ? (platformContent && (platformContent.title || platformContent.content || platformContent.text))
+          : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
+        
+        if (hasContent) {
+          // Convert content_type to display format
+          let displayType = entry.type;
+          if (platformContent.contentType === 'simple') {
+            displayType = 'Simple Post';
+          } else if (platformContent.contentType === 'slide') {
+            displayType = 'Slide Post';
+          } else if (platformContent.contentType === 'article') {
+            displayType = 'Article';
+          }
+          
+          cards.push({
+            ...entry,
+            platform: platformKey,
+            id: `${entry.id}__${platform}`, // Use __ separator to avoid UUID conflicts
+            // Override the type with the platform-specific content type for display
+            type: displayType,
+            // Keep the original content type for logic
+            contentType: platformContent.contentType || 'simple'
+          });
+        }
       });
     }
     
     return cards;
   });
 
-  const handleDeleteEntry = (entryId: string) => {
+  const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE STATUS DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Status:', newStatus);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+    
+    // Status updates would need to be handled by the parent component
+  };
+
+  const handleUpdateLink = async (entryId: string, platform: string, link: string) => {
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE LINK DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Link:', link);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+    
+    // Link updates would need to be handled by the parent component
+  };
+
+  const handleDeleteEntry = (entryId: string, platform: string) => {
     // Extract the original entry ID using the new separator
     const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
     console.log('=== DELETE ENTRY DEBUG ===');
     console.log('Entry ID received:', entryId);
     console.log('Extracted original entry ID:', originalEntryId);
     console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform);
     
     // Validate extracted ID is a complete UUID
     if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
@@ -92,15 +132,23 @@ const DashboardContent = ({
     onDeleteEntry(originalEntryId);
   };
 
-  const handleEditEntry = (entryId: string) => {
-    // For now, just log the edit action
-    console.log('Edit entry:', entryId);
-  };
-
-  const handleRefreshEntries = () => {
-    if (onReloadEntries) {
-      onReloadEntries();
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+    // Extract the original entry ID using the new separator
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE IMAGE DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Image URL:', imageUrl);
+    
+    // Validate extracted ID is a complete UUID
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return Promise.resolve();
     }
+    
+    // Image updates would need to be handled by the parent component
+    return Promise.resolve();
   };
 
   return (
@@ -152,20 +200,15 @@ const DashboardContent = ({
             {platformCards.map((platformEntry) => (
               <PlatformCard
                 key={platformEntry.id}
-                id={platformEntry.id}
+                entry={platformEntry}
                 platform={platformEntry.platform}
-                contentType={platformEntry.contentType}
-                topic={platformEntry.topic}
-                description={platformEntry.description}
-                text={platformEntry.text}
-                createdAt={platformEntry.createdAt}
-                status={platformEntry.status}
-                imageUrl={platformEntry.imageUrl}
-                slidesUrl={platformEntry.slidesUrl}
-                slideImages={platformEntry.slideImages}
-                onEdit={() => handleEditEntry(platformEntry.id)}
-                onDelete={() => handleDeleteEntry(platformEntry.id)}
-                onRefresh={handleRefreshEntries}
+                onUpdateContent={onUpdateContent}
+                onDeleteEntry={handleDeleteEntry}
+                onDownloadSlides={onDownloadSlides}
+                onUpdateStatus={handleUpdateStatus}
+                onUpdateLink={handleUpdateLink}
+                onUpdateImage={onUpdateImage}
+                onReloadEntries={onReloadEntries}
               />
             ))}
           </div>
