@@ -11,48 +11,60 @@ const StatsOverview = ({ entries, selectedPlatforms }: StatsOverviewProps) => {
   // Add defensive checks to prevent undefined errors
   const safeEntries = entries || [];
   
-  const totalEntries = safeEntries.length;
-  const publishedCount = safeEntries.filter(entry => 
-    entry.status?.instagram === 'published' || 
-    entry.status?.linkedin === 'published' || 
-    entry.status?.wordpress === 'published' ||
-    entry.status?.twitter === 'published'
-  ).length;
-  const pendingCount = safeEntries.filter(entry => 
-    entry.status?.instagram === 'pending' || 
-    entry.status?.linkedin === 'pending' || 
-    entry.status?.wordpress === 'pending' ||
-    entry.status?.twitter === 'pending'
-  ).length;
+  // Count total platform cards (each platform per entry)
+  let totalCards = 0;
+  let publishedCards = 0;
+  let pendingCards = 0;
+
+  safeEntries.forEach(entry => {
+    if (entry.platformContent) {
+      Object.keys(entry.platformContent).forEach(platform => {
+        const platformContent = entry.platformContent[platform];
+        
+        // Only count platforms that have actual content
+        if (platformContent && (platformContent.text || platformContent.title || (platformContent.images && platformContent.images.length > 0))) {
+          totalCards++;
+          
+          // Count status for each platform card
+          const platformStatus = entry.status?.[platform];
+          if (platformStatus === 'published') {
+            publishedCards++;
+          } else if (platformStatus === 'pending') {
+            pendingCards++;
+          }
+        }
+      });
+    }
+  });
 
   const stats = [
     {
       title: "Total Contenido",
-      value: totalEntries,
+      value: totalCards,
       icon: FileText,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
-      description: "Total de contenido creado"
+      description: "Total de tarjetas creadas"
     },
     {
       title: "Publicado",
-      value: publishedCount,
+      value: publishedCards,
       icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-100",
-      description: "Contenido ya publicado"
+      description: "Tarjetas ya publicadas"
     },
     {
       title: "Pendiente",
-      value: pendingCount,
+      value: pendingCards,
       icon: Clock,
       color: "text-amber-600",
       bgColor: "bg-amber-100",
-      description: "Contenido por publicar"
+      description: "Tarjetas por publicar"
     },
     {
       title: "Engagement",
-      value: `${Math.round((publishedCount / Math.max(totalEntries, 1)) * 100)}%`,
+      value: `${Math.round((publishedCards / Math.max(totalCards, 1)) * 100)}%`,
       icon: TrendingUp,
       color: "text-purple-600",
       bgColor: "bg-purple-100",

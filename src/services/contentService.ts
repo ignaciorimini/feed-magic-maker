@@ -1,225 +1,187 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export interface ContentEntry {
-  id: string;
-  user_id: string;
-  topic: string;
-  description?: string;
-  type: string;
-  created_date: string;
-  created_at: string;
-  updated_at: string;
-  published_links?: any;
-  platforms: ContentPlatform[];
-}
-
-export interface ContentPlatform {
-  id: string;
-  content_entry_id: string;
-  platform: string;
-  status: string;
-  text?: string;
-  image_url?: string;
-  slides_url?: string;
-  publish_date?: string;
-  content_type?: string;
-  slideImages?: string[];
-  uploadedImages?: string[];
-  wordpressPost?: {
-    title: string;
-    description: string;
-    slug: string;
-    content: string;
-  };
-}
-
 export const contentService = {
-  async createContentEntry(entryData: {
-    topic: string;
-    description: string;
-    type: string;
-    selectedPlatforms: string[];
-    generatedContent?: any;
-    platformTypes?: Record<string, string>;
-  }) {
+  async getUserContentEntries() {
+    console.log('=== GETTING USER CONTENT ENTRIES ===');
+    
+    try {
+      // First get content entries with their platforms
+      const { data: entries, error: entriesError } = await supabase
+        .from('content_entries')
+        .select(`
+          *,
+          platforms:content_platforms(
+            *,
+            wordpress_post:wordpress_posts(*)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (entriesError) {
+        console.error('Error fetching content entries:', entriesError);
+        return { data: null, error: entriesError };
+      }
+
+      console.log('Content entries with platforms:', entries);
+      return { data: entries, error: null };
+    } catch (error) {
+      console.error('Unexpected error in getUserContentEntries:', error);
+      return { data: null, error };
+    }
+  },
+
+  async createContentEntry(data: any) {
+    console.log('=== CREATING CONTENT ENTRY ===');
+    console.log('Data received:', data);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      console.log("=== CREATING CONTENT ENTRY ===");
-      console.log("Entry data:", entryData);
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
       // Create the main content entry
       const { data: entry, error: entryError } = await supabase
         .from('content_entries')
         .insert({
           user_id: user.id,
-          topic: entryData.topic,
-          description: entryData.description,
-          type: entryData.type,
+          topic: data.topic,
+          description: data.description,
+          type: data.type,
+          published_links: {}
         })
         .select()
         .single();
 
       if (entryError) {
-        console.error("Error creating main entry:", entryError);
+        console.error('Error creating content entry:', entryError);
         throw entryError;
       }
 
-      console.log("Main entry created:", entry);
+      console.log('Content entry created:', entry);
 
-      // Create platform entries with the generated content
-      const platformsData = entryData.selectedPlatforms.map(platform => {
-        const platformContent = entryData.generatedContent?.[platform];
-        console.log(`Processing platform ${platform}:`, platformContent);
+      // Create platform-specific entries
+      const platformPromises = data.selectedPlatforms.map(async (platform: string) => {
+        const platformData = data.generatedContent[platform];
+        const contentType = data.platformTypes[platform];
         
-        return {
-          content_entry_id: entry.id,
-          platform: platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress',
-          status: 'generated' as 'pending' | 'generated' | 'edited' | 'scheduled' | 'published',
-          text: platformContent?.text || '',
-          slides_url: platformContent?.slidesURL || null,
-          content_type: entryData.platformTypes?.[platform] || (platform === 'wordpress' ? 'article' : 'simple'),
-        };
-      });
+        console.log(`Creating platform entry for ${platform}:`, platformData);
 
-      console.log("Platform data to insert:", platformsData);
+        // Create the content_platform entry
+        const { data: platformEntry, error: platformError } = await supabase
+          .from('content_platforms')
+          .insert({
+            content_entry_id: entry.id,
+            platform: platform as any,
+            content_type: contentType,
+            slides_url: platformData?.slidesURL || null,
+            text: platform === 'wordpress' ? null : (platformData?.text || null),
+            status: 'pending'
+          })
+          .select()
+          .single();
 
-      const { data: platforms, error: platformsError } = await supabase
-        .from('content_platforms')
-        .insert(platformsData)
-        .select();
+        if (platformError) {
+          console.error(`Error creating platform entry for ${platform}:`, platformError);
+          throw platformError;
+        }
 
-      if (platformsError) {
-        console.error("Error creating platform entries:", platformsError);
-        throw platformsError;
-      }
+        console.log(`Platform entry created for ${platform}:`, platformEntry);
 
-      console.log("Platform entries created:", platforms);
-
-      // Create WordPress posts for WordPress platforms
-      const wordpressPlatforms = platforms?.filter(p => p.platform === 'wordpress') || [];
-      for (const platform of wordpressPlatforms) {
-        const wordpressContent = entryData.generatedContent?.wordpress;
-        if (wordpressContent) {
+        // If it's WordPress, also create the wordpress_posts entry
+        if (platform === 'wordpress' && platformData) {
           const { error: wpError } = await supabase
             .from('wordpress_posts')
             .insert({
-              content_platform_id: platform.id,
-              title: wordpressContent.title || entryData.topic,
-              description: wordpressContent.description || entryData.description || '',
-              slug: wordpressContent.slug || entryData.topic.toLowerCase().replace(/\s+/g, '-'),
-              content: wordpressContent.content || wordpressContent.text || '',
+              content_platform_id: platformEntry.id,
+              title: platformData.title || '',
+              description: platformData.description || '',
+              slug: platformData.slug || '',
+              content: platformData.content || ''
             });
 
           if (wpError) {
-            console.error("Error creating WordPress post:", wpError);
-            // Don't throw here, just log the error
+            console.error('Error creating WordPress post:', wpError);
+            throw wpError;
           }
+
+          console.log('WordPress post created successfully');
         }
-      }
 
-      return { data: { entry, platforms }, error: null };
+        return platformEntry;
+      });
+
+      await Promise.all(platformPromises);
+
+      console.log('All platform entries created successfully');
+      return { data: entry, error: null };
+
     } catch (error) {
-      console.error('Error creating content entry:', error);
-      return { data: null, error };
-    }
-  },
-
-  async getUserContentEntries() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      console.log('Fetching content entries for user:', user.id);
-
-      const { data: entries, error } = await supabase
-        .from('content_entries')
-        .select(`
-          *,
-          platforms:content_platforms(
-            id,
-            platform,
-            status,
-            text,
-            image_url,
-            slides_url,
-            publish_date,
-            content_type,
-            slideImages:slide_images(image_url, position),
-            uploadedImages:uploaded_images(image_url),
-            wordpressPost:wordpress_posts(title, description, slug, content)
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Database error fetching entries:', error);
-        throw error;
-      }
-
-      console.log('Raw entries from database:', entries);
-
-      // Transform the data with improved image_url handling and slide images
-      const transformedEntries = entries?.map(entry => ({
-        ...entry,
-        platforms: entry.platforms.map((platform: any) => {
-          console.log(`Processing platform ${platform.platform} - image_url:`, platform.image_url);
-          
-          return {
-            ...platform,
-            // Keep image_url as a single string (the main field from database)
-            image_url: platform.image_url || null,
-            // Transform slideImages array - sorted by position
-            slideImages: platform.slideImages?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url) || [],
-            // Transform uploadedImages array  
-            uploadedImages: platform.uploadedImages?.map((img: any) => img.image_url) || [],
-            // Transform WordPress post data
-            wordpressPost: platform.wordpressPost?.[0] || null
-          };
-        })
-      })) || [];
-
-      console.log('Transformed entries with WordPress data:', transformedEntries);
-
-      return { data: transformedEntries, error: null };
-    } catch (error) {
-      console.error('Error fetching content entries:', error);
+      console.error('Error in createContentEntry:', error);
       return { data: null, error };
     }
   },
 
   async updatePlatformContent(platformId: string, content: any) {
+    console.log('=== UPDATING PLATFORM CONTENT ===');
+    console.log('Platform ID:', platformId);
+    console.log('Content to update:', content);
+
     try {
-      // Extract the original platform ID if it contains the separator
-      const originalPlatformId = platformId.includes('__') ? 
-        await this.getPlatformIdFromComposite(platformId) : platformId;
-
-      const { error } = await supabase
+      // Extract the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      
+      // First, get the platform info to check if it's WordPress
+      const { data: platformInfo, error: platformError } = await supabase
         .from('content_platforms')
-        .update({
-          text: content.text,
-          slides_url: content.slidesURL,
-        })
-        .eq('id', originalPlatformId);
+        .select('platform, content_type')
+        .eq('id', actualPlatformId)
+        .single();
 
-      if (error) throw error;
+      if (platformError) {
+        throw platformError;
+      }
 
-      // Update WordPress post if it exists
-      if (content.title || content.description || content.slug || content.content) {
-        const { error: wpError } = await supabase
+      // Update the content_platforms table
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      // For WordPress, don't store text in content_platforms
+      if (platformInfo.platform !== 'wordpress') {
+        updateData.text = content.text || content.content || '';
+      }
+
+      // Update images if provided
+      if (content.images && content.images.length > 0) {
+        updateData.image_url = content.images[0];
+      }
+
+      const { error: updateError } = await supabase
+        .from('content_platforms')
+        .update(updateData)
+        .eq('id', actualPlatformId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // If it's WordPress, also update the wordpress_posts table
+      if (platformInfo.platform === 'wordpress') {
+        const { error: wpUpdateError } = await supabase
           .from('wordpress_posts')
-          .upsert({
-            content_platform_id: originalPlatformId,
-            title: content.title,
-            description: content.description,
-            slug: content.slug,
-            content: content.content,
-          });
+          .update({
+            title: content.title || '',
+            description: content.description || '',
+            slug: content.slug || '',
+            content: content.content || '',
+            updated_at: new Date().toISOString()
+          })
+          .eq('content_platform_id', actualPlatformId);
 
-        if (wpError) {
-          console.error("Error updating WordPress post:", wpError);
+        if (wpUpdateError) {
+          throw wpUpdateError;
         }
       }
 
@@ -231,90 +193,40 @@ export const contentService = {
   },
 
   async deleteContentEntry(entryId: string) {
+    console.log('=== DELETING CONTENT ENTRY ===');
+    console.log('Entry ID:', entryId);
+    
     try {
-      console.log('=== DELETING CONTENT ENTRY ===');
-      console.log('Entry ID received:', entryId);
-      
-      // Ensure we have a complete UUID (36 characters with dashes)
-      if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
-        console.error('Invalid entry ID format:', entryId);
-        throw new Error(`Invalid entry ID format: ${entryId}. Expected full UUID.`);
-      }
-      
-      // Get all platforms for this entry using the complete entry ID
-      console.log('Fetching platforms for entry ID:', entryId);
-      const { data: platforms, error: platformsError } = await supabase
-        .from('content_platforms')
-        .select('id')
-        .eq('content_entry_id', entryId);
-
-      if (platformsError) {
-        console.error('Error fetching platforms for deletion:', platformsError);
-        throw platformsError;
-      }
-
-      console.log('Found platforms to delete:', platforms);
-
-      // Delete slide images for all platforms
-      if (platforms && platforms.length > 0) {
-        const platformIds = platforms.map(p => p.id);
-        
-        console.log('Deleting slide images for platforms:', platformIds);
-        await supabase
-          .from('slide_images')
-          .delete()
-          .in('content_platform_id', platformIds);
-
-        console.log('Deleting uploaded images for platforms:', platformIds);
-        await supabase
-          .from('uploaded_images')
-          .delete()
-          .in('content_platform_id', platformIds);
-
-        console.log('Deleting WordPress posts for platforms:', platformIds);
-        await supabase
-          .from('wordpress_posts')
-          .delete()
-          .in('content_platform_id', platformIds);
-      }
-
-      // Delete all platforms for this entry
-      console.log('Deleting platforms for entry:', entryId);
-      const { error: deletePlatformsError } = await supabase
-        .from('content_platforms')
-        .delete()
-        .eq('content_entry_id', entryId);
-
-      if (deletePlatformsError) {
-        console.error('Error deleting platforms:', deletePlatformsError);
-        throw deletePlatformsError;
-      }
-
-      // Delete the main entry
-      console.log('Deleting main entry:', entryId);
-      const { error: deleteEntryError } = await supabase
+      // The cascade delete will handle related records automatically
+      const { error } = await supabase
         .from('content_entries')
         .delete()
         .eq('id', entryId);
 
-      if (deleteEntryError) {
-        console.error('Error deleting main entry:', deleteEntryError);
-        throw deleteEntryError;
+      if (error) {
+        console.error('Error deleting content entry:', error);
+        throw error;
       }
 
-      console.log('Successfully deleted content entry:', entryId);
+      console.log('Content entry deleted successfully');
       return { error: null };
     } catch (error) {
-      console.error('Error deleting content entry:', error);
+      console.error('Error in deleteContentEntry:', error);
       return { error };
     }
   },
 
   async downloadSlidesWithUserWebhook(slidesURL: string, topic: string) {
+    console.log('=== DOWNLOADING SLIDES WITH USER WEBHOOK ===');
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
+      // Get user's webhook URL
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('webhook_url')
@@ -325,6 +237,7 @@ export const contentService = {
         throw new Error('Webhook URL not configured');
       }
 
+      // Call user's webhook for slide download
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -332,8 +245,58 @@ export const contentService = {
         },
         body: JSON.stringify({
           action: 'download_slides',
-          slidesURL: slidesURL,
-          topic: topic,
+          slidesURL,
+          topic,
+          userEmail: user.email
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+      return { data: 'Download initiated', error: null };
+    } catch (error) {
+      console.error('Error downloading slides:', error);
+      return { data: null, error };
+    }
+  },
+
+  async generateImageForPlatform(platformId: string, platform: string, topic: string, description: string) {
+    console.log('=== GENERATING IMAGE FOR PLATFORM ===');
+    console.log('Platform ID:', platformId);
+    console.log('Platform:', platform);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get user's webhook URL
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.webhook_url) {
+        throw new Error('Webhook URL not configured');
+      }
+
+      // Call user's webhook for image generation
+      const response = await fetch(profile.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'generate_image',
+          platform,
+          topic,
+          description,
+          platformId,
           userEmail: user.email
         }),
       });
@@ -343,100 +306,22 @@ export const contentService = {
       }
 
       const result = await response.json();
-      return { data: result, error: null };
-    } catch (error) {
-      console.error('Error downloading slides:', error);
-      return { data: null, error };
-    }
-  },
-
-  async generateImageForPlatform(entryId: string, platform: string, topic: string, description: string) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      console.log('=== GENERATING IMAGE FOR PLATFORM ===');
-      console.log('Entry ID:', entryId);
-      console.log('Platform:', platform);
-
-      // Get the actual platform ID
-      const platformId = await this.getPlatformIdFromComposite(entryId, platform);
       
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('webhook_url')
-        .eq('id', user.id)
-        .single();
+      // If webhook returns an image URL, update the platform
+      if (result.imageUrl) {
+        const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+        
+        const { error: updateError } = await supabase
+          .from('content_platforms')
+          .update({ image_url: result.imageUrl })
+          .eq('id', actualPlatformId);
 
-      if (profileError || !profile?.webhook_url) {
-        throw new Error('Webhook URL not configured');
-      }
-
-      const webhookPayload = {
-        action: 'generate_image',
-        platform: platform,
-        platformId: platformId,
-        topic: topic,
-        description: description,
-        userEmail: user.email
-      };
-
-      console.log('Sending webhook payload:', webhookPayload);
-
-      const response = await fetch(profile.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookPayload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Webhook response for image generation:', result);
-      
-      // Handle different webhook response formats
-      let imageUrl = null;
-      
-      if (Array.isArray(result) && result.length > 0) {
-        const firstResult = result[0];
-        if (firstResult.imageURL) {
-          imageUrl = firstResult.imageURL;
+        if (updateError) {
+          throw updateError;
         }
-      } else if (result && typeof result === 'object' && result.imageURL) {
-        imageUrl = result.imageURL;
       }
 
-      if (!imageUrl) {
-        console.error('No imageURL in webhook response:', result);
-        throw new Error('No image URL received from webhook');
-      }
-
-      console.log('=== UPDATING PLATFORM WITH IMAGE URL ===');
-      console.log('Platform ID:', platformId);
-      console.log('Image URL:', imageUrl);
-      
-      // Update the specific platform with the new image URL
-      const { data: updateData, error: updateError } = await supabase
-        .from('content_platforms')
-        .update({
-          image_url: imageUrl,
-          status: 'generated'
-        })
-        .eq('id', platformId)
-        .select('id, image_url, platform, status')
-        .single();
-
-      if (updateError) {
-        console.error('Error updating platform with image:', updateError);
-        throw updateError;
-      }
-
-      console.log('Platform updated successfully:', updateData);
-      return { data: { imageUrl }, error: null };
+      return { data: result, error: null };
     } catch (error) {
       console.error('Error generating image:', error);
       return { data: null, error };
@@ -585,48 +470,27 @@ export const contentService = {
   },
 
   // Helper function to get the actual platform ID from composite ID
-  async getPlatformIdFromComposite(compositeId: string, platform?: string): Promise<string> {
-    // If it's already a UUID, return as is
-    if (compositeId.length === 36 && compositeId.includes('-') && !compositeId.includes('__')) {
-      return compositeId;
-    }
-
-    // If it's a composite ID (entryId__platform), extract the parts
-    if (compositeId.includes('__')) {
-      const [entryId, platformName] = compositeId.split('__');
+  async getPlatformIdFromComposite(platformId: string): Promise<string> {
+    // Check if it's a composite ID (contains __)
+    if (platformId.includes('__')) {
+      const [entryId, platform] = platformId.split('__');
       
-      // Query the database to get the actual platform ID
-      const { data: platformRecord, error } = await supabase
+      // Get the actual platform ID from the database
+      const { data, error } = await supabase
         .from('content_platforms')
         .select('id')
         .eq('content_entry_id', entryId)
-        .eq('platform', platformName as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
+        .eq('platform', platform)
         .single();
 
-      if (error || !platformRecord) {
-        throw new Error(`Platform record not found for ${compositeId}`);
+      if (error || !data) {
+        throw new Error(`Platform not found for composite ID: ${platformId}`);
       }
 
-      return platformRecord.id;
+      return data.id;
     }
-
-    // If platform is provided, try to find by entry ID and platform
-    if (platform) {
-      const { data: platformRecord, error } = await supabase
-        .from('content_platforms')
-        .select('id')
-        .eq('content_entry_id', compositeId)
-        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
-        .single();
-
-      if (error || !platformRecord) {
-        throw new Error(`Platform record not found for entry ${compositeId} and platform ${platform}`);
-      }
-
-      return platformRecord.id;
-    }
-
-    // If we get here, we couldn't resolve the ID
-    throw new Error(`Could not resolve platform ID from: ${compositeId}`);
+    
+    // If it's already a direct platform ID, return as is
+    return platformId;
   }
 };

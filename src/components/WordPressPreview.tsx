@@ -9,7 +9,7 @@ import PublishButton from './PublishButton';
 
 interface WordPressPreviewProps {
   content: {
-    text: string;
+    text?: string;
     images: string[];
     publishDate?: string;
     title?: string;
@@ -60,12 +60,12 @@ const WordPressPreview = ({
 
   const currentImage = content.images && content.images.length > 0 ? content.images[0] : null;
 
-  // Get WordPress specific data
-  const wpData = content.wordpressPost || {
-    title: content.title || '',
-    description: content.description || '',
-    slug: content.slug || '',
-    content: content.content || content.text || ''
+  // Get WordPress specific data - prioritize direct content fields over wordpressPost
+  const wpData = {
+    title: content.title || content.wordpressPost?.title || '',
+    description: content.description || content.wordpressPost?.description || '',
+    slug: content.slug || content.wordpressPost?.slug || '',
+    content: content.content || content.wordpressPost?.content || content.text || ''
   };
 
   return (
@@ -194,10 +194,10 @@ const WordPressPreview = ({
           onClose={() => setShowEditModal(false)}
           platform="wordpress"
           content={{
-            text: wpData.content,
             title: wpData.title,
             description: wpData.description,
             slug: wpData.slug,
+            content: wpData.content,
             images: content.images
           }}
           contentType={contentType}

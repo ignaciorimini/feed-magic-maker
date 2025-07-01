@@ -46,24 +46,39 @@ const Index = () => {
           entry.platforms.forEach(platform => {
             const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
             
-            // Set platform content with platform-specific data
-            platformContent[platformKey] = {
-              text: platform.text || '',
-              image_url: platform.image_url,
-              images: platform.image_url ? [platform.image_url] : [],
-              slidesURL: platform.slides_url,
-              slideImages: platform.slideImages || [],
-              uploadedImages: platform.uploadedImages || [],
-              contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple'),
-              // Add WordPress specific fields
-              ...(platformKey === 'wordpress' && platform.wordpressPost && {
-                title: platform.wordpressPost.title,
-                description: platform.wordpressPost.description,
-                slug: platform.wordpressPost.slug,
-                content: platform.wordpressPost.content,
-                wordpressPost: platform.wordpressPost
-              })
-            };
+            // Handle WordPress content differently
+            if (platformKey === 'wordpress' && platform.wordpress_post && platform.wordpress_post.length > 0) {
+              const wpPost = platform.wordpress_post[0]; // Take the first WordPress post
+              platformContent[platformKey] = {
+                title: wpPost.title || '',
+                description: wpPost.description || '',
+                slug: wpPost.slug || '',
+                content: wpPost.content || '',
+                image_url: platform.image_url,
+                images: platform.image_url ? [platform.image_url] : [],
+                slidesURL: platform.slides_url,
+                slideImages: platform.slideImages || [],
+                uploadedImages: platform.uploadedImages || [],
+                contentType: platform.content_type || 'article',
+                wordpressPost: {
+                  title: wpPost.title || '',
+                  description: wpPost.description || '',
+                  slug: wpPost.slug || '',
+                  content: wpPost.content || ''
+                }
+              };
+            } else {
+              // Handle other platforms normally
+              platformContent[platformKey] = {
+                text: platform.text || '',
+                image_url: platform.image_url,
+                images: platform.image_url ? [platform.image_url] : [],
+                slidesURL: platform.slides_url,
+                slideImages: platform.slideImages || [],
+                uploadedImages: platform.uploadedImages || [],
+                contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple')
+              };
+            }
             
             // Set platform status (convert new status to old format for compatibility)
             status[platformKey] = platform.status === 'published' ? 'published' : 'pending';
