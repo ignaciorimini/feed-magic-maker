@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -187,6 +186,68 @@ const PlatformCard = ({
     }
   };
 
+  const handleUploadImage = async (platformId: string, file: File) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string;
+        
+        const { error } = await contentService.uploadCustomImage(platformId, imageUrl);
+        
+        if (error) {
+          toast({
+            title: "Error al subir imagen",
+            description: "No se pudo subir la imagen personalizada.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Imagen subida exitosamente",
+            description: "Tu imagen personalizada se ha guardado.",
+          });
+          
+          onRefresh();
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al subir la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
+    try {
+      const { error } = await contentService.deleteImageFromPlatform(platformId, imageUrl, isUploaded);
+      
+      if (error) {
+        toast({
+          title: "Error al eliminar imagen",
+          description: "No se pudo eliminar la imagen.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Imagen eliminada",
+          description: "La imagen ha sido eliminada exitosamente.",
+        });
+        
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Error inesperado",
+        description: "Ocurrió un error al eliminar la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const shouldShowGenerateImage = contentType === 'simple' && !imageUrl;
   const shouldShowSlideDownload = contentType === 'slide' && slidesUrl;
 
@@ -235,9 +296,24 @@ const PlatformCard = ({
         {imageUrl && (
           <div className="mb-4">
             <ImagePreview 
-              imageUrl={imageUrl} 
+              previewImage={imageUrl}
+              uploadedImages={[]}
+              imageError={false}
+              canGenerateImage={shouldShowGenerateImage}
+              isGeneratingImage={isGeneratingImage}
+              isSlidePost={contentType === 'slide'}
+              hasSlidesURL={!!slidesUrl}
+              hasSlideImages={slideImages.length > 0}
+              isDownloading={isDownloadingSlides}
               platform={platform}
-              onRefresh={onRefresh}
+              platformId={id}
+              topic={topic}
+              description={description || ''}
+              onGenerateImage={handleGenerateImage}
+              onImageError={() => {}}
+              onDownloadSlides={handleDownloadSlides}
+              onUploadImage={handleUploadImage}
+              onDeleteImage={handleDeleteImage}
             />
           </div>
         )}
