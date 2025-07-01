@@ -1,3 +1,4 @@
+
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,39 +35,49 @@ const DashboardContent = ({
   onReloadEntries,
   onUpdateImage
 }: DashboardContentProps) => {
-  // Transform entries to create individual platform cards only for platforms that have content
+  // Transform entries to create individual platform cards
   const platformCards = entries.flatMap(entry => {
     const cards = [];
     
-    // Only create cards for platforms that actually have content in this entry
+    console.log('Processing entry:', entry);
+    
+    // Check if entry has platformContent (old format) or platforms (new format)
     if (entry.platforms) {
+      // New format - direct from database
       entry.platforms.forEach((platform: any) => {
-        // Convert content_type to display format
-        let displayType = platform.content_type;
-        if (platform.content_type === 'simple') {
-          displayType = 'Simple Post';
-        } else if (platform.content_type === 'slide') {
-          displayType = 'Slide Post';
-        } else if (platform.content_type === 'article') {
-          displayType = 'Article';
-        }
+        console.log('Processing platform from new format:', platform);
         
         cards.push({
-          id: `${entry.id}__${platform.platform}`, // Use __ separator to avoid UUID conflicts
+          id: `${entry.id}__${platform.platform}`, // Composite ID
           platform: platform.platform,
-          contentType: platform.content_type,
+          contentType: platform.content_type || 'simple',
           topic: entry.topic,
           description: entry.description,
-          text: platform.text || (platform.wordpress_post ? platform.wordpress_post.content : ''),
+          text: platform.text || (platform.wordpress_post && platform.wordpress_post.length > 0 ? platform.wordpress_post[0].content : ''),
           createdAt: entry.created_at,
           status: platform.status || 'pending',
           imageUrl: platform.image_url,
           slidesUrl: platform.slides_url,
-          slideImages: platform.slide_images || [],
-          // Override the type with the platform-specific content type for display
-          type: displayType,
-          // Keep the original content type for logic
-          originalContentType: platform.content_type || 'simple'
+          slideImages: platform.slide_images || []
+        });
+      });
+    } else if (entry.platformContent) {
+      // Old format - from transformed data
+      Object.entries(entry.platformContent).forEach(([platform, content]: [string, any]) => {
+        console.log('Processing platform from old format:', platform, content);
+        
+        cards.push({
+          id: `${entry.id}__${platform}`, // Composite ID
+          platform: platform,
+          contentType: content.contentType || 'simple',
+          topic: entry.topic,
+          description: entry.description,
+          text: content.text || content.content || '',
+          createdAt: entry.createdDate ? new Date(entry.createdDate).toISOString() : entry.created_at,
+          status: entry.status?.[platform] || 'pending',
+          imageUrl: content.image_url || (content.images && content.images.length > 0 ? content.images[0] : null),
+          slidesUrl: content.slidesURL,
+          slideImages: content.slideImages || []
         });
       });
     }
@@ -74,13 +85,14 @@ const DashboardContent = ({
     return cards;
   });
 
+  console.log('Generated platform cards:', platformCards);
+
   const handleDeleteEntry = (entryId: string) => {
-    // Extract the original entry ID using the new separator
+    // Extract the original entry ID using the separator
     const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
     console.log('=== DELETE ENTRY DEBUG ===');
     console.log('Entry ID received:', entryId);
     console.log('Extracted original entry ID:', originalEntryId);
-    console.log('Original ID length:', originalEntryId.length);
     
     // Validate extracted ID is a complete UUID
     if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
