@@ -1,4 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
+
+type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
 
 export const contentService = {
   async getUserContentEntries() {
@@ -68,12 +71,15 @@ export const contentService = {
         
         console.log(`Creating platform entry for ${platform}:`, platformData);
 
+        // Ensure platform is properly typed
+        const typedPlatform = platform as PlatformType;
+
         // Create the content_platform entry
         const { data: platformEntry, error: platformError } = await supabase
           .from('content_platforms')
           .insert({
             content_entry_id: entry.id,
-            platform: platform as any,
+            platform: typedPlatform,
             content_type: contentType,
             slides_url: platformData?.slidesURL || null,
             text: platform === 'wordpress' ? null : (platformData?.text || null),
@@ -175,7 +181,7 @@ export const contentService = {
             title: content.title || '',
             description: content.description || '',
             slug: content.slug || '',
-            content: content.content || '',
+            content: content.text || content.content || '', // Handle both text and content fields
             updated_at: new Date().toISOString()
           })
           .eq('content_platform_id', actualPlatformId);
@@ -475,12 +481,15 @@ export const contentService = {
     if (platformId.includes('__')) {
       const [entryId, platform] = platformId.split('__');
       
+      // Ensure platform is properly typed
+      const typedPlatform = platform as PlatformType;
+      
       // Get the actual platform ID from the database
       const { data, error } = await supabase
         .from('content_platforms')
         .select('id')
         .eq('content_entry_id', entryId)
-        .eq('platform', platform)
+        .eq('platform', typedPlatform)
         .single();
 
       if (error || !data) {

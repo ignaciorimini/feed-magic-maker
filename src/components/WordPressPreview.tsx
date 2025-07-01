@@ -197,7 +197,7 @@ const WordPressPreview = ({
             title: wpData.title,
             description: wpData.description,
             slug: wpData.slug,
-            content: wpData.content,
+            text: wpData.content, // Pass content as text for ContentEditModal compatibility
             images: content.images
           }}
           contentType={contentType}
