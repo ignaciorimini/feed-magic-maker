@@ -39,36 +39,67 @@ const DashboardContent = ({
     const cards = [];
     
     // Only create cards for platforms that actually have content in this entry
-    if (entry.platformContent) {
-      Object.keys(entry.platformContent).forEach(platform => {
-        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-        const platformContent = entry.platformContent[platformKey];
+    if (entry.platforms && Array.isArray(entry.platforms)) {
+      entry.platforms.forEach(platform => {
+        const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
         
         // For WordPress, check if we have content or title (WordPress posts)
         // For other platforms, check if we have text or images
         const hasContent = platformKey === 'wordpress' 
-          ? (platformContent && (platformContent.title || platformContent.content || platformContent.text))
-          : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
+          ? (platform.wordpress_post && (platform.wordpress_post.title || platform.wordpress_post.content))
+          : (platform && (platform.text || platform.image_url || (platform.slide_images && platform.slide_images.length > 0)));
         
         if (hasContent) {
           // Convert content_type to display format
           let displayType = entry.type;
-          if (platformContent.contentType === 'simple') {
+          if (platform.content_type === 'simple') {
             displayType = 'Simple Post';
-          } else if (platformContent.contentType === 'slide') {
+          } else if (platform.content_type === 'slide') {
             displayType = 'Slide Post';
-          } else if (platformContent.contentType === 'article') {
+          } else if (platform.content_type === 'article') {
             displayType = 'Article';
           }
+          
+          // Get slide images from database, ordered by position
+          const slideImages = platform.slide_images 
+            ? platform.slide_images
+                .sort((a, b) => a.position - b.position)
+                .map(slide => slide.image_url)
+            : [];
+          
+          // Create platform content object with slide images from database
+          const platformContent = {
+            text: platform.text || '',
+            image_url: platform.image_url,
+            slidesURL: platform.slides_url,
+            slideImages: slideImages, // Use slide images from database
+            // For WordPress, include post data
+            ...(platformKey === 'wordpress' && platform.wordpress_post ? {
+              title: platform.wordpress_post.title,
+              content: platform.wordpress_post.content,
+              description: platform.wordpress_post.description,
+              slug: platform.wordpress_post.slug
+            } : {})
+          };
           
           cards.push({
             ...entry,
             platform: platformKey,
-            id: `${entry.id}__${platform}`, // Use __ separator to avoid UUID conflicts
+            id: `${entry.id}__${platformKey}`, // Use __ separator to avoid UUID conflicts
             // Override the type with the platform-specific content type for display
             type: displayType,
             // Keep the original content type for logic
-            contentType: platformContent.contentType || 'simple'
+            contentType: platform.content_type || 'simple',
+            // Add platform-specific content
+            platformContent: {
+              [platformKey]: platformContent
+            },
+            // Add slide images for easy access
+            slideImages: slideImages,
+            // Add status (defaulting to pending if not set)
+            status: {
+              [platformKey]: platform.status || 'pending'
+            }
           });
         }
       });
@@ -225,10 +256,14 @@ const DashboardContent = ({
                 entry={platformEntry}
                 platform={platformEntry.platform}
                 onUpdateContent={onUpdateContent}
-                onDeleteEntry={handleDeleteEntry}
-                onDownloadSlides={handleDownloadSlides}
-                onUpdateStatus={handleUpdateStatus}
-                onUpdateLink={handleUpdateLink}
+                onDeleteEntry={(entryId, platform) => {
+                  // Extract the original entry ID using the new separator
+                  const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
+                  onDeleteEntry(originalEntryId);
+                }}
+                onDownloadSlides={onDownloadSlides}
+                onUpdateStatus={() => {}} // Placeholder - implement if needed
+                onUpdateLink={() => {}} // Placeholder - implement if needed
                 onUpdateImage={onUpdateImage}
                 onReloadEntries={onReloadEntries}
               />
