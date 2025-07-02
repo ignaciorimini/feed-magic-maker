@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -418,6 +417,33 @@ class ContentService {
     } catch (error) {
       console.error('Error deleting image:', error);
       return { error };
+    }
+  }
+
+  async getSlideImages(platformId: string) {
+    try {
+      console.log('=== GETTING SLIDE IMAGES ===');
+      console.log('Platform ID:', platformId);
+
+      // Get the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+
+      const { data, error } = await supabase
+        .from('slide_images')
+        .select('*')
+        .eq('content_platform_id', actualPlatformId)
+        .order('position', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching slide images:', error);
+        return { data: null, error };
+      }
+
+      console.log('Slide images fetched:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error in getSlideImages:', error);
+      return { data: null, error };
     }
   }
 
