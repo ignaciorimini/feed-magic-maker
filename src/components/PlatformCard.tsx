@@ -19,7 +19,7 @@ interface PlatformCardProps {
     topic: string;
     description: string;
     type: string;
-    contentType?: string; // Add contentType to the interface
+    contentType?: string;
     createdDate: string;
     status: {
       instagram: 'published' | 'pending' | 'error';
@@ -50,7 +50,7 @@ interface PlatformCardProps {
   onUpdateLink?: (entryId: string, platform: string, link: string) => void;
   onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
   onReloadEntries?: () => void;
-  onStatsUpdate?: () => void; // New prop for stats update
+  onStatsUpdate?: () => void;
 }
 
 // Utility function to validate image URLs
@@ -540,12 +540,12 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             )}
             
             {/* Publish Button with stats update */}
-            {status === 'pending' && onUpdateStatus && onUpdateLink && (
+            {status !== 'published' && onUpdateStatus && onUpdateLink && (
               <div className="pt-2">
                 <PublishButton
                   platformId={platformId}
                   platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'}
-                  currentStatus={status === 'published' ? 'published' : 'pending'}
+                  currentStatus={convertStatusToNew(status)}
                   contentType={localEntry.type}
                   onStatusChange={handleStatusUpdate}
                   onLinkUpdate={handleLinkUpdate}
