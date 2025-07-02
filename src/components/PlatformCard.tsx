@@ -52,6 +52,18 @@ interface PlatformCardProps {
   onReloadEntries?: () => void;
 }
 
+// Utility function to validate image URLs
+const getValidImageUrl = (url?: string | null): string | null => {
+  if (!url || typeof url !== 'string') return null;
+  // Basic URL validation
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return null;
+  }
+};
+
 const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
@@ -60,6 +72,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isDownloadingSlides, setIsDownloadingSlides] = useState(false);
   const [localEntry, setLocalEntry] = useState(entry);
+  const [slideImages, setSlideImages] = useState<string[]>([]);
   const { user } = useAuth();
 
   // Get the platform ID by combining entry ID with platform
@@ -69,6 +82,24 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     setLocalEntry(entry);
     setImageError(false);
   }, [entry]);
+
+  // Fetch slide images from database
+  useEffect(() => {
+    const fetchSlideImages = async () => {
+      try {
+        const { data, error } = await contentService.getSlideImages(platformId);
+        if (error) {
+          console.error('Error fetching slide images:', error);
+        } else if (data) {
+          setSlideImages(data.map(img => img.image_url));
+        }
+      } catch (error) {
+        console.error('Error fetching slide images:', error);
+      }
+    };
+
+    fetchSlideImages();
+  }, [platformId]);
 
   const platformConfig = {
     instagram: {
@@ -112,9 +143,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return text.substring(0, maxLength) + '...';
   };
 
-  // Get slide images specific to this platform from entry data
-  const platformSlideImages = entry.slideImages || [];
-  const hasSlides = platformSlideImages && platformSlideImages.length > 0;
+  // Use slide images from state (fetched from database)
+  const hasSlides = slideImages && slideImages.length > 0;
   
   // Use the contentType from the entry if available, otherwise determine from type
   const contentType = localEntry.contentType || (localEntry.type === 'Slide Post' ? 'slide' : 'simple');
@@ -244,7 +274,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
   // For slide posts, use the first slide as preview image if available
   const displayImage = isSlidePost && hasSlides 
-    ? getValidImageUrl(platformSlideImages[0])
+    ? getValidImageUrl(slideImages[0])
     : getValidImageUrl(content?.image_url);
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage; // Only show for simple posts without image
@@ -367,11 +397,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               {isSlidePost && hasSlides && (
                 <div className="flex-1">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
-                    Slides ({platformSlideImages.length})
+                    Slides ({slideImages.length})
                   </span>
                   <Carousel className="w-full">
                     <CarouselContent>
-                      {platformSlideImages.map((imageUrl: string, index: number) => (
+                      {slideImages.map((imageUrl: string, index: number) => (
                         <CarouselItem key={index}>
                           <div className="aspect-video bg-white rounded-md overflow-hidden border">
                             <img 
@@ -550,7 +580,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           entryId={platformId}
           topic={localEntry.topic}
           description={localEntry.description}
-          slideImages={platformSlideImages}
+          slideImages={slideImages}
           imageUrl={content?.image_url}
           onUpdateImage={onUpdateImage}
         />
