@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -575,18 +576,65 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
+      // Fetch platform content data including related data
+      const { data: platformData, error: platformError } = await supabase
+        .from('content_platforms')
+        .select(`
+          *,
+          wordpress_post:wordpress_posts(*)
+        `)
+        .eq('id', actualPlatformId)
+        .single();
+
+      if (platformError || !platformData) {
+        throw new Error('Platform content not found');
+      }
+
+      // Prepare webhook payload with content data
+      const webhookPayload: any = {
+        action: 'publish_content',
+        platformId: actualPlatformId,
+        platform: platform,
+        contentType: contentType || 'SimplePost',
+        userEmail: user.email
+      };
+
+      // Add text content based on platform
+      if (platform === 'wordpress' && platformData.wordpress_post && platformData.wordpress_post.length > 0) {
+        // For WordPress, use the content from wordpress_posts table
+        const wpPost = platformData.wordpress_post[0];
+        webhookPayload.text = wpPost.content;
+        webhookPayload.title = wpPost.title;
+        webhookPayload.description = wpPost.description;
+        webhookPayload.slug = wpPost.slug;
+      } else {
+        // For other platforms, use the text field
+        webhookPayload.text = platformData.text || '';
+      }
+
+      // Add image URL if available
+      if (platformData.image_url) {
+        webhookPayload.imageUrl = platformData.image_url;
+      }
+
+      // For slide posts, fetch and include slide images
+      if (contentType === 'slide' || contentType === 'SlidePost') {
+        const { data: slideImagesData, error: slideError } = await this.getSlideImages(platformId);
+        
+        if (!slideError && slideImagesData && slideImagesData.length > 0) {
+          webhookPayload.slideImages = slideImagesData.map(slide => slide.image_url);
+          console.log('Added slide images to webhook payload:', webhookPayload.slideImages);
+        }
+      }
+
+      console.log('Publishing content with enhanced payload:', webhookPayload);
+
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'publish_content',
-          platformId: actualPlatformId,
-          platform: platform,
-          contentType: contentType || 'SimplePost',
-          userEmail: user.email
-        }),
+        body: JSON.stringify(webhookPayload),
       });
 
       if (!response.ok) {
