@@ -112,8 +112,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return text.substring(0, maxLength) + '...';
   };
 
-  // Get slide images specific to this platform
-  const platformSlideImages = content?.slideImages || [];
+  // Get slide images specific to this platform from entry data
+  const platformSlideImages = entry.slideImages || [];
   const hasSlides = platformSlideImages && platformSlideImages.length > 0;
   
   // Use the contentType from the entry if available, otherwise determine from type
@@ -242,15 +242,10 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     }
   };
 
-  const getValidImageUrl = (imageUrl: string | undefined): string | null => {
-    if (imageUrl && imageUrl !== "/placeholder.svg") {
-      return imageUrl;
-    }
-    return null;
-  };
-
-  // Use the platform-specific image_url from content
-  const displayImage = getValidImageUrl(content?.image_url);
+  // For slide posts, use the first slide as preview image if available
+  const displayImage = isSlidePost && hasSlides 
+    ? getValidImageUrl(platformSlideImages[0])
+    : getValidImageUrl(content?.image_url);
   const hasImage = displayImage && !imageError;
   const canGenerateImage = !isSlidePost && !hasImage; // Only show for simple posts without image
 
@@ -398,8 +393,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               {(!isSlidePost || !hasSlides) && (
                 <div className="flex-1">
                   <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
-                    {/* Show slides URL for slide posts */}
-                    {isSlidePost && content?.slidesURL ? (
+                    {/* Show slides URL for slide posts without downloaded slides */}
+                    {isSlidePost && content?.slidesURL && !hasSlides ? (
                       <div className="text-center text-xs text-gray-700 p-4">
                         <div className="mb-2">
                           <span className="text-sm font-medium">Slides URL disponible</span>
@@ -468,7 +463,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               <div className="pt-2">
                 <PublishButton
                   platformId={platformId}
-                  platform={platform}
+                  platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'}
                   currentStatus={convertStatusToNew(status)}
                   contentType={isThread ? 'Thread' : localEntry.type}
                   onStatusChange={(newStatus) => onUpdateStatus(localEntry.id, platform, convertStatusToOld(newStatus))}

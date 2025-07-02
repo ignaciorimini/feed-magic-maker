@@ -483,7 +483,7 @@ class ContentService {
       // Get the actual platform ID from composite ID if needed
       const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
 
-      // Call user's webhook for slide download - CORREGIDO: usar action
+      // Call user's webhook for slide download
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -526,11 +526,12 @@ class ContentService {
     }
   }
 
-  async publishContent(platformId: string, platform: string) {
+  async publishContent(platformId: string, platform: string, contentType?: string) {
     try {
       console.log('=== PUBLISHING CONTENT ===');
       console.log('Platform ID:', platformId);
       console.log('Platform:', platform);
+      console.log('Content Type:', contentType);
 
       // Get the actual platform ID
       const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
@@ -548,7 +549,6 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
-      // CORREGIDO: usar action en lugar de text
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -558,6 +558,7 @@ class ContentService {
           action: 'publish_content',
           platformId: actualPlatformId,
           platform: platform,
+          contentType: contentType || 'SimplePost',
           userEmail: user.email
         }),
       });

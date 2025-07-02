@@ -51,6 +51,9 @@ const DashboardContent = ({
           : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
         
         if (hasContent) {
+          // Get slide images for this platform from the entry data
+          const platformSlideImages = entry.platforms?.find(p => p.platform === platformKey)?.slide_images || [];
+          
           // Convert content_type to display format
           let displayType = entry.type;
           if (platformContent.contentType === 'simple') {
@@ -68,7 +71,9 @@ const DashboardContent = ({
             // Override the type with the platform-specific content type for display
             type: displayType,
             // Keep the original content type for logic
-            contentType: platformContent.contentType || 'simple'
+            contentType: platformContent.contentType || 'simple',
+            // Add slide images from database
+            slideImages: platformSlideImages.sort((a, b) => a.position - b.position).map(img => img.image_url)
           });
         }
       });
