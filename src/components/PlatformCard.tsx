@@ -19,7 +19,7 @@ interface PlatformCardProps {
     topic: string;
     description: string;
     type: string;
-    contentType?: string;
+    contentType?: string; // Add contentType to the interface
     createdDate: string;
     status: {
       instagram: 'published' | 'pending' | 'error';
@@ -33,7 +33,7 @@ interface PlatformCardProps {
       wordpress: any;
       twitter: any;
     };
-    slideImages?: string[]; // Slide images from database
+    slideImages?: string[];
     publishedLinks?: {
       instagram?: string;
       linkedin?: string;
@@ -112,8 +112,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     return text.substring(0, maxLength) + '...';
   };
 
-  // Get slide images from the entry (these come from database now)
-  const platformSlideImages = localEntry.slideImages || [];
+  // Get slide images specific to this platform
+  const platformSlideImages = content?.slideImages || [];
   const hasSlides = platformSlideImages && platformSlideImages.length > 0;
   
   // Use the contentType from the entry if available, otherwise determine from type
@@ -302,7 +302,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             </div>
             
             <div className="flex items-center space-x-2">
-              {status && <StatusBadge platform={platform as any} status={status} />}
+              {status && <StatusBadge platform={platform} status={status} />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -318,7 +318,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                     Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => onDeleteEntry(localEntry.id, platform)}
+                    onClick={handleDelete}
                     className="text-red-600 focus:text-red-600 focus:bg-red-50"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
@@ -343,12 +343,11 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
         <CardContent className="p-4 pt-2 flex-1 flex flex-col space-y-3">
           {/* Description */}
           <p className="text-xs text-gray-600 line-clamp-2">
-            {localEntry.description}
+            {truncateText(localEntry.description, 80)}
           </p>
 
           {/* Twitter Thread Preview */}
           {platform === 'twitter' && isThread ? (
-            // ... keep existing code (Twitter thread preview)
             <div className="flex-1">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
                 Hilo ({content.threadPosts.length} tweets)
@@ -356,7 +355,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               <div className="max-h-32 overflow-y-auto space-y-2 bg-white rounded-md p-2 border">
                 {content.threadPosts.slice(0, 3).map((tweet: string, index: number) => (
                   <div key={index} className="text-xs text-gray-700 p-1.5 rounded border-l-2 border-gray-800">
-                    <span className="text-gray-800 font-medium">{index + 1}/</span> {tweet.substring(0, 50)}...
+                    <span className="text-gray-800 font-medium">{index + 1}/</span> {truncateText(tweet, 50)}
                   </div>
                 ))}
                 {content.threadPosts.length > 3 && (
@@ -369,7 +368,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           ) : (
             /* Regular content preview */
             <>
-              {/* Slides Carousel - Show slides from database */}
+              {/* Slides Carousel */}
               {isSlidePost && hasSlides && (
                 <div className="flex-1">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2">
@@ -399,8 +398,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               {(!isSlidePost || !hasSlides) && (
                 <div className="flex-1">
                   <div className="aspect-video bg-white rounded-md overflow-hidden border flex items-center justify-center">
-                    {/* Show slides URL for slide posts without downloaded slides */}
-                    {isSlidePost && content?.slidesURL && !hasSlides ? (
+                    {/* Show slides URL for slide posts */}
+                    {isSlidePost && content?.slidesURL ? (
                       <div className="text-center text-xs text-gray-700 p-4">
                         <div className="mb-2">
                           <span className="text-sm font-medium">Slides URL disponible</span>
@@ -437,7 +436,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {}} // handleGenerateImage - keep existing implementation
+                            onClick={handleGenerateImage}
                             disabled={isGeneratingImage}
                             className="h-7 px-3 text-xs"
                           >
@@ -522,7 +521,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {}} // handleGenerateImage - keep existing implementation
+                  onClick={handleGenerateImage}
                   disabled={isGeneratingImage}
                   className="text-xs"
                 >
@@ -556,7 +555,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           entryId={platformId}
           topic={localEntry.topic}
           description={localEntry.description}
-          slideImages={platformSlideImages} // Pass slide images from database
+          slideImages={platformSlideImages}
           imageUrl={content?.image_url}
           onUpdateImage={onUpdateImage}
         />

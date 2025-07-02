@@ -8,7 +8,7 @@ class ContentService {
     console.log('=== GETTING USER CONTENT ENTRIES ===');
     
     try {
-      // First get content entries with their platforms and slide images
+      // First get content entries with their platforms
       const { data: entries, error: entriesError } = await supabase
         .from('content_entries')
         .select(`
@@ -16,11 +16,7 @@ class ContentService {
           platforms:content_platforms(
             *,
             wordpress_post:wordpress_posts(*),
-            slide_images(
-              id,
-              image_url,
-              position
-            )
+            slide_images(*)
           )
         `)
         .order('created_at', { ascending: false });
@@ -30,7 +26,7 @@ class ContentService {
         return { data: null, error: entriesError };
       }
 
-      console.log('Content entries with platforms and slides:', entries);
+      console.log('Content entries with platforms:', entries);
       return { data: entries, error: null };
     } catch (error) {
       console.error('Unexpected error in getUserContentEntries:', error);
@@ -530,12 +526,11 @@ class ContentService {
     }
   }
 
-  async publishContent(platformId: string, platform: string, contentType?: string) {
+  async publishContent(platformId: string, platform: string) {
     try {
       console.log('=== PUBLISHING CONTENT ===');
       console.log('Platform ID:', platformId);
       console.log('Platform:', platform);
-      console.log('Content Type:', contentType);
 
       // Get the actual platform ID
       const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
@@ -553,7 +548,7 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
-      // CORREGIDO: usar action en lugar de text e incluir contentType
+      // CORREGIDO: usar action en lugar de text
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -563,7 +558,6 @@ class ContentService {
           action: 'publish_content',
           platformId: actualPlatformId,
           platform: platform,
-          contentType: contentType || 'SimplePost', // Incluir contentType
           userEmail: user.email
         }),
       });
