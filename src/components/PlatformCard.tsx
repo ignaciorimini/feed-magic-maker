@@ -132,7 +132,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const config = platformConfig[platform];
   const content = localEntry.platformContent[platform];
   const status = localEntry.status[platform];
-  const publishedLink = localEntry.publishedLinks?.[platform];
+  const publishedLink = content?.published_url || localEntry.publishedLinks?.[platform];
 
   // Only show the card if this platform has content or a status (not null)
   if (!content && status === null) {

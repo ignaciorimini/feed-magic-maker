@@ -675,6 +675,44 @@ class ContentService {
     }
   }
 
+  async updatePlatformStatus(platformId: string, status: 'published' | 'pending' | 'error', publishedUrl?: string) {
+    try {
+      console.log('=== UPDATING PLATFORM STATUS ===');
+      console.log('Platform ID:', platformId);
+      console.log('Status:', status);
+      console.log('Published URL:', publishedUrl);
+
+      // Get the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+
+      const updateData: any = {
+        status: status,
+        updated_at: new Date().toISOString()
+      };
+
+      // If status is published, add the published_url and published_at
+      if (status === 'published') {
+        updateData.published_url = publishedUrl || null;
+        updateData.published_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('content_platforms')
+        .update(updateData)
+        .eq('id', actualPlatformId);
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('✅ Platform status updated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating platform status:', error);
+      return { error };
+    }
+  }
+
   // Helper function to get the actual platform ID from composite ID
   async getPlatformIdFromComposite(platformId: string): Promise<string> {
     // Check if it's a composite ID (contains __)

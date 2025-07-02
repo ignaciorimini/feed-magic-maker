@@ -12,7 +12,7 @@ interface PublishButtonProps {
   contentType?: string;
   onStatusChange: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
   onLinkUpdate?: (link: string) => void;
-  onStatsUpdate?: () => void; // New prop to trigger stats update
+  onStatsUpdate?: () => void;
 }
 
 const PublishButton = ({ 
@@ -36,8 +36,12 @@ const PublishButton = ({
         throw error;
       }
 
-      // Handle the new webhook response structure
+      // Handle the webhook response structure
       if (data?.status === 'published') {
+        // Update the status in the database
+        await contentService.updatePlatformStatus(platformId, 'published', data.link);
+        
+        // Update the UI immediately
         onStatusChange('published');
         
         if (data.link && onLinkUpdate) {

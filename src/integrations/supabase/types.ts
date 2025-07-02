@@ -15,7 +15,6 @@ export type Database = {
           created_date: string
           description: string | null
           id: string
-          published_links: Json | null
           topic: string
           type: string
           updated_at: string
@@ -26,7 +25,6 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
-          published_links?: Json | null
           topic: string
           type: string
           updated_at?: string
@@ -37,7 +35,6 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
-          published_links?: Json | null
           topic?: string
           type?: string
           updated_at?: string
@@ -56,6 +53,7 @@ export type Database = {
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date: string | null
           published_at: string | null
+          published_url: string | null
           slides_url: string | null
           status: Database["public"]["Enums"]["content_status"] | null
           text: string | null
@@ -71,6 +69,7 @@ export type Database = {
           platform: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null
+          published_url?: string | null
           slides_url?: string | null
           status?: Database["public"]["Enums"]["content_status"] | null
           text?: string | null
@@ -86,6 +85,7 @@ export type Database = {
           platform?: Database["public"]["Enums"]["platform_type"]
           publish_date?: string | null
           published_at?: string | null
+          published_url?: string | null
           slides_url?: string | null
           status?: Database["public"]["Enums"]["content_status"] | null
           text?: string | null
