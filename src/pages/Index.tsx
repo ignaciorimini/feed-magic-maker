@@ -194,43 +194,43 @@ const Index = () => {
     }
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeletePlatform = async (platformId: string) => {
     try {
-      console.log('=== HANDLING DELETE ENTRY ===');
-      console.log('Entry ID received:', entryId);
+      console.log('=== HANDLING DELETE PLATFORM ===');
+      console.log('Platform ID received:', platformId);
       
-      // Validate that we have a complete UUID
-      if (!entryId || entryId.length !== 36 || !entryId.includes('-')) {
-        console.error('Invalid entry ID format for deletion:', entryId);
+      // Validate that we have a proper platform ID format
+      if (!platformId || !platformId.includes('__')) {
+        console.error('Invalid platform ID format for deletion:', platformId);
         toast({
           title: "Error de validación",
-          description: `ID de entrada inválido: ${entryId}`,
+          description: `ID de plataforma inválido: ${platformId}`,
           variant: "destructive",
         });
         return;
       }
       
-      console.log('✅ Valid UUID format, proceeding with deletion');
+      console.log('✅ Valid platform ID format, proceeding with deletion');
       
-      const { error } = await contentService.deleteContentEntry(entryId);
+      const { error } = await contentService.deletePlatform(platformId);
       
       if (error) {
-        console.error('Error from deleteContentEntry:', error);
+        console.error('Error from deletePlatform:', error);
         throw error;
       }
 
-      console.log('✅ Entry deleted successfully');
+      console.log('✅ Platform deleted successfully');
       await loadEntries();
       
       toast({
-        title: "Contenido eliminado",
-        description: "La entrada ha sido eliminada exitosamente.",
+        title: "Plataforma eliminada",
+        description: "La tarjeta de plataforma ha sido eliminada exitosamente.",
       });
     } catch (error) {
-      console.error('Error deleting entry:', error);
+      console.error('Error deleting platform:', error);
       toast({
         title: "Error al eliminar",
-        description: "No se pudo eliminar la entrada.",
+        description: "No se pudo eliminar la tarjeta de plataforma.",
         variant: "destructive",
       });
     }
@@ -370,7 +370,7 @@ const Index = () => {
           loading={loading}
           onNewContent={() => setShowNewContent(true)}
           onUpdateContent={handleUpdateContent}
-          onDeleteEntry={handleDeleteEntry}
+          onDeletePlatform={handleDeletePlatform} // Changed from onDeleteEntry
           onDownloadSlides={handleDownloadSlides}
           onGenerateImage={handleGenerateImage}
           onUploadImage={() => {}} // Not used anymore  

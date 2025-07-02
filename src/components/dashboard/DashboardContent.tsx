@@ -11,7 +11,7 @@ interface DashboardContentProps {
   loading: boolean;
   onNewContent: () => void;
   onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
-  onDeleteEntry: (entryId: string) => void;
+  onDeletePlatform: (platformId: string) => void; // Changed from onDeleteEntry
   onDownloadSlides: (entryId: string, slidesURL: string) => void;
   onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
   onUploadImage: (platformId: string, file: File) => void;
@@ -26,7 +26,7 @@ const DashboardContent = ({
   loading,
   onNewContent,
   onUpdateContent,
-  onDeleteEntry,
+  onDeletePlatform, // Changed from onDeleteEntry
   onDownloadSlides,
   onGenerateImage,
   onUploadImage,
@@ -97,8 +97,6 @@ const DashboardContent = ({
     console.log('Slides URL:', slidesURL);
     console.log('Topic:', entry.topic);
     
-    // Use the new downloadSlidesForPlatform method via the contentService
-    // This will be handled directly by the PlatformCard component
     if (onDownloadSlides) {
       onDownloadSlides(entryId, slidesURL);
     }
@@ -140,23 +138,20 @@ const DashboardContent = ({
     // Link updates would need to be handled by the parent component
   };
 
-  const handleDeleteEntry = (entryId: string, platform: string) => {
-    // Extract the original entry ID using the new separator
-    const originalEntryId = entryId.includes('__') ? entryId.split('__')[0] : entryId;
-    console.log('=== DELETE ENTRY DEBUG ===');
-    console.log('Entry ID received:', entryId);
-    console.log('Extracted original entry ID:', originalEntryId);
-    console.log('Original ID length:', originalEntryId.length);
+  // Changed: Handle platform deletion instead of entry deletion
+  const handleDeletePlatform = (platformId: string, platform: string) => {
+    console.log('=== DELETE PLATFORM DEBUG ===');
+    console.log('Platform ID received:', platformId);
     console.log('Platform:', platform);
     
-    // Validate extracted ID is a complete UUID
-    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
-      console.error('Invalid extracted entry ID format:', originalEntryId);
+    // Validate platform ID format
+    if (!platformId || !platformId.includes('__')) {
+      console.error('Invalid platform ID format:', platformId);
       return;
     }
     
-    console.log('✅ Passing complete UUID to delete function:', originalEntryId);
-    onDeleteEntry(originalEntryId);
+    console.log('✅ Passing platform ID to delete function:', platformId);
+    onDeletePlatform(platformId);
   };
 
   const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
@@ -230,7 +225,7 @@ const DashboardContent = ({
                 entry={platformEntry}
                 platform={platformEntry.platform}
                 onUpdateContent={onUpdateContent}
-                onDeleteEntry={handleDeleteEntry}
+                onDeleteEntry={handleDeletePlatform} // Changed to handle platform deletion
                 onDownloadSlides={handleDownloadSlides}
                 onUpdateStatus={handleUpdateStatus}
                 onUpdateLink={handleUpdateLink}

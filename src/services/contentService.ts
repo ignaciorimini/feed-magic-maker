@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -195,6 +194,33 @@ class ContentService {
       return { error: null };
     } catch (error) {
       console.error('Error updating platform content:', error);
+      return { error };
+    }
+  }
+
+  async deletePlatform(platformId: string) {
+    console.log('=== DELETING PLATFORM ===');
+    console.log('Platform ID:', platformId);
+    
+    try {
+      // Get the actual platform ID from composite ID
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      
+      // Delete the specific platform record
+      const { error } = await supabase
+        .from('content_platforms')
+        .delete()
+        .eq('id', actualPlatformId);
+
+      if (error) {
+        console.error('Error deleting platform:', error);
+        throw error;
+      }
+
+      console.log('Platform deleted successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Error in deletePlatform:', error);
       return { error };
     }
   }
@@ -675,6 +701,92 @@ class ContentService {
     
     // If it's already a direct platform ID, return as is
     return platformId;
+  }
+
+  // Add method to get all user media images
+  async getUserMediaImages() {
+    console.log('=== GETTING USER MEDIA IMAGES ===');
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get platform images
+      const { data: platformImages, error: platformError } = await supabase
+        .from('content_platforms')
+        .select(`
+          id,
+          image_url,
+          created_at,
+          platform,
+          content_entries!inner(topic, user_id)
+        `)
+        .eq('content_entries.user_id', user.id)
+        .not('image_url', 'is', null);
+
+      // Get uploaded images
+      const { data: uploadedImages, error: uploadedError } = await supabase
+        .from('uploaded_images')
+        .select(`
+          id,
+          image_url,
+          uploaded_at,
+          content_platforms!inner(
+            content_entries!inner(user_id, topic)
+          )
+        `)
+        .eq('content_platforms.content_entries.user_id', user.id);
+
+      if (platformError) {
+        console.error('Error fetching platform images:', platformError);
+        return { data: null, error: platformError };
+      }
+
+      if (uploadedError) {
+        console.error('Error fetching uploaded images:', uploadedError);
+        return { data: null, error: uploadedError };
+      }
+
+      const allImages = [];
+
+      // Add platform images
+      if (platformImages) {
+        platformImages.forEach(img => {
+          allImages.push({
+            id: img.id,
+            image_url: img.image_url,
+            created_at: img.created_at,
+            type: 'platform',
+            platform: img.platform,
+            content_topic: img.content_entries?.topic
+          });
+        });
+      }
+
+      // Add uploaded images
+      if (uploadedImages) {
+        uploadedImages.forEach(img => {
+          allImages.push({
+            id: img.id,
+            image_url: img.image_url,
+            created_at: img.uploaded_at,
+            type: 'uploaded',
+            content_topic: img.content_platforms?.content_entries?.topic
+          });
+        });
+      }
+
+      // Sort by date (newest first)
+      allImages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return { data: allImages, error: null };
+    } catch (error) {
+      console.error('Error in getUserMediaImages:', error);
+      return { data: null, error };
+    }
   }
 }
 
