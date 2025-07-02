@@ -50,6 +50,7 @@ interface PlatformCardProps {
   onUpdateLink?: (entryId: string, platform: string, link: string) => void;
   onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
   onReloadEntries?: () => void;
+  onStatsUpdate?: () => void; // New prop for stats update
 }
 
 // Utility function to validate image URLs
@@ -64,7 +65,7 @@ const getValidImageUrl = (url?: string | null): string | null => {
   }
 };
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries, onStatsUpdate }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
@@ -308,6 +309,41 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     }
   };
 
+  const handleStatusUpdate = (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
+    const convertedStatus: 'published' | 'pending' | 'error' = 
+      newStatus === 'published' ? 'published' : 'pending';
+    
+    // Update local state
+    setLocalEntry(prev => ({
+      ...prev,
+      status: {
+        ...prev.status,
+        [platform]: convertedStatus
+      }
+    }));
+    
+    // Notify parent component
+    if (onUpdateStatus) {
+      onUpdateStatus(localEntry.id, platform, convertedStatus);
+    }
+  };
+
+  const handleLinkUpdate = (link: string) => {
+    // Update local state
+    setLocalEntry(prev => ({
+      ...prev,
+      publishedLinks: {
+        ...prev.publishedLinks,
+        [platform]: link
+      }
+    }));
+    
+    // Notify parent component
+    if (onUpdateLink) {
+      onUpdateLink(localEntry.id, platform, link);
+    }
+  };
+
   return (
     <>
       <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group flex flex-col h-full`}>
@@ -488,16 +524,32 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
           {/* Status and Actions */}
           <div className="space-y-2 mt-auto">
-            {/* Publish Button with full width */}
+            {/* Published Link - Show if content is published */}
+            {status === 'published' && publishedLink && (
+              <div className="pt-2 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(publishedLink, '_blank')}
+                  className="w-full text-xs"
+                >
+                  <ExternalLink className="w-3 h-3 mr-2" />
+                  Ver publicación
+                </Button>
+              </div>
+            )}
+            
+            {/* Publish Button with stats update */}
             {status === 'pending' && onUpdateStatus && onUpdateLink && (
               <div className="pt-2">
                 <PublishButton
                   platformId={platformId}
                   platform={platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter'}
-                  currentStatus={convertStatusToNew(status)}
-                  contentType={isThread ? 'Thread' : localEntry.type}
-                  onStatusChange={(newStatus) => onUpdateStatus(localEntry.id, platform, convertStatusToOld(newStatus))}
-                  onLinkUpdate={(link) => onUpdateLink(localEntry.id, platform, link)}
+                  currentStatus={status === 'published' ? 'published' : 'pending'}
+                  contentType={localEntry.type}
+                  onStatusChange={handleStatusUpdate}
+                  onLinkUpdate={handleLinkUpdate}
+                  onStatsUpdate={onStatsUpdate} // Pass the stats update function
                 />
               </div>
             )}

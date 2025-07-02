@@ -11,7 +11,7 @@ interface DashboardContentProps {
   loading: boolean;
   onNewContent: () => void;
   onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
-  onDeletePlatform: (platformId: string) => void; // Changed from onDeleteEntry
+  onDeletePlatform: (platformId: string) => void;
   onDownloadSlides: (entryId: string, slidesURL: string) => void;
   onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
   onUploadImage: (platformId: string, file: File) => void;
@@ -26,7 +26,7 @@ const DashboardContent = ({
   loading,
   onNewContent,
   onUpdateContent,
-  onDeletePlatform, // Changed from onDeleteEntry
+  onDeletePlatform,
   onDownloadSlides,
   onGenerateImage,
   onUploadImage,
@@ -138,7 +138,7 @@ const DashboardContent = ({
     // Link updates would need to be handled by the parent component
   };
 
-  // Changed: Handle platform deletion instead of entry deletion
+  // Handle platform deletion instead of entry deletion
   const handleDeletePlatform = (platformId: string, platform: string) => {
     console.log('=== DELETE PLATFORM DEBUG ===');
     console.log('Platform ID received:', platformId);
@@ -225,12 +225,17 @@ const DashboardContent = ({
                 entry={platformEntry}
                 platform={platformEntry.platform}
                 onUpdateContent={onUpdateContent}
-                onDeleteEntry={handleDeletePlatform} // Changed to handle platform deletion
-                onDownloadSlides={handleDownloadSlides}
-                onUpdateStatus={handleUpdateStatus}
-                onUpdateLink={handleUpdateLink}
+                onDeleteEntry={onDeletePlatform}
+                onDownloadSlides={onDownloadSlides}
+                onUpdateStatus={(entryId, platform, newStatus) => {
+                  // Handle status updates here if needed
+                }}
+                onUpdateLink={(entryId, platform, link) => {
+                  // Handle link updates here if needed
+                }}
                 onUpdateImage={onUpdateImage}
                 onReloadEntries={onReloadEntries}
+                onStatsUpdate={onReloadEntries} // Use onReloadEntries to refresh stats
               />
             ))}
           </div>

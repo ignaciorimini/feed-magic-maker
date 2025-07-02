@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Media from "./pages/Media";
 import Calendar from "./pages/Calendar";
 import Integrations from "./pages/Integrations";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/media" element={<Media />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/integrations" element={<Integrations />} />
+              <Route path="/profile" element={<Profile />} />
             </Routes>
           </Layout>
         </BrowserRouter>

@@ -5,7 +5,8 @@ import {
   Settings, 
   Images,
   LogOut,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -100,6 +101,18 @@ export function AppSidebar() {
               </div>
             )}
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/profile')}
+                  className={isActive('/profile') ? 'bg-blue-100 text-blue-700' : ''}
+                >
+                  <NavLink to="/profile" className="flex items-center">
+                    <User className="w-4 h-4" />
+                    <span>Perfil</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={signOut}
