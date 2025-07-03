@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -132,6 +133,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const config = platformConfig[platform];
   const content = localEntry.platformContent[platform];
   const status = localEntry.status[platform];
+  
+  // Fix: Get published_url from the content object (which comes from content_platforms table)
   const publishedLink = content?.published_url || localEntry.publishedLinks?.[platform];
 
   // Only show the card if this platform has content or a status (not null)
@@ -524,7 +527,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
           {/* Status and Actions */}
           <div className="space-y-2 mt-auto">
-            {/* Published Link - Show prominently if content is published */}
+            {/* Published Link - Show prominently if content is published and has published_url */}
             {status === 'published' && publishedLink && (
               <div className="pt-2 border-t border-gray-200">
                 <Button
