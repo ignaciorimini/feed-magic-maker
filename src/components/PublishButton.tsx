@@ -36,8 +36,11 @@ const PublishButton = ({
         throw error;
       }
 
-      // Handle the webhook response structure
-      if (data?.status === 'published') {
+      // Handle the webhook response structure for different platforms
+      const isPublished = data?.status === 'published' || 
+                          (platform === 'wordpress' && data?.status === 'wordpressPublished');
+      
+      if (isPublished) {
         // Update the status in the database
         await contentService.updatePlatformStatus(platformId, 'published', data.link);
         

@@ -524,17 +524,17 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
 
           {/* Status and Actions */}
           <div className="space-y-2 mt-auto">
-            {/* Published Link - Show if content is published */}
+            {/* Published Link - Show prominently if content is published */}
             {status === 'published' && publishedLink && (
               <div className="pt-2 border-t border-gray-200">
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => window.open(publishedLink, '_blank')}
-                  className="w-full text-xs"
+                  className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
                 >
                   <ExternalLink className="w-3 h-3 mr-2" />
-                  Ver publicación
+                  Ver publicación en {config.name}
                 </Button>
               </div>
             )}
@@ -549,7 +549,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                   contentType={localEntry.type}
                   onStatusChange={handleStatusUpdate}
                   onLinkUpdate={handleLinkUpdate}
-                  onStatsUpdate={onStatsUpdate} // Pass the stats update function
+                  onStatsUpdate={onStatsUpdate}
                 />
               </div>
             )}
@@ -582,17 +582,6 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 </Button>
               )}
               
-              {publishedLink && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(publishedLink, '_blank')}
-                  className="text-xs"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                </Button>
-              )}
-
               {/* Generate Image Button - Only for simple posts without image */}
               {canGenerateImage && (
                 <Button
