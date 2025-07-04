@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink } from 'lucide-react';
+import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
+import MediaImageSelector from './MediaImageSelector';
 import { Switch } from '@/components/ui/switch';
 import PublishButton from './PublishButton';
 
@@ -65,6 +65,7 @@ const ContentEditModal = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
+  const [showMediaSelector, setShowMediaSelector] = useState(false);
 
   useEffect(() => {
     setEditedContent(content);
@@ -267,6 +268,28 @@ const ContentEditModal = ({
     }
   };
 
+  const handleSelectFromMedia = async (imageUrl: string) => {
+    if (!onUpdateImage) return;
+    
+    try {
+      await onUpdateImage(entryId, imageUrl);
+      setCurrentImageUrl(imageUrl);
+      setShowImageOptions(false);
+      
+      toast({
+        title: "Imagen seleccionada",
+        description: "La imagen ha sido seleccionada desde Media.",
+      });
+    } catch (error) {
+      console.error('Error selecting image from media:', error);
+      toast({
+        title: "Error al seleccionar imagen",
+        description: "Hubo un problema al seleccionar la imagen.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handlePublishAndSave = async () => {
     setIsPublishing(true);
     try {
@@ -430,7 +453,7 @@ const ContentEditModal = ({
                                   <img 
                                     src={imageUrl} 
                                     alt={`Slide ${index + 1}`}
-                                    className="w-full h-full object-contain"
+                                    className="w-full h-full object-contain max-h-32"
                                     onError={(e) => {
                                       console.error('Error loading slide image:', imageUrl);
                                       (e.target as HTMLImageElement).style.display = 'none';
@@ -476,7 +499,7 @@ const ContentEditModal = ({
                   <div className="flex items-start space-x-4">
                     <div className="relative">
                       <div 
-                        className="w-32 h-32 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border"
+                        className="w-40 h-32 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border"
                         onClick={() => handleImageClick([currentImageUrl!], 0)}
                       >
                         <img 
@@ -496,7 +519,7 @@ const ContentEditModal = ({
                     </div>
                     <div className="flex-1 flex flex-col justify-center space-y-2">
                       <p className="text-sm text-gray-600">Imagen actual del artículo</p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -521,13 +544,21 @@ const ContentEditModal = ({
                           onClick={() => document.getElementById('image-upload')?.click()}
                         >
                           <Upload className="w-3 h-3 mr-1" />
-                          Cambiar
+                          Subir
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowMediaSelector(true)}
+                        >
+                          <Image className="w-3 h-3 mr-1" />
+                          Desde Media
                         </Button>
                       </div>
                     </div>
                   </div>
                 ) : showImageOptions ? (
-                  <div className="w-32 h-32 bg-gray-200 dark:bg-gray-700 rounded-md flex flex-col items-center justify-center space-y-2 border">
+                  <div className="w-40 h-32 bg-gray-200 dark:bg-gray-700 rounded-md flex flex-col items-center justify-center space-y-2 border">
                     <span className="text-xs text-gray-500 dark:text-gray-400 text-center px-2">¿Cómo añadir imagen?</span>
                     <div className="flex flex-col gap-1">
                       <Button
@@ -555,6 +586,14 @@ const ContentEditModal = ({
                       >
                         <Upload className="w-3 h-3" />
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMediaSelector(true)}
+                        className="h-7 px-2 text-xs"
+                      >
+                        <Image className="w-3 h-3" />
+                      </Button>
                     </div>
                     <Button
                       variant="ghost"
@@ -566,7 +605,7 @@ const ContentEditModal = ({
                     </Button>
                   </div>
                 ) : (
-                  <div className="w-32 h-32 bg-gray-200 dark:bg-gray-700 rounded-md flex flex-col items-center justify-center space-y-2 border">
+                  <div className="w-40 h-32 bg-gray-200 dark:bg-gray-700 rounded-md flex flex-col items-center justify-center space-y-2 border">
                     <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Sin imagen</span>
                     <Button
                       variant="outline"
@@ -648,6 +687,13 @@ const ContentEditModal = ({
           onClose={() => setShowImagePreview(false)}
         />
       )}
+
+      {/* Media Image Selector */}
+      <MediaImageSelector
+        isOpen={showMediaSelector}
+        onClose={() => setShowMediaSelector(false)}
+        onSelectImage={handleSelectFromMedia}
+      />
     </>
   );
 };
