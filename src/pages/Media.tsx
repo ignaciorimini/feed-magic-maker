@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Calendar, Download, Trash2, Loader2, Images } from 'lucide-react';
+import { Search, Calendar, Download, Loader2, Images } from 'lucide-react';
 
 interface MediaImage {
   id: string;
@@ -126,47 +126,16 @@ const Media = () => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Imagen descargada",
+        description: "La imagen se ha descargado exitosamente",
+      });
     } catch (error) {
       console.error('Error downloading image:', error);
       toast({
         title: "Error al descargar",
         description: "No se pudo descargar la imagen",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteImage = async (image: MediaImage) => {
-    try {
-      if (image.type === 'platform') {
-        // Update platform to remove image URL
-        const { error } = await supabase
-          .from('content_platforms')
-          .update({ image_url: null })
-          .eq('id', image.id);
-        
-        if (error) throw error;
-      } else {
-        // Delete uploaded image record
-        const { error } = await supabase
-          .from('uploaded_images')
-          .delete()
-          .eq('id', image.id);
-        
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Imagen eliminada",
-        description: "La imagen ha sido eliminada de la galería",
-      });
-
-      loadImages();
-    } catch (error) {
-      console.error('Error deleting image:', error);
-      toast({
-        title: "Error al eliminar",
-        description: "No se pudo eliminar la imagen",
         variant: "destructive",
       });
     }
@@ -286,25 +255,15 @@ const Media = () => {
                     {new Date(image.created_at).toLocaleDateString()}
                   </div>
                   
-                  <div className="flex justify-between pt-2 border-t">
+                  <div className="flex justify-center pt-2 border-t">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleDownloadImage(image.image_url)}
-                      className="text-xs"
+                      className="text-xs w-full"
                     >
                       <Download className="w-3 h-3 mr-1" />
                       Descargar
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteImage(image)}
-                      className="text-xs text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Eliminar
                     </Button>
                   </div>
                 </div>
