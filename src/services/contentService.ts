@@ -44,15 +44,14 @@ class ContentService {
         throw new Error('User not authenticated');
       }
 
-      // Create the main content entry
+      // Create the main content entry - removed published_links field
       const { data: entry, error: entryError } = await supabase
         .from('content_entries')
         .insert({
           user_id: user.id,
           topic: data.topic,
           description: data.description,
-          type: data.type,
-          published_links: {}
+          type: data.type
         })
         .select()
         .single();

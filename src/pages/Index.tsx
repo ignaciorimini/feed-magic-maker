@@ -38,7 +38,6 @@ const Index = () => {
         const transformedEntries = data.map(entry => {
           const platformContent: any = {};
           const status: any = {};
-          const publishedLinks: any = {};
           
           // Get the main image from the first platform that has one
           let entryImageUrl = null;
@@ -61,6 +60,7 @@ const Index = () => {
                 slideImages: platform.slideImages || [],
                 uploadedImages: platform.uploadedImages || [],
                 contentType: platform.content_type || 'article',
+                published_url: platform.published_url, // Add published_url from content_platforms
                 wordpressPost: {
                   title: wpPost.title || '',
                   description: wpPost.description || '',
@@ -77,7 +77,8 @@ const Index = () => {
                 slidesURL: platform.slides_url,
                 slideImages: platform.slideImages || [],
                 uploadedImages: platform.uploadedImages || [],
-                contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple')
+                contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple'),
+                published_url: platform.published_url // Add published_url from content_platforms
               };
             }
             
@@ -98,7 +99,6 @@ const Index = () => {
             createdDate: new Date(entry.created_date).toLocaleDateString(),
             status,
             platformContent,
-            publishedLinks: entry.published_links || {},
             imageUrl: entryImageUrl, // Set the entry-level image URL
             slideImages: [] // This will be populated from platforms if needed
           };
