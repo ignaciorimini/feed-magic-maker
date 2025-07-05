@@ -19,7 +19,7 @@ const Calendar = () => {
   const loadEntries = async () => {
     try {
       setLoading(true);
-      const { data, error } = await contentService.getContentEntries();
+      const { data, error } = await contentService.getUserContentEntries();
       
       if (error) {
         throw error;
@@ -40,7 +40,7 @@ const Calendar = () => {
 
   const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
     try {
-      const { error } = await contentService.updatePlatformContent(entryId, platform, content);
+      const { error } = await contentService.updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
@@ -64,7 +64,7 @@ const Calendar = () => {
 
   const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
     try {
-      const { error } = await contentService.updateContentImage(entryId, imageUrl);
+      const { error } = await contentService.uploadCustomImage(entryId, imageUrl || '');
       
       if (error) {
         throw error;
