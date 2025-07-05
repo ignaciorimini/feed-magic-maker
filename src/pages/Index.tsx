@@ -160,10 +160,7 @@ const Index = () => {
 
   const handleDeletePlatform = async (platformId: string) => {
     try {
-      // Extract the original entry ID and platform from the composite ID
-      const [originalEntryId, platform] = platformId.split('__');
-      
-      const { error } = await contentService.deletePlatformContent(originalEntryId, platform);
+      const { error } = await contentService.deletePlatform(platformId);
       
       if (error) {
         throw error;
