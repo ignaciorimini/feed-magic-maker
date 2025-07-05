@@ -6,26 +6,15 @@ import { toast } from '@/hooks/use-toast';
 import ContentForm from '@/components/ContentForm';
 import DashboardContent from '@/components/dashboard/DashboardContent';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import { useSearchParams } from 'react-router-dom';
 
 const Index = () => {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [showNewContent, setShowNewContent] = useState(false);
   const [entries, setEntries] = useState<any[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'linkedin', 'wordpress', 'twitter']);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('content');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-
-  // Check URL parameter to show content creation form
-  useEffect(() => {
-    if (searchParams.get('create') === 'true') {
-      setShowNewContent(true);
-      // Remove the parameter from URL without page reload
-      setSearchParams({});
-    }
-  }, [searchParams, setSearchParams]);
 
   const loadEntries = async () => {
     if (!user) return;
@@ -381,11 +370,11 @@ const Index = () => {
           loading={loading}
           onNewContent={() => setShowNewContent(true)}
           onUpdateContent={handleUpdateContent}
-          onDeletePlatform={handleDeletePlatform}
+          onDeletePlatform={handleDeletePlatform} // Changed from onDeleteEntry
           onDownloadSlides={handleDownloadSlides}
           onGenerateImage={handleGenerateImage}
-          onUploadImage={() => {}}
-          onDeleteImage={() => {}}
+          onUploadImage={() => {}} // Not used anymore  
+          onDeleteImage={() => {}} // Not used anymore
           onReloadEntries={loadEntries}
           onUpdateImage={handleUpdateImage}
         />
