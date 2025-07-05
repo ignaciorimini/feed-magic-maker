@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sidebar,
   SidebarContent,
@@ -48,25 +49,34 @@ const navigationItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const isMobile = useIsMobile();
   const collapsed = state === 'collapsed';
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <Sidebar className="border-r">
-      <SidebarHeader className="border-b px-4 py-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <BarChart3 className="w-5 h-5 text-white" />
+      {!isMobile && (
+        <SidebarHeader className="border-b px-4 py-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="w-5 h-5 text-white" />
+            </div>
+            {!collapsed && (
+              <span className="text-xl font-bold text-gray-900">Contentflow</span>
+            )}
           </div>
-          {!collapsed && (
-            <span className="text-xl font-bold text-gray-900">Contentflow</span>
-          )}
-        </div>
-      </SidebarHeader>
+        </SidebarHeader>
+      )}
 
       <SidebarContent>
         <SidebarGroup>
@@ -80,7 +90,7 @@ export function AppSidebar() {
                     isActive={isActive(item.url)}
                     className={isActive(item.url) ? 'bg-blue-100 text-blue-700' : ''}
                   >
-                    <NavLink to={item.url} className="flex items-center">
+                    <NavLink to={item.url} className="flex items-center" onClick={handleNavClick}>
                       <item.icon className="w-4 h-4" />
                       <span>{item.title}</span>
                     </NavLink>
@@ -107,7 +117,7 @@ export function AppSidebar() {
                   isActive={isActive('/profile')}
                   className={isActive('/profile') ? 'bg-blue-100 text-blue-700' : ''}
                 >
-                  <NavLink to="/profile" className="flex items-center">
+                  <NavLink to="/profile" className="flex items-center" onClick={handleNavClick}>
                     <User className="w-4 h-4" />
                     <span>Perfil</span>
                   </NavLink>
@@ -115,7 +125,10 @@ export function AppSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={signOut}
+                  onClick={() => {
+                    signOut();
+                    if (isMobile) setOpenMobile(false);
+                  }}
                   className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   <LogOut className="w-4 h-4" />

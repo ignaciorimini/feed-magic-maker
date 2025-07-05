@@ -62,11 +62,30 @@ interface ContentCardProps {
 const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublishSettings, onDeleteEntry, onDownloadSlides }: ContentCardProps) => {
   const [showPublishSettings, setShowPublishSettings] = useState(false);
   const [localEntry, setLocalEntry] = useState(entry);
+  const [slideImages, setSlideImages] = useState<string[]>([]);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   // Update local entry when prop changes
   useEffect(() => {
     setLocalEntry(entry);
+    // Force reload slide images when entry changes
+    if (entry.slideImages && entry.slideImages.length > 0) {
+      setSlideImages([...entry.slideImages]);
+      setImagesLoaded(true);
+    } else {
+      setSlideImages([]);
+      setImagesLoaded(false);
+    }
   }, [entry]);
+
+  // Additional effect to ensure slide images are properly loaded
+  useEffect(() => {
+    if (localEntry.type === 'Slide Post' && !imagesLoaded && localEntry.slideImages) {
+      console.log('Loading slide images for entry:', localEntry.id);
+      setSlideImages([...localEntry.slideImages]);
+      setImagesLoaded(true);
+    }
+  }, [localEntry.type, localEntry.slideImages, imagesLoaded]);
 
   const getTypeIcon = (type: string) => {
     return type === 'Simple Post' ? FileText : Presentation;
@@ -76,16 +95,13 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     return type === 'Simple Post' ? 'bg-blue-500' : 'bg-indigo-500';
   };
 
-  // Usar el tipo real del entry, no una función que puede devolver algo incorrecto
   const TypeIcon = getTypeIcon(localEntry.type);
 
-  // Función para truncar texto
   const truncateText = (text: string, maxLength: number = 100) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   };
 
-  // Filter platforms based on user selection
   const availablePlatforms = ['instagram', 'linkedin', 'wordpress'].filter(platform => 
     selectedPlatforms.includes(platform)
   );
@@ -95,14 +111,12 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     onDeleteEntry(entry.id);
   };
 
-  // FIXED: Verificar si hay slides descargadas Y es un Slide Post
-  const hasDownloadedSlides = localEntry.slideImages && localEntry.slideImages.length > 0;
+  // Check if we have slides to show - more robust checking
+  const hasDownloadedSlides = slideImages && slideImages.length > 0;
   const isSlidePost = localEntry.type === 'Slide Post';
   const shouldShowSlides = isSlidePost && hasDownloadedSlides;
 
-  // Handler for status changes - convert between old and new status systems
   const handleStatusChange = (platform: string, newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => {
-    // Convert the new status system to the old one for compatibility
     const convertedStatus: 'published' | 'pending' | 'error' = 
       newStatus === 'published' ? 'published' : 'pending';
 
@@ -115,7 +129,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     }));
   };
 
-  // Handler for link updates
   const handleLinkUpdate = (platform: string, link: string) => {
     setLocalEntry(prev => ({
       ...prev,
@@ -126,7 +139,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     }));
   };
 
-  // Convert old status to new status for platform previews
   const convertStatusToNew = (oldStatus: 'published' | 'pending' | 'error'): 'pending' | 'generated' | 'edited' | 'scheduled' | 'published' => {
     switch (oldStatus) {
       case 'published':
@@ -134,7 +146,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
       case 'pending':
         return 'pending';
       case 'error':
-        return 'pending'; // Convert error to pending for now
+        return 'pending';
       default:
         return 'pending';
     }
@@ -142,7 +154,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
 
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
-      {/* Horizontal Layout */}
       <div className="flex flex-col lg:flex-row">
         {/* Left Side - Main Info */}
         <div className="lg:w-1/3 p-4">
@@ -192,25 +203,30 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
               </p>
             </div>
 
-            {/* FIXED: Slides Carousel - Show when we have slide images AND it's a Slide Post */}
+            {/* Slides Carousel - Better error handling and loading */}
             {shouldShowSlides && (
               <div className="space-y-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Slides Descargadas ({localEntry.slideImages!.length} imágenes)
+                  Slides Descargadas ({slideImages.length} imágenes)
                 </span>
                 <Carousel className="w-full max-w-xs mx-auto">
                   <CarouselContent>
-                    {localEntry.slideImages!.map((imageUrl, index) => (
-                      <CarouselItem key={index}>
+                    {slideImages.map((imageUrl, index) => (
+                      <CarouselItem key={`${localEntry.id}-slide-${index}`}>
                         <div className="p-1">
                           <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden">
                             <img 
                               src={imageUrl} 
                               alt={`Slide ${index + 1}`}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                               onError={(e) => {
-                                console.error('Error loading slide image:', imageUrl);
-                                (e.target as HTMLImageElement).style.display = 'none';
+                                console.error('Error loading slide image:', imageUrl, 'for entry:', localEntry.id);
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                              onLoad={() => {
+                                console.log('Successfully loaded slide image:', index, 'for entry:', localEntry.id);
                               }}
                             />
                           </div>
@@ -295,7 +311,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'instagram', content)}
                   entryId={localEntry.id}
                   topic={localEntry.topic}
-                  slideImages={localEntry.slideImages}
+                  slideImages={slideImages}
                   onStatusChange={(newStatus) => handleStatusChange('instagram', newStatus)}
                   onLinkUpdate={(link) => handleLinkUpdate('instagram', link)}
                 />
@@ -310,7 +326,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'linkedin', content)}
                   entryId={localEntry.id}
                   topic={localEntry.topic}
-                  slideImages={localEntry.slideImages}
+                  slideImages={slideImages}
                   onStatusChange={(newStatus) => handleStatusChange('linkedin', newStatus)}
                   onLinkUpdate={(link) => handleLinkUpdate('linkedin', link)}
                 />
@@ -325,7 +341,7 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                   onUpdateContent={(content) => onUpdateContent(localEntry.id, 'wordpress', content)}
                   entryId={localEntry.id}
                   topic={localEntry.topic}
-                  slideImages={localEntry.slideImages}
+                  slideImages={slideImages}
                   publishedLink={localEntry.publishedLinks?.wordpress}
                   onStatusChange={(newStatus) => handleStatusChange('wordpress', newStatus)}
                   onLinkUpdate={(link) => handleLinkUpdate('wordpress', link)}

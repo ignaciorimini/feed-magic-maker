@@ -1,8 +1,126 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { contentService } from '@/services/contentService';
+import CalendarGrid from '@/components/calendar/CalendarGrid';
+import { toast } from '@/hooks/use-toast';
 
 const Calendar = () => {
+  const { user } = useAuth();
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadEntries();
+    }
+  }, [user]);
+
+  const loadEntries = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await contentService.getContentEntries();
+      
+      if (error) {
+        throw error;
+      }
+      
+      setEntries(data || []);
+    } catch (error) {
+      console.error('Error loading entries:', error);
+      toast({
+        title: "Error al cargar contenido",
+        description: "No se pudieron cargar las entradas de contenido",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
+    try {
+      const { error } = await contentService.updatePlatformContent(entryId, platform, content);
+      
+      if (error) {
+        throw error;
+      }
+      
+      await loadEntries();
+      
+      toast({
+        title: "Contenido actualizado",
+        description: "El contenido se ha actualizado correctamente",
+      });
+    } catch (error) {
+      console.error('Error updating content:', error);
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo actualizar el contenido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+    try {
+      const { error } = await contentService.updateContentImage(entryId, imageUrl);
+      
+      if (error) {
+        throw error;
+      }
+      
+      await loadEntries();
+      
+      toast({
+        title: "Imagen actualizada",
+        description: "La imagen se ha actualizado correctamente",
+      });
+    } catch (error) {
+      console.error('Error updating image:', error);
+      toast({
+        title: "Error al actualizar imagen",
+        description: "No se pudo actualizar la imagen",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateImage = async (entryId: string, platform: string, topic: string, description: string) => {
+    try {
+      const { error } = await contentService.generateImageForPlatform(entryId, platform, topic, description);
+      
+      if (error) {
+        throw error;
+      }
+      
+      await loadEntries();
+      
+      toast({
+        title: "Imagen generada",
+        description: "La imagen se ha generado correctamente",
+      });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Error al generar imagen",
+        description: "No se pudo generar la imagen",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-sm text-gray-500 mt-2">Cargando calendario...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       <div>
@@ -10,19 +128,12 @@ const Calendar = () => {
         <p className="text-gray-600">Programa y gestiona tus publicaciones</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <CalendarIcon className="w-5 h-5 mr-2" />
-            Próximamente
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600">
-            La funcionalidad de calendario estará disponible próximamente para programar tus publicaciones.
-          </p>
-        </CardContent>
-      </Card>
+      <CalendarGrid 
+        entries={entries}
+        onUpdateContent={handleUpdateContent}
+        onUpdateImage={handleUpdateImage}
+        onGenerateImage={handleGenerateImage}
+      />
     </div>
   );
 };
