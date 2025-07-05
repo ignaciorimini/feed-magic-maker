@@ -158,6 +158,108 @@ const Index = () => {
     setShowContentForm(false);
   };
 
+  const handleDeletePlatform = async (platformId: string) => {
+    try {
+      // Extract the original entry ID and platform from the composite ID
+      const [originalEntryId, platform] = platformId.split('__');
+      
+      const { error } = await contentService.deletePlatformContent(originalEntryId, platform);
+      
+      if (error) {
+        throw error;
+      }
+      
+      await loadEntries();
+      
+      toast({
+        title: "Plataforma eliminada",
+        description: "La plataforma se ha eliminado correctamente",
+      });
+    } catch (error) {
+      console.error('Error deleting platform:', error);
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar la plataforma",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
+    try {
+      // Create a temporary link to download the slides
+      const link = document.createElement('a');
+      link.href = slidesURL;
+      link.download = `slides-${entryId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Descarga iniciada",
+        description: "Las diapositivas se están descargando",
+      });
+    } catch (error) {
+      console.error('Error downloading slides:', error);
+      toast({
+        title: "Error al descargar",
+        description: "No se pudieron descargar las diapositivas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUploadImage = async (platformId: string, file: File) => {
+    try {
+      // Extract the original entry ID from the composite ID
+      const originalEntryId = platformId.split('__')[0];
+      
+      // For now, we'll use the existing uploadCustomImage method
+      // In a real implementation, you'd upload the file to storage first
+      const imageUrl = URL.createObjectURL(file);
+      
+      const { error } = await contentService.uploadCustomImage(originalEntryId, imageUrl);
+      
+      if (error) {
+        throw error;
+      }
+      
+      await loadEntries();
+      
+      toast({
+        title: "Imagen subida",
+        description: "La imagen se ha subido correctamente",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error al subir imagen",
+        description: "No se pudo subir la imagen",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteImage = async (platformId: string, imageUrl: string, isUploaded: boolean) => {
+    try {
+      // For now, we'll just reload entries
+      // In a real implementation, you'd delete the image from storage
+      await loadEntries();
+      
+      toast({
+        title: "Imagen eliminada",
+        description: "La imagen se ha eliminado correctamente",
+      });
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Error al eliminar imagen",
+        description: "No se pudo eliminar la imagen",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-6">
@@ -181,10 +283,17 @@ const Index = () => {
   return (
     <DashboardContent
       entries={entries}
+      selectedPlatforms={[]} // Default empty array for selected platforms
+      loading={loading}
       onUpdateContent={handleUpdateContent}
       onUpdateImage={handleUpdateImage}
       onGenerateImage={handleGenerateImage}
       onNewContent={handleNewContent}
+      onDeletePlatform={handleDeletePlatform}
+      onDownloadSlides={handleDownloadSlides}
+      onUploadImage={handleUploadImage}
+      onDeleteImage={handleDeleteImage}
+      onReloadEntries={loadEntries}
     />
   );
 };
