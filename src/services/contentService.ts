@@ -642,8 +642,14 @@ class ContentService {
         webhookPayload.imageUrl = platformData.image_url;
       }
 
-      // For slide posts, fetch and include slide images
+      // For slide posts, include slides_url and fetch slide images
       if (contentType === 'slide' || contentType === 'SlidePost') {
+        // Add slides_url from platform data
+        if (platformData.slides_url) {
+          webhookPayload.slidesURL = platformData.slides_url;
+        }
+
+        // Fetch and include slide images
         const { data: slideImagesData, error: slideError } = await this.getSlideImages(platformId);
         
         if (!slideError && slideImagesData && slideImagesData.length > 0) {
