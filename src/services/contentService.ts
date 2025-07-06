@@ -3,8 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
 
 class ContentService {
-  async getUserContentEntries() {
+  // Cache for entries to avoid unnecessary reloads
+  private entriesCache: any[] | null = null;
+  private lastCacheTime: number = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  async getUserContentEntries(forceRefresh: boolean = false) {
     console.log('=== GETTING USER CONTENT ENTRIES ===');
+    
+    // Check if we can use cached data
+    const now = Date.now();
+    if (!forceRefresh && this.entriesCache && (now - this.lastCacheTime) < this.CACHE_DURATION) {
+      console.log('Returning cached entries');
+      return { data: this.entriesCache, error: null };
+    }
     
     try {
       // First get content entries with their platforms
@@ -26,11 +38,22 @@ class ContentService {
       }
 
       console.log('Content entries with platforms:', entries);
+      
+      // Update cache
+      this.entriesCache = entries;
+      this.lastCacheTime = now;
+      
       return { data: entries, error: null };
     } catch (error) {
       console.error('Unexpected error in getUserContentEntries:', error);
       return { data: null, error };
     }
+  }
+
+  // Clear cache when data changes
+  private clearCache() {
+    this.entriesCache = null;
+    this.lastCacheTime = 0;
   }
 
   async createContentEntry(data: any) {
@@ -120,6 +143,10 @@ class ContentService {
       await Promise.all(platformPromises);
 
       console.log('All platform entries created successfully');
+      
+      // Clear cache after creating new content
+      this.clearCache();
+      
       return { data: entry, error: null };
 
     } catch (error) {
@@ -190,6 +217,9 @@ class ContentService {
         }
       }
 
+      // Clear cache after updating content
+      this.clearCache();
+
       return { error: null };
     } catch (error) {
       console.error('Error updating platform content:', error);
@@ -217,6 +247,10 @@ class ContentService {
       }
 
       console.log('Platform deleted successfully');
+      
+      // Clear cache after deleting platform
+      this.clearCache();
+      
       return { error: null };
     } catch (error) {
       console.error('Error in deletePlatform:', error);
@@ -241,6 +275,10 @@ class ContentService {
       }
 
       console.log('Content entry deleted successfully');
+      
+      // Clear cache after deleting content entry
+      this.clearCache();
+      
       return { error: null };
     } catch (error) {
       console.error('Error in deleteContentEntry:', error);
@@ -376,6 +414,9 @@ class ContentService {
         }
 
         console.log('Image URL saved successfully');
+        
+        // Clear cache after updating image
+        this.clearCache();
       }
 
       return { data: webhookResult, error: null };
@@ -408,6 +449,10 @@ class ContentService {
         });
 
       if (error) throw error;
+      
+      // Clear cache after uploading image
+      this.clearCache();
+      
       return { error: null };
     } catch (error) {
       console.error('Error uploading custom image:', error);
@@ -437,6 +482,9 @@ class ContentService {
           .eq('image_url', imageUrl);
 
         if (error) throw error;
+        
+        // Clear cache after deleting image
+        this.clearCache();
       }
 
       return { error: null };
@@ -502,6 +550,10 @@ class ContentService {
       if (error) throw error;
       
       console.log('✅ Slide images saved successfully');
+      
+      // Clear cache after saving slide images
+      this.clearCache();
+      
       return { error: null };
     } catch (error) {
       console.error('Error saving slide images:', error);
@@ -642,6 +694,12 @@ class ContentService {
         webhookPayload.imageUrl = platformData.image_url;
       }
 
+      // NUEVO: Incluir slides_url para SlidePosts
+      if ((contentType === 'slide' || contentType === 'SlidePost') && platformData.slides_url) {
+        webhookPayload.slidesUrl = platformData.slides_url;
+        console.log('Added slides URL to webhook payload:', platformData.slides_url);
+      }
+
       // For slide posts, fetch and include slide images
       if (contentType === 'slide' || contentType === 'SlidePost') {
         const { data: slideImagesData, error: slideError } = await this.getSlideImages(platformId);
@@ -705,6 +763,10 @@ class ContentService {
       }
 
       console.log('✅ Platform status updated successfully');
+      
+      // Clear cache after status update
+      this.clearCache();
+      
       return { error: null };
     } catch (error) {
       console.error('Error updating platform status:', error);
