@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -642,8 +643,8 @@ class ContentService {
         webhookPayload.imageUrl = platformData.image_url;
       }
 
-      // For slide posts, include slides_url and fetch slide images
-      if (contentType === 'slide' || contentType === 'SlidePost') {
+      // For slide posts, include slides_url and fetch slide images - Updated condition
+      if (contentType === 'slide' || contentType === 'SlidePost' || contentType === 'Slide Post') {
         // Add slides_url from platform data
         if (platformData.slides_url) {
           webhookPayload.slidesURL = platformData.slides_url;
