@@ -1,3 +1,4 @@
+
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,6 +176,21 @@ const DashboardContent = ({
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      {/* Prominent Generate Content Button */}
+      <div className="text-center">
+        <Button 
+          onClick={onNewContent}
+          size="lg"
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+        >
+          <Plus className="w-6 h-6 mr-3" />
+          Generar Contenido
+        </Button>
+        <p className="text-sm text-gray-600 mt-2">
+          Crea contenido automático para todas tus redes sociales
+        </p>
+      </div>
+
       <div>
         <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
       </div>

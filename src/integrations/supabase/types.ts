@@ -54,6 +54,7 @@ export type Database = {
           publish_date: string | null
           published_at: string | null
           published_url: string | null
+          scheduled_at: string | null
           slides_url: string | null
           status: Database["public"]["Enums"]["content_status"] | null
           text: string | null
@@ -70,6 +71,7 @@ export type Database = {
           publish_date?: string | null
           published_at?: string | null
           published_url?: string | null
+          scheduled_at?: string | null
           slides_url?: string | null
           status?: Database["public"]["Enums"]["content_status"] | null
           text?: string | null
@@ -86,6 +88,7 @@ export type Database = {
           publish_date?: string | null
           published_at?: string | null
           published_url?: string | null
+          scheduled_at?: string | null
           slides_url?: string | null
           status?: Database["public"]["Enums"]["content_status"] | null
           text?: string | null
