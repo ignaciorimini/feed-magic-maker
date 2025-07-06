@@ -1,4 +1,5 @@
 
+
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -602,12 +603,13 @@ class ContentService {
         throw new Error('Webhook URL not configured');
       }
 
-      // Fetch platform content data including related data
+      // Fetch platform content data including related data and content_entries
       const { data: platformData, error: platformError } = await supabase
         .from('content_platforms')
         .select(`
           *,
-          wordpress_post:wordpress_posts(*)
+          wordpress_post:wordpress_posts(*),
+          content_entries!inner(topic)
         `)
         .eq('id', actualPlatformId)
         .single();
@@ -643,11 +645,16 @@ class ContentService {
         webhookPayload.imageUrl = platformData.image_url;
       }
 
-      // For slide posts, include slides_url and fetch slide images - Updated condition
+      // For slide posts, include slides_url, topic and fetch slide images - Updated condition
       if (contentType === 'slide' || contentType === 'SlidePost' || contentType === 'Slide Post') {
         // Add slides_url from platform data
         if (platformData.slides_url) {
           webhookPayload.slidesURL = platformData.slides_url;
+        }
+
+        // Add topic from content_entries
+        if (platformData.content_entries && platformData.content_entries.topic) {
+          webhookPayload.topic = platformData.content_entries.topic;
         }
 
         // Fetch and include slide images
@@ -835,3 +842,4 @@ class ContentService {
 }
 
 export const contentService = new ContentService();
+
