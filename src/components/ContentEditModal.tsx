@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import ImagePreviewModal from './ImagePreviewModal';
 import MediaImageSelector from './MediaImageSelector';
 import { Switch } from '@/components/ui/switch';
 import PublishButton from './PublishButton';
+import { timezoneUtils } from '@/utils/timezoneUtils';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -68,26 +68,33 @@ const ContentEditModal = ({
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState<string>(content.scheduled_at || content.publishDate || '');
+  const [scheduledDate, setScheduledDate] = useState<string>('');
 
   useEffect(() => {
     setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
-    setScheduledDate(content.scheduled_at || content.publishDate || '');
+    
+    // Convert UTC scheduled date to local time for the input
+    const utcScheduledDate = content.scheduled_at || content.publishDate;
+    if (utcScheduledDate) {
+      setScheduledDate(timezoneUtils.utcToLocalInput(utcScheduledDate));
+    } else {
+      setScheduledDate('');
+    }
   }, [content, slideImages, imageUrl]);
 
   const handleSave = async () => {
     const contentToSave = {
-      ...editedContent,
-      scheduled_at: scheduledDate,
-      publishDate: scheduledDate // Keep both for backward compatibility
+      ...editedContent
     };
 
-    // If a scheduled date is set, also save it to the database
+    // If a scheduled date is set, convert to UTC and save it to the database
     if (scheduledDate) {
+      const utcScheduledDate = timezoneUtils.localToUtc(scheduledDate);
+      
       try {
-        const { error } = await contentService.updatePlatformSchedule(entryId, scheduledDate);
+        const { error } = await contentService.updatePlatformSchedule(entryId, utcScheduledDate);
         if (error) {
           console.error('Error updating schedule:', error);
           toast({
@@ -111,9 +118,10 @@ const ContentEditModal = ({
     await onSave(contentToSave);
     
     if (scheduledDate) {
+      const localDate = new Date(scheduledDate);
       toast({
         title: "Contenido programado",
-        description: `El contenido se publicará el ${new Date(scheduledDate).toLocaleString('es-ES')}`,
+        description: `El contenido se publicará el ${timezoneUtils.formatForDisplay(localDate.toISOString())}`,
       });
     } else {
       toast({
@@ -123,6 +131,35 @@ const ContentEditModal = ({
     }
     
     onClose();
+  };
+
+  const handleCancelSchedule = async () => {
+    try {
+      const { error } = await contentService.updatePlatformSchedule(entryId, '');
+      if (error) {
+        console.error('Error canceling schedule:', error);
+        toast({
+          title: "Error al cancelar programación",
+          description: "No se pudo cancelar la programación.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setScheduledDate('');
+      
+      toast({
+        title: "Programación cancelada",
+        description: "La programación de la publicación ha sido cancelada.",
+      });
+    } catch (error) {
+      console.error('Error canceling schedule:', error);
+      toast({
+        title: "Error al cancelar programación",
+        description: "Hubo un problema al cancelar la programación.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImageClick = (images: string[], index: number) => {
@@ -370,6 +407,9 @@ const ContentEditModal = ({
   const isSlidePost = contentType === 'Slide Post';
   const hasImage = currentImageUrl && currentImageUrl !== "/placeholder.svg";
 
+  // Convert UTC scheduled date to local time for display
+  const displayScheduledDate = scheduledDate ? new Date(scheduledDate).toISOString() : null;
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -399,21 +439,14 @@ const ContentEditModal = ({
                     <div>
                       <h3 className="text-lg font-semibold text-blue-900">Publicación Programada</h3>
                       <p className="text-blue-700 font-medium">
-                        {new Date(scheduledDate).toLocaleString('es-ES', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {timezoneUtils.formatForDisplay(displayScheduledDate || '')}
                       </p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setScheduledDate('')}
+                    onClick={handleCancelSchedule}
                     className="text-blue-700 border-blue-300 hover:bg-blue-200"
                   >
                     Cancelar programación
@@ -751,6 +784,7 @@ const ContentEditModal = ({
                       id="scheduledDate"
                       type="datetime-local"
                       value={scheduledDate}
+                      min={timezoneUtils.getMinDateTime()}
                       onChange={(e) => setScheduledDate(e.target.value)}
                       className="text-base font-medium"
                     />
@@ -758,7 +792,7 @@ const ContentEditModal = ({
                       <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                         <p className="text-sm text-blue-700 font-medium">
                           <Clock className="w-4 h-4 inline mr-1" />
-                          Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
+                          Se publicará el {timezoneUtils.formatForDisplay(new Date(scheduledDate).toISOString())}
                         </p>
                       </div>
                     )}

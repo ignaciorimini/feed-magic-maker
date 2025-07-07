@@ -206,9 +206,12 @@ export const contentService = {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 
+      // If scheduledAt is empty, set it to null to cancel the schedule
+      const scheduleValue = scheduledAt === '' ? null : scheduledAt;
+
       const { error } = await supabase
         .from('content_platforms')
-        .update({ scheduled_at: scheduledAt })
+        .update({ scheduled_at: scheduleValue })
         .eq('content_entry_id', contentEntryId)
         .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 

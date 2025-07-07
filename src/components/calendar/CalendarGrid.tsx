@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ContentEditModal from '../ContentEditModal';
+import { timezoneUtils } from '@/utils/timezoneUtils';
 
 interface ScheduledContent {
   id: string;
@@ -42,29 +43,58 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     const allScheduledContent: ScheduledContent[] = [];
     
     entries.forEach(entry => {
-      Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
-        const typedContent = content as any;
-        
-        // Check for scheduled dates in both scheduled_at and publishDate fields
-        const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
-        
-        if (scheduledDate) {
-          allScheduledContent.push({
-            id: `${entry.id}-${platform}`,
-            topic: entry.topic,
-            publishDate: scheduledDate,
-            platform: platform,
-            status: entry.status?.[platform] || 'pending',
-            type: entry.type || 'Simple Post',
-            publishedLink: entry.publishedLinks?.[platform],
-            description: entry.description,
-            platformContent: typedContent,
-            slideImages: entry.slideImages,
-            imageUrl: typedContent.image_url || entry.imageUrl,
-            isScheduled: true
-          });
-        }
-      });
+      // Check if entry has platforms array (from database query)
+      if (entry.platforms && Array.isArray(entry.platforms)) {
+        entry.platforms.forEach((platformData: any) => {
+          if (platformData.scheduled_at) {
+            allScheduledContent.push({
+              id: `${entry.id}-${platformData.platform}`,
+              topic: entry.topic,
+              publishDate: platformData.scheduled_at,
+              platform: platformData.platform,
+              status: platformData.status || 'pending',
+              type: entry.type || 'Simple Post',
+              publishedLink: platformData.published_url,
+              description: entry.description,
+              platformContent: platformData,
+              slideImages: entry.slideImages,
+              imageUrl: platformData.image_url,
+              isScheduled: true
+            });
+          }
+        });
+      }
+      
+      // Also check platformContent structure for backward compatibility
+      if (entry.platformContent) {
+        Object.entries(entry.platformContent).forEach(([platform, content]) => {
+          const typedContent = content as any;
+          
+          // Check for scheduled dates in both scheduled_at and publishDate fields
+          const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
+          
+          if (scheduledDate) {
+            // Avoid duplicates if already added from platforms array
+            const existingId = `${entry.id}-${platform}`;
+            if (!allScheduledContent.find(item => item.id === existingId)) {
+              allScheduledContent.push({
+                id: existingId,
+                topic: entry.topic,
+                publishDate: scheduledDate,
+                platform: platform,
+                status: entry.status?.[platform] || 'pending',
+                type: entry.type || 'Simple Post',
+                publishedLink: entry.publishedLinks?.[platform],
+                description: entry.description,
+                platformContent: typedContent,
+                slideImages: entry.slideImages,
+                imageUrl: typedContent.image_url || entry.imageUrl,
+                isScheduled: true
+              });
+            }
+          }
+        });
+      }
     });
     
     console.log('Loaded scheduled content:', allScheduledContent);
@@ -96,10 +126,17 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
 
   const getContentForDay = (date: Date) => {
     if (!date) return [];
-    const dateStr = date.toISOString().split('T')[0];
-    return scheduledContent.filter(content => 
-      content.publishDate.startsWith(dateStr)
-    );
+    
+    // Convert date to user's timezone for comparison
+    const localDateStr = date.toISOString().split('T')[0];
+    
+    return scheduledContent.filter(content => {
+      // Convert UTC scheduled date to local date for comparison
+      const scheduledDate = new Date(content.publishDate);
+      const scheduledDateStr = scheduledDate.toISOString().split('T')[0];
+      
+      return scheduledDateStr === localDateStr;
+    });
   };
 
   const handleContentClick = (content: ScheduledContent) => {
@@ -131,7 +168,10 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
   };
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString('es-ES', {
+    return timezoneUtils.formatForDisplay(dateStr, {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).split(',')[1]?.trim() || new Date(dateStr).toLocaleTimeString('es-ES', {
       hour: '2-digit',
       minute: '2-digit'
     });
