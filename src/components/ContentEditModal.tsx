@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock } from 'lucide-react';
+import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock, Edit } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
@@ -74,6 +74,9 @@ const ContentEditModal = ({
     setCurrentImageUrl(imageUrl || null);
     setScheduledDate(content.publishDate || '');
   }, [content, slideImages, imageUrl]);
+
+  // Check if content is scheduled
+  const isScheduled = scheduledDate && new Date(scheduledDate) > new Date();
 
   const handleSave = async () => {
     const contentToSave = {
@@ -375,7 +378,7 @@ const ContentEditModal = ({
             <DialogTitle className="flex items-center space-x-2">
               <span>Editar contenido - {platform}</span>
               <Badge variant="outline">{contentType}</Badge>
-              {scheduledDate && (
+              {isScheduled && (
                 <Badge variant="secondary" className="ml-2">
                   <Clock className="w-3 h-3 mr-1" />
                   Programado
@@ -385,6 +388,53 @@ const ContentEditModal = ({
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Scheduled Publication Info - Prominent Display */}
+            {isScheduled && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
+                      <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                        Publicación Programada
+                      </h3>
+                      <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
+                        {new Date(scheduledDate).toLocaleDateString('es-ES', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                      <p className="text-base text-blue-700 dark:text-blue-300">
+                        a las {new Date(scheduledDate).toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Auto-scroll to scheduling section
+                      const schedulingSection = document.getElementById('scheduling-section');
+                      if (schedulingSection) {
+                        schedulingSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Editar fecha
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Información del Contenido */}
             <div className="space-y-3">
               <div className="space-y-1">
@@ -680,14 +730,18 @@ const ContentEditModal = ({
             )}
 
             {/* Configuración de Publicación */}
-            <div className="space-y-4 pt-4 border-t">
+            <div id="scheduling-section" className="space-y-4 pt-4 border-t">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Configuración de Publicación
+              </h4>
+              
               <div className="flex items-center space-x-2">
                 <Switch
                   id="publish-now"
                   checked={publishNow}
                   onCheckedChange={setPublishNow}
                 />
-                <Label htmlFor="publish-now">Publicar ahora</Label>
+                <Label htmlFor="publish-now" className="text-base">Publicar ahora</Label>
               </div>
 
               {publishNow ? (
@@ -702,19 +756,33 @@ const ContentEditModal = ({
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="scheduledDate">Programar para una fecha futura:</Label>
-                  <Input
-                    id="scheduledDate"
-                    type="datetime-local"
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                  />
-                  {scheduledDate && (
-                    <p className="text-sm text-gray-600">
-                      Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
-                    </p>
-                  )}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduledDate" className="text-base font-medium">
+                      Programar para una fecha futura:
+                    </Label>
+                    <Input
+                      id="scheduledDate"
+                      type="datetime-local"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="text-base p-3"
+                    />
+                    {scheduledDate && (
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md p-3">
+                        <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                          📅 Se publicará el {new Date(scheduledDate).toLocaleString('es-ES', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

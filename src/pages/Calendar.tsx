@@ -25,7 +25,59 @@ const Calendar = () => {
         throw error;
       }
       
-      setEntries(data || []);
+      // Transform the data to match the expected format for calendar
+      const transformedEntries = data?.map(entry => {
+        const platformContent: any = {};
+        const status: any = {};
+        
+        entry.platforms.forEach(platform => {
+          const platformKey = platform.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+          
+          // Handle WordPress content differently
+          if (platformKey === 'wordpress' && platform.wordpress_post && platform.wordpress_post.length > 0) {
+            const wpPost = platform.wordpress_post[0];
+            platformContent[platformKey] = {
+              title: wpPost.title || '',
+              description: wpPost.description || '',
+              slug: wpPost.slug || '',
+              content: wpPost.content || '',
+              text: wpPost.content || '',
+              image_url: platform.image_url,
+              publishDate: platform.scheduled_at, // Include scheduled date
+              scheduled_at: platform.scheduled_at, // Also include as scheduled_at
+              contentType: platform.content_type || 'article',
+              published_url: platform.published_url
+            };
+          } else {
+            // Handle other platforms normally
+            platformContent[platformKey] = {
+              text: platform.text || '',
+              image_url: platform.image_url,
+              publishDate: platform.scheduled_at, // Include scheduled date
+              scheduled_at: platform.scheduled_at, // Also include as scheduled_at
+              contentType: platform.content_type || 'simple',
+              published_url: platform.published_url
+            };
+          }
+          
+          // Set platform status
+          status[platformKey] = platform.status === 'published' ? 'published' : 'pending';
+        });
+
+        return {
+          id: entry.id,
+          topic: entry.topic,
+          description: entry.description || '',
+          type: entry.type,
+          createdDate: new Date(entry.created_date).toLocaleDateString(),
+          status,
+          platformContent,
+          platforms: entry.platforms // Include raw platforms data for calendar
+        };
+      }) || [];
+      
+      console.log('Calendar entries loaded:', transformedEntries);
+      setEntries(transformedEntries);
     } catch (error) {
       console.error('Error loading entries:', error);
       toast({
