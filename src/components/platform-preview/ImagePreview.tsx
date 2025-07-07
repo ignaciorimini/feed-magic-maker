@@ -16,7 +16,7 @@ interface ImagePreviewProps {
   platformId: string;
   topic: string;
   description: string;
-  onGenerateImage: () => void;
+  onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
   onImageError: () => void;
   onDownloadSlides?: () => void;
   onUploadImage?: (platformId: string, file: File) => void;
@@ -49,6 +49,10 @@ const ImagePreview = ({
     if (file && onUploadImage) {
       onUploadImage(platformId, file);
     }
+  };
+
+  const handleGenerateImage = () => {
+    onGenerateImage(platformId, platform, topic, description);
   };
 
   const allImages = [
@@ -120,7 +124,7 @@ const ImagePreview = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onGenerateImage}
+              onClick={handleGenerateImage}
               disabled={isGeneratingImage}
               className="h-7 px-2 text-xs"
             >
@@ -167,7 +171,7 @@ const ImagePreview = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onGenerateImage}
+            onClick={handleGenerateImage}
             disabled={isGeneratingImage}
             className="h-7 px-2 text-xs"
           >
