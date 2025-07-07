@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -165,8 +164,8 @@ const PlatformPreview = ({
     }
   };
 
-  const handleGenerateImage = async () => {
-    if (!user || !safeContent.platformId || !topic) {
+  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
+    if (!user || !platformId || !topic) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -178,10 +177,10 @@ const PlatformPreview = ({
     setIsGeneratingImage(true);
     try {
       const { data, error } = await contentService.generateImageForPlatform(
-        safeContent.platformId,
+        platformId,
         platform,
         topic,
-        safeContent.description || ''
+        description
       );
       
       if (error) {
