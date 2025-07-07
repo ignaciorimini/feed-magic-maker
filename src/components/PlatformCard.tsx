@@ -1,12 +1,13 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Edit, MoreVertical, Send, Trash2, Clock } from 'lucide-react';
-import ContentEditModal from '../ContentEditModal';
-import StatusBadge from '../StatusBadge';
-import PlatformIcon from '../PlatformIcon';
+import ContentEditModal from './ContentEditModal';
+import StatusBadge from './StatusBadge';
+import PlatformIcon from './PlatformIcon';
 
 interface PlatformCardProps {
   entry: any;
@@ -17,11 +18,12 @@ interface PlatformCardProps {
   onUpdateStatus: (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => void;
   onUpdateLink: (entryId: string, platform: string, link: string) => void;
   onUpdateImage: (entryId: string, imageUrl: string | null) => Promise<void>;
+  onGenerateImage?: (entryId: string, platform: string, topic: string, description: string) => Promise<void>;
   onReloadEntries?: () => void;
   onStatsUpdate?: () => void;
 }
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries, onStatsUpdate }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onGenerateImage, onReloadEntries, onStatsUpdate }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
@@ -157,14 +159,14 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             slideImages={entry.slideImages}
             imageUrl={entry.platformContent?.[platform]?.image_url}
             onUpdateImage={onUpdateImage}
-            onGenerateImage={(entryId, platform, topic, description) => {
+            onGenerateImage={onGenerateImage ? (entryId, platform, topic, description) => {
               console.log('=== GENERATE IMAGE FROM PLATFORMCARD ===');
               console.log('Entry ID:', entryId);
               console.log('Platform:', platform);
               console.log('Topic:', topic);
               console.log('Description:', description);
               return onGenerateImage(entryId, platform, topic, description);
-            }}
+            } : undefined}
           />
         )}
       </CardContent>
