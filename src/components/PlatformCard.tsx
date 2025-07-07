@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { profileService } from '@/services/profileService';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
+import { formatDateInUserTimezone, formatTimeOnly } from '@/utils/timezoneUtils';
 
 interface PlatformCardProps {
   entry: {
@@ -430,7 +431,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
                 <div>
                   <p className="text-sm font-medium text-blue-900">Programado para publicar</p>
                   <p className="text-sm text-blue-700">
-                    {new Date(scheduledDate).toLocaleString('es-ES', {
+                    {formatDateInUserTimezone(scheduledDate, {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
