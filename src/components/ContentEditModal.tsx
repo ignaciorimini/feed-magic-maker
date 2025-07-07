@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock } from 'lucide-react';
+import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock, CalendarDays } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
@@ -22,6 +23,7 @@ interface ContentEditModalProps {
     text: string;
     images: string[];
     publishDate?: string;
+    scheduled_at?: string;
     title?: string;
     description?: string;
     slug?: string;
@@ -66,19 +68,20 @@ const ContentEditModal = ({
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState<string>(content.publishDate || '');
+  const [scheduledDate, setScheduledDate] = useState<string>(content.scheduled_at || content.publishDate || '');
 
   useEffect(() => {
     setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
-    setScheduledDate(content.publishDate || '');
+    setScheduledDate(content.scheduled_at || content.publishDate || '');
   }, [content, slideImages, imageUrl]);
 
   const handleSave = async () => {
     const contentToSave = {
       ...editedContent,
-      publishDate: scheduledDate
+      scheduled_at: scheduledDate,
+      publishDate: scheduledDate // Keep both for backward compatibility
     };
 
     // If a scheduled date is set, also save it to the database
@@ -376,7 +379,7 @@ const ContentEditModal = ({
               <span>Editar contenido - {platform}</span>
               <Badge variant="outline">{contentType}</Badge>
               {scheduledDate && (
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
                   <Clock className="w-3 h-3 mr-1" />
                   Programado
                 </Badge>
@@ -385,6 +388,40 @@ const ContentEditModal = ({
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Scheduled Date - Prominent Display */}
+            {scheduledDate && (
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-200 rounded-full">
+                      <CalendarDays className="w-5 h-5 text-blue-700" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Publicación Programada</h3>
+                      <p className="text-blue-700 font-medium">
+                        {new Date(scheduledDate).toLocaleString('es-ES', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setScheduledDate('')}
+                    className="text-blue-700 border-blue-300 hover:bg-blue-200"
+                  >
+                    Cancelar programación
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Información del Contenido */}
             <div className="space-y-3">
               <div className="space-y-1">
@@ -702,19 +739,30 @@ const ContentEditModal = ({
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="scheduledDate">Programar para una fecha futura:</Label>
-                  <Input
-                    id="scheduledDate"
-                    type="datetime-local"
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                  />
-                  {scheduledDate && (
-                    <p className="text-sm text-gray-600">
-                      Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
-                    </p>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <CalendarDays className="w-5 h-5 text-blue-600" />
+                    <Label htmlFor="scheduledDate" className="text-base font-medium">
+                      Programar fecha de publicación:
+                    </Label>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <Input
+                      id="scheduledDate"
+                      type="datetime-local"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="text-base font-medium"
+                    />
+                    {scheduledDate && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                        <p className="text-sm text-blue-700 font-medium">
+                          <Clock className="w-4 h-4 inline mr-1" />
+                          Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

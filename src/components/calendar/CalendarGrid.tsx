@@ -1,9 +1,8 @@
 
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ContentEditModal from '../ContentEditModal';
 
@@ -19,6 +18,7 @@ interface ScheduledContent {
   platformContent?: any;
   slideImages?: string[];
   imageUrl?: string;
+  isScheduled?: boolean;
 }
 
 interface CalendarGridProps {
@@ -45,8 +45,8 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
       Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
         const typedContent = content as any;
         
-        // Check for scheduled dates in both publishDate and scheduled_at fields
-        const scheduledDate = typedContent?.publishDate || typedContent?.scheduled_at;
+        // Check for scheduled dates in both scheduled_at and publishDate fields
+        const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
         
         if (scheduledDate) {
           allScheduledContent.push({
@@ -60,12 +60,14 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
             description: entry.description,
             platformContent: typedContent,
             slideImages: entry.slideImages,
-            imageUrl: typedContent.image_url || entry.imageUrl
+            imageUrl: typedContent.image_url || entry.imageUrl,
+            isScheduled: true
           });
         }
       });
     });
     
+    console.log('Loaded scheduled content:', allScheduledContent);
     setScheduledContent(allScheduledContent);
   };
 
@@ -136,10 +138,10 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
   };
 
   const platformColors = {
-    instagram: 'bg-pink-100 text-pink-800',
-    linkedin: 'bg-blue-100 text-blue-800',
-    wordpress: 'bg-gray-100 text-gray-800',
-    twitter: 'bg-gray-900 text-white'
+    instagram: 'bg-pink-100 text-pink-800 border-pink-200',
+    linkedin: 'bg-blue-100 text-blue-800 border-blue-200',
+    wordpress: 'bg-gray-100 text-gray-800 border-gray-200',
+    twitter: 'bg-gray-900 text-white border-gray-700'
   };
 
   const days = getDaysInMonth(currentDate);
@@ -157,8 +159,8 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
             <CardTitle className="flex items-center space-x-2">
               <CalendarIcon className="w-5 h-5" />
               <span>Calendario de Publicaciones</span>
-              <Badge variant="secondary" className="ml-2">
-                <Clock className="w-3 h-3 mr-1" />
+              <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                <CalendarDays className="w-3 h-3 mr-1" />
                 {scheduledContent.length} programadas
               </Badge>
             </CardTitle>
@@ -219,12 +221,16 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
                             onClick={() => handleContentClick(content)}
                             className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-shadow"
                           >
-                            <div className={`px-2 py-1 rounded text-xs truncate ${
+                            <div className={`px-2 py-1 rounded text-xs border ${
                               platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100'
                             }`}>
-                              <div className="font-medium truncate">{content.topic}</div>
-                              <div className="text-xs opacity-75">
-                                {formatTime(content.publishDate)} • {content.platform}
+                              <div className="flex items-center space-x-1 mb-1">
+                                <CalendarDays className="w-3 h-3" />
+                                <span className="font-medium truncate">{content.topic}</span>
+                              </div>
+                              <div className="text-xs opacity-75 flex items-center justify-between">
+                                <span>{formatTime(content.publishDate)}</span>
+                                <span className="capitalize">{content.platform}</span>
                               </div>
                             </div>
                           </div>
@@ -261,4 +267,3 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
 };
 
 export default CalendarGrid;
-

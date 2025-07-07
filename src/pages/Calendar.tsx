@@ -19,13 +19,42 @@ const Calendar = () => {
   const loadEntries = async () => {
     try {
       setLoading(true);
-      const { data, error } = await contentService.getUserContentEntries();
       
-      if (error) {
-        throw error;
+      // Load both regular entries and scheduled content
+      const [entriesResult, scheduledResult] = await Promise.all([
+        contentService.getUserContentEntries(),
+        contentService.getScheduledContent()
+      ]);
+      
+      if (entriesResult.error) {
+        throw entriesResult.error;
       }
       
-      setEntries(data || []);
+      if (scheduledResult.error) {
+        console.error('Error loading scheduled content:', scheduledResult.error);
+        // Don't throw here, just log the error and continue with regular entries
+      }
+      
+      const allEntries = entriesResult.data || [];
+      const scheduledContent = scheduledResult.data || [];
+      
+      // Merge scheduled content into entries structure
+      const entriesWithScheduled = allEntries.map(entry => {
+        const entryScheduledContent = scheduledContent.filter(sc => sc.content_entry_id === entry.id);
+        
+        // Add scheduled_at information to platformContent
+        if (entryScheduledContent.length > 0) {
+          entryScheduledContent.forEach(sc => {
+            if (entry.platformContent && entry.platformContent[sc.platform]) {
+              entry.platformContent[sc.platform].scheduled_at = sc.scheduled_at;
+            }
+          });
+        }
+        
+        return entry;
+      });
+      
+      setEntries(entriesWithScheduled);
     } catch (error) {
       console.error('Error loading entries:', error);
       toast({

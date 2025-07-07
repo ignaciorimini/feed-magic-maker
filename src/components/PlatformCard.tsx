@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles } from 'lucide-react';
+import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +51,7 @@ interface PlatformCardProps {
   onUpdateImage?: (entryId: string, imageUrl: string | null) => Promise<void>;
   onReloadEntries?: () => void;
   onStatsUpdate?: () => void;
+  onGenerateImage?: (entryId: string, platform: string, topic: string, description: string) => Promise<void>;
 }
 
 // Utility function to validate image URLs
@@ -66,7 +66,7 @@ const getValidImageUrl = (url?: string | null): string | null => {
   }
 };
 
-const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries, onStatsUpdate }: PlatformCardProps) => {
+const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownloadSlides, onUpdateStatus, onUpdateLink, onUpdateImage, onReloadEntries, onStatsUpdate, onGenerateImage }: PlatformCardProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
@@ -133,6 +133,9 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const config = platformConfig[platform];
   const content = localEntry.platformContent[platform];
   const status = localEntry.status[platform];
+  
+  // Get scheduled date from the content
+  const scheduledDate = content?.scheduled_at;
   
   // Fix: Get published_url from the content object (which comes from content_platforms table)
   const publishedLink = content?.published_url || localEntry.publishedLinks?.[platform];
@@ -366,7 +369,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             </div>
             
             <div className="flex items-center space-x-2">
-              {status && <StatusBadge platform={platform} status={status} />}
+              {status && <StatusBadge status={status} />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -397,14 +400,50 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1">
               {localEntry.topic}
             </h3>
-            <Badge variant="outline" className="text-xs">
-              {localEntry.type}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-xs">
+                {localEntry.type}
+              </Badge>
+              {/* Show scheduled date prominently if content is scheduled */}
+              {scheduledDate && (
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 border-blue-200">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {new Date(scheduledDate).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
 
         {/* Content */}
         <CardContent className="p-4 pt-2 flex-1 flex flex-col space-y-3">
+          {/* Show scheduled date prominently at the top if exists */}
+          {scheduledDate && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
+              <div className="flex items-center space-x-2">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">Programado para publicar</p>
+                  <p className="text-sm text-blue-700">
+                    {new Date(scheduledDate).toLocaleString('es-ES', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           <p className="text-xs text-gray-600 line-clamp-2">
             {truncateText(localEntry.description, 80)}
@@ -627,6 +666,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
           slideImages={slideImages}
           imageUrl={content?.image_url}
           onUpdateImage={onUpdateImage}
+          onGenerateImage={onGenerateImage}
         />
       )}
     </>
