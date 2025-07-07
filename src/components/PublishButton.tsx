@@ -30,7 +30,7 @@ const PublishButton = ({
     setIsPublishing(true);
     
     try {
-      const { data, error } = await contentService.publishContent(platformId, platform, contentType);
+      const { data, error } = await contentService.publishContent(platformId, platform);
       
       if (error) {
         throw error;

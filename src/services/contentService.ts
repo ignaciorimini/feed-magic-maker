@@ -102,6 +102,80 @@ export const contentService = {
     }
   },
 
+  updateContentEntry: async (entryId: string, updateData: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: null, error: new Error('User not authenticated') };
+      }
+
+      const { data, error } = await supabase
+        .from('content_entries')
+        .update(updateData)
+        .eq('id', entryId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating content entry:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Unexpected error updating content entry:', error);
+      return { data: null, error };
+    }
+  },
+
+  getContentEntryById: async (entryId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: null, error: new Error('User not authenticated') };
+      }
+
+      const { data, error } = await supabase
+        .from('content_entries')
+        .select(`
+          *,
+          platforms:content_platforms(
+            id,
+            platform,
+            status,
+            text,
+            image_url,
+            slides_url,
+            content_type,
+            published_url,
+            scheduled_at,
+            wordpress_post:wordpress_posts(
+              title,
+              description,
+              slug,
+              content
+            )
+          )
+        `)
+        .eq('id', entryId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching content entry:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Unexpected error fetching content entry:', error);
+      return { data: null, error };
+    }
+  },
+
   updatePlatformContent: async (entryId: string, content: any) => {
     try {
       const { error } = await supabase
@@ -127,12 +201,37 @@ export const contentService = {
     }
   },
 
+  updatePlatformSchedule: async (entryId: string, scheduledAt: string) => {
+    try {
+      const [contentEntryId, platform] = entryId.split('__');
+
+      const { error } = await supabase
+        .from('content_platforms')
+        .update({ scheduled_at: scheduledAt })
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
+
+      if (error) {
+        console.error('Error updating platform schedule:', error);
+        return { data: null, error };
+      }
+
+      return { data: null, error: null };
+    } catch (error) {
+      console.error('Unexpected error updating platform schedule:', error);
+      return { data: null, error };
+    }
+  },
+
   deletePlatform: async (platformId: string) => {
     try {
+      const [contentEntryId, platform] = platformId.split('__');
+
       const { error } = await supabase
         .from('content_platforms')
         .delete()
-        .eq('id', platformId);
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 
       if (error) {
         console.error('Error deleting platform:', error);
@@ -154,7 +253,7 @@ export const contentService = {
         .from('content_platforms')
         .select('id')
         .eq('content_entry_id', entryId)
-        .eq('platform', platform)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
       if (error) {
@@ -219,7 +318,7 @@ export const contentService = {
         .from('content_platforms')
         .select('*')
         .eq('content_entry_id', contentEntryId)
-        .eq('platform', platform)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
       if (platformError) {
@@ -280,11 +379,13 @@ export const contentService = {
       const result = await response.json();
       const imageURL = result.imageURL;
 
+      const [contentEntryId, platformName] = entryId.split('__');
+
       const { data, error } = await supabase
         .from('content_platforms')
         .update({ image_url: imageURL })
-        .eq('content_entry_id', entryId)
-        .eq('platform', platform);
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platformName as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 
       if (error) {
         console.error('Error saving generated image URL to database:', error);
@@ -298,10 +399,32 @@ export const contentService = {
     }
   },
 
-  uploadCustomImage: async (entryId: string, imageUrl: string) => {
+  deleteImageFromPlatform: async (entryId: string) => {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 
+      const { data, error } = await supabase
+        .from('content_platforms')
+        .update({ image_url: null })
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
+
+      if (error) {
+        console.error('Error deleting image from platform:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Unexpected error deleting image from platform:', error);
+      return { data: null, error };
+    }
+  },
+
+  uploadCustomImage: async (entryId: string, imageUrl: string) => {
+    try {
+      const [contentEntryId, platform] = entryId.split('__');
+      
       const { data, error } = await supabase
         .from('content_platforms')
         .update({ image_url: imageUrl })
