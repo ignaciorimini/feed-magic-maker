@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -399,7 +400,7 @@ export const contentService = {
     }
   },
 
-  deleteImageFromPlatform: async (entryId: string) => {
+  deleteImageFromPlatform: async (entryId: string, imageUrl?: string, isUploaded?: boolean) => {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 
@@ -429,7 +430,7 @@ export const contentService = {
         .from('content_platforms')
         .update({ image_url: imageUrl })
         .eq('content_entry_id', contentEntryId)
-        .eq('platform', platform);
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 
       if (error) {
         console.error('Error uploading custom image:', error);
