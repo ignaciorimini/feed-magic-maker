@@ -50,7 +50,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const isScheduled = scheduledDate && new Date(scheduledDate) > new Date();
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 border-l-4" style={{ borderLeftColor: platformColors[platform] }}>
+    <Card className="group hover:shadow-lg transition-all duration-300 border-l-4" style={{ borderLeftColor: platformColors[platform as keyof typeof platformColors] }}>
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -59,7 +59,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               <Badge 
                 variant="secondary" 
                 className="text-xs"
-                style={{ backgroundColor: `${platformColors[platform]}20`, color: platformColors[platform] }}
+                style={{ backgroundColor: `${platformColors[platform as keyof typeof platformColors]}20`, color: platformColors[platform as keyof typeof platformColors] }}
               >
                 {platform}
               </Badge>

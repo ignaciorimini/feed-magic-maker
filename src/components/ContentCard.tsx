@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -249,7 +248,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 {availablePlatforms.map(platform => (
                   <StatusBadge 
                     key={platform}
-                    platform={platform as 'instagram' | 'linkedin' | 'wordpress'} 
                     status={localEntry.status[platform as keyof typeof localEntry.status]} 
                   />
                 ))}

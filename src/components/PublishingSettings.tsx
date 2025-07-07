@@ -78,9 +78,9 @@ const PublishingSettings = ({ entry, onClose, onUpdateSettings }: PublishingSett
           <div className="bg-gray-50 p-3 rounded-lg">
             <h4 className="font-medium text-sm text-gray-900 mb-1">{entry.topic}</h4>
             <div className="flex flex-wrap gap-2">
-              <StatusBadge platform="instagram" status={entry.status.instagram} />
-              <StatusBadge platform="linkedin" status={entry.status.linkedin} />
-              <StatusBadge platform="wordpress" status={entry.status.wordpress} />
+              <StatusBadge status={entry.status.instagram} />
+              <StatusBadge status={entry.status.linkedin} />
+              <StatusBadge status={entry.status.wordpress} />
             </div>
           </div>
 
@@ -94,7 +94,6 @@ const PublishingSettings = ({ entry, onClose, onUpdateSettings }: PublishingSett
                     <span className="text-lg">{platform.icon}</span>
                     <span className="font-medium text-sm">{platform.name}</span>
                     <StatusBadge 
-                      platform={platform.key as any} 
                       status={entry.status[platform.key as keyof typeof entry.status]} 
                     />
                   </div>
@@ -135,7 +134,7 @@ const PublishingSettings = ({ entry, onClose, onUpdateSettings }: PublishingSett
             <Button onClick={handleSave} className="flex-1">
               Guardar Configuración
             </Button>
-          </div>
+            </div>
         </CardContent>
       </Card>
     </div>
