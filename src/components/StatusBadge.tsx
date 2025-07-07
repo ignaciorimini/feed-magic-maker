@@ -1,12 +1,28 @@
 
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Instagram, Linkedin, Globe, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StatusBadgeProps {
+  platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   status: 'published' | 'pending' | 'error';
 }
 
-const StatusBadge = ({ status }: StatusBadgeProps) => {
+const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
+  const getPlatformIcon = (platform: string) => {
+    switch (platform) {
+      case 'instagram':
+        return Instagram;
+      case 'linkedin':
+        return Linkedin;
+      case 'wordpress':
+        return Globe;
+      case 'twitter':
+        return Globe; // Using Globe icon for Twitter since we don't have a Twitter icon in lucide-react
+      default:
+        return Globe;
+    }
+  };
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'published':

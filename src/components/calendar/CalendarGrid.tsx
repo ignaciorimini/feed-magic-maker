@@ -1,3 +1,5 @@
+
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,68 +42,30 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     const allScheduledContent: ScheduledContent[] = [];
     
     entries.forEach(entry => {
-      // Check both platformContent and raw platforms data
-      if (entry.platformContent) {
-        // Handle transformed platformContent format
-        Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
-          const typedContent = content as any;
-          const scheduledDate = typedContent?.publishDate || typedContent?.scheduled_at;
-          
-          if (scheduledDate) {
-            allScheduledContent.push({
-              id: `${entry.id}-${platform}`,
-              topic: entry.topic,
-              publishDate: scheduledDate,
-              platform: platform,
-              status: entry.status?.[platform] || 'pending',
-              type: entry.type || 'Simple Post',
-              publishedLink: entry.publishedLinks?.[platform],
-              description: entry.description,
-              platformContent: typedContent,
-              slideImages: entry.slideImages,
-              imageUrl: typedContent.image_url || entry.imageUrl
-            });
-          }
-        });
-      }
-      
-      // Also check raw platforms data directly
-      if (entry.platforms) {
-        entry.platforms.forEach((platform: any) => {
-          if (platform.scheduled_at) {
-            const platformKey = platform.platform;
-            
-            // Avoid duplicates by checking if we already added this platform
-            const existingContent = allScheduledContent.find(
-              content => content.id === `${entry.id}-${platformKey}`
-            );
-            
-            if (!existingContent) {
-              allScheduledContent.push({
-                id: `${entry.id}-${platformKey}`,
-                topic: entry.topic,
-                publishDate: platform.scheduled_at,
-                platform: platformKey,
-                status: platform.status === 'published' ? 'published' : 'pending',
-                type: entry.type || 'Simple Post',
-                publishedLink: platform.published_url,
-                description: entry.description,
-                platformContent: {
-                  text: platform.text || '',
-                  image_url: platform.image_url,
-                  scheduled_at: platform.scheduled_at,
-                  contentType: platform.content_type || 'simple'
-                },
-                slideImages: platform.slide_images?.map((img: any) => img.image_url) || [],
-                imageUrl: platform.image_url
-              });
-            }
-          }
-        });
-      }
+      Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
+        const typedContent = content as any;
+        
+        // Check for scheduled dates in both publishDate and scheduled_at fields
+        const scheduledDate = typedContent?.publishDate || typedContent?.scheduled_at;
+        
+        if (scheduledDate) {
+          allScheduledContent.push({
+            id: `${entry.id}-${platform}`,
+            topic: entry.topic,
+            publishDate: scheduledDate,
+            platform: platform,
+            status: entry.status?.[platform] || 'pending',
+            type: entry.type || 'Simple Post',
+            publishedLink: entry.publishedLinks?.[platform],
+            description: entry.description,
+            platformContent: typedContent,
+            slideImages: entry.slideImages,
+            imageUrl: typedContent.image_url || entry.imageUrl
+          });
+        }
+      });
     });
     
-    console.log('Scheduled content loaded for calendar:', allScheduledContent);
     setScheduledContent(allScheduledContent);
   };
 
@@ -171,25 +135,11 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     });
   };
 
-  // Update platform colors to include a scheduled state
   const platformColors = {
     instagram: 'bg-pink-100 text-pink-800',
     linkedin: 'bg-blue-100 text-blue-800',
     wordpress: 'bg-gray-100 text-gray-800',
     twitter: 'bg-gray-900 text-white'
-  };
-
-  // Function to get appropriate styling for scheduled vs published content
-  const getContentStyling = (content: ScheduledContent) => {
-    const baseColor = platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100';
-    const isScheduled = new Date(content.publishDate) > new Date();
-    
-    if (isScheduled) {
-      // Add a border or different styling for scheduled content
-      return `${baseColor} border-l-4 border-blue-500`;
-    }
-    
-    return baseColor;
   };
 
   const days = getDaysInMonth(currentDate);
@@ -263,32 +213,22 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
                       </div>
                       
                       <div className="space-y-1">
-                        {dayContent.map((content, contentIndex) => {
-                          const isScheduled = new Date(content.publishDate) > new Date();
-                          
-                          return (
-                            <div
-                              key={contentIndex}
-                              onClick={() => handleContentClick(content)}
-                              className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-shadow"
-                            >
-                              <div className={`px-2 py-1 rounded text-xs truncate ${getContentStyling(content)}`}>
-                                <div className="font-medium truncate flex items-center">
-                                  {isScheduled && <Clock className="w-2 h-2 mr-1 text-blue-600" />}
-                                  {content.topic}
-                                </div>
-                                <div className="text-xs opacity-75">
-                                  {formatTime(content.publishDate)} • {content.platform}
-                                </div>
-                                {isScheduled && (
-                                  <div className="text-xs text-blue-600 font-medium mt-1">
-                                    Programado
-                                  </div>
-                                )}
+                        {dayContent.map((content, contentIndex) => (
+                          <div
+                            key={contentIndex}
+                            onClick={() => handleContentClick(content)}
+                            className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-shadow"
+                          >
+                            <div className={`px-2 py-1 rounded text-xs truncate ${
+                              platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100'
+                            }`}>
+                              <div className="font-medium truncate">{content.topic}</div>
+                              <div className="text-xs opacity-75">
+                                {formatTime(content.publishDate)} • {content.platform}
                               </div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ))}
                       </div>
                     </>
                   )}
@@ -321,3 +261,4 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
 };
 
 export default CalendarGrid;
+
