@@ -1,12 +1,37 @@
-import { supabase } from '@/lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
   getUserContentEntries: async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: null, error: new Error('User not authenticated') };
+      }
+
       const { data, error } = await supabase
         .from('content_entries')
-        .select('*')
+        .select(`
+          *,
+          platforms:content_platforms(
+            id,
+            platform,
+            status,
+            text,
+            image_url,
+            slides_url,
+            content_type,
+            published_url,
+            scheduled_at,
+            wordpress_post:wordpress_posts(
+              title,
+              description,
+              slug,
+              content
+            )
+          )
+        `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -14,225 +39,215 @@ export const contentService = {
         return { data: null, error };
       }
 
-      // Fetch platform content for each entry
-      const entriesWithPlatformContent = await Promise.all(
-        data.map(async (entry) => {
-          const { data: platformContent, error: platformError } = await supabase
-            .from('content_platforms')
-            .select('*')
-            .eq('content_entry_id', entry.id);
-
-          if (platformError) {
-            console.error('Error fetching platform content:', platformError);
-            return entry; // Return entry without platform content in case of error
-          }
-
-          // Structure platform content by platform
-          const platformContentByPlatform = platformContent.reduce((acc, item) => {
-            acc[item.platform] = item;
-            return acc;
-          }, {});
-
-          return { ...entry, platformContent: platformContentByPlatform };
-        })
-      );
-
-      return { data: entriesWithPlatformContent, error: null };
+      return { data, error: null };
     } catch (error) {
       console.error('Unexpected error fetching content entries:', error);
       return { data: null, error };
     }
   },
 
-  getContentEntryById: async (id: string) => {
+  createContentEntry: async (entryData: any) => {
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: null, error: new Error('User not authenticated') };
+      }
+
+      // Create content entry
+      const { data: entry, error: entryError } = await supabase
         .from('content_entries')
-        .select('*')
-        .eq('id', id)
+        .insert([{
+          topic: entryData.topic,
+          description: entryData.description,
+          type: entryData.type,
+          user_id: user.id
+        }])
+        .select()
         .single();
 
-      if (error) {
-        console.error('Error fetching content entry by id:', error);
-        return { data: null, error };
+      if (entryError) {
+        console.error('Error creating content entry:', entryError);
+        return { data: null, error: entryError };
       }
 
-      return { data, error: null };
-    } catch (error) {
-      console.error('Unexpected error fetching content entry by id:', error);
-      return { data: null, error };
-    }
-  },
-
-  addContentEntry: async (topic: string, description: string, type: string, userId: string) => {
-    try {
-      const id = uuidv4();
-      const { data, error } = await supabase
-        .from('content_entries')
-        .insert([{ id: id, topic, description, type, user_id: userId }]);
-
-      if (error) {
-        console.error('Error adding content entry:', error);
-        return { data: null, error };
+      // Create platform content
+      const platformInserts = [];
+      for (const platform of entryData.selectedPlatforms) {
+        const content = entryData.generatedContent[platform];
+        platformInserts.push({
+          content_entry_id: entry.id,
+          platform: platform,
+          text: content.text || '',
+          image_url: content.image_url || null,
+          slides_url: content.slidesURL || null,
+          content_type: entryData.platformTypes?.[platform] || 'simple',
+          status: 'generated'
+        });
       }
 
-      return { data: { id: id }, error: null };
-    } catch (error) {
-      console.error('Unexpected error adding content entry:', error);
-      return { data: null, error };
-    }
-  },
-
-  updateContentEntry: async (id: string, topic: string, description: string, type: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('content_entries')
-        .update({ topic, description, type })
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error updating content entry:', error);
-        return { data: null, error };
-      }
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Unexpected error updating content entry:', error);
-      return { data: null, error };
-    }
-  },
-
-  deleteContentEntry: async (id: string) => {
-    try {
-      // First, delete related records in content_platforms
-      const { error: deletePlatformsError } = await supabase
+      const { error: platformError } = await supabase
         .from('content_platforms')
-        .delete()
-        .eq('content_entry_id', id);
+        .insert(platformInserts);
 
-      if (deletePlatformsError) {
-        console.error('Error deleting related content_platforms:', deletePlatformsError);
-        return { data: null, error: deletePlatformsError };
+      if (platformError) {
+        console.error('Error creating platform content:', platformError);
+        return { data: null, error: platformError };
       }
 
-      // Then, delete the content entry
-      const { data, error } = await supabase
-        .from('content_entries')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting content entry:', error);
-        return { data: null, error };
-      }
-
-      return { data, error: null };
+      return { data: entry, error: null };
     } catch (error) {
-      console.error('Unexpected error deleting content entry:', error);
-      return { data: null, error };
-    }
-  },
-
-  getPlatformContent: async (entryId: string, platform: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('content_platforms')
-        .select('*')
-        .eq('content_entry_id', entryId)
-        .eq('platform', platform)
-        .single();
-
-      if (error) {
-        console.error('Error fetching platform content:', error);
-        return { data: null, error };
-      }
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Unexpected error fetching platform content:', error);
+      console.error('Unexpected error creating content entry:', error);
       return { data: null, error };
     }
   },
 
   updatePlatformContent: async (entryId: string, content: any) => {
     try {
-      const { platform, ...contentWithoutPlatform } = content;
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('content_platforms')
-        .update(contentWithoutPlatform)
-        .eq('content_entry_id', entryId)
-        .eq('platform', platform);
+        .update({
+          text: content.text,
+          image_url: content.image_url,
+          slides_url: content.slidesURL,
+          content_type: content.contentType,
+          scheduled_at: content.scheduledAt
+        })
+        .eq('id', entryId);
 
       if (error) {
         console.error('Error updating platform content:', error);
         return { data: null, error };
       }
 
-      return { data, error: null };
+      return { data: null, error: null };
     } catch (error) {
       console.error('Unexpected error updating platform content:', error);
       return { data: null, error };
     }
   },
 
-  addPlatformContent: async (entryId: string, platform: string, content: any) => {
+  deletePlatform: async (platformId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('content_platforms')
-        .insert([{ content_entry_id: entryId, platform, ...content }]);
-
-      if (error) {
-        console.error('Error adding platform content:', error);
-        return { data: null, error };
-      }
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Unexpected error adding platform content:', error);
-      return { data: null, error };
-    }
-  },
-
-  deletePlatformContent: async (entryId: string, platform: string) => {
-    try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('content_platforms')
         .delete()
-        .eq('content_entry_id', entryId)
-        .eq('platform', platform);
+        .eq('id', platformId);
 
       if (error) {
-        console.error('Error deleting platform content:', error);
+        console.error('Error deleting platform:', error);
         return { data: null, error };
       }
 
-      return { data, error: null };
+      return { data: null, error: null };
     } catch (error) {
-      console.error('Unexpected error deleting platform content:', error);
+      console.error('Unexpected error deleting platform:', error);
       return { data: null, error };
     }
   },
 
-  uploadCustomImage: async (entryId: string, imageUrl: string) => {
+  getPlatformIdFromComposite: async (compositeId: string) => {
     try {
-      // Determine the platform from the entryId
-      const [contentEntryId, platform] = entryId.split('__');
-
-      // Update the image_url in content_platforms table
+      const [entryId, platform] = compositeId.split('__');
+      
       const { data, error } = await supabase
         .from('content_platforms')
-        .update({ image_url: imageUrl })
-        .eq('content_entry_id', contentEntryId)
-        .eq('platform', platform);
+        .select('id')
+        .eq('content_entry_id', entryId)
+        .eq('platform', platform)
+        .single();
 
       if (error) {
-        console.error('Error uploading custom image:', error);
+        console.error('Error getting platform ID:', error);
+        return null;
+      }
+
+      return data.id;
+    } catch (error) {
+      console.error('Unexpected error getting platform ID:', error);
+      return null;
+    }
+  },
+
+  updatePlatformStatus: async (platformId: string, status: string, publishedUrl?: string) => {
+    try {
+      const updateData: any = { status };
+      if (publishedUrl) {
+        updateData.published_url = publishedUrl;
+        updateData.published_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('content_platforms')
+        .update(updateData)
+        .eq('id', platformId);
+
+      if (error) {
+        console.error('Error updating platform status:', error);
         return { data: null, error };
       }
 
-      return { data, error: null };
+      return { data: null, error: null };
     } catch (error) {
-      console.error('Unexpected error uploading custom image:', error);
+      console.error('Unexpected error updating platform status:', error);
+      return { data: null, error };
+    }
+  },
+
+  publishContent: async (platformId: string, platform: string) => {
+    try {
+      const publishContentURL = process.env.NEXT_PUBLIC_PUBLISH_CONTENT_URL;
+
+      if (!publishContentURL) {
+        throw new Error('Publish content URL is not defined in environment variables.');
+      }
+
+      const [contentEntryId] = platformId.split('__');
+
+      const { data: entryData, error: entryError } = await supabase
+        .from('content_entries')
+        .select('*')
+        .eq('id', contentEntryId)
+        .single();
+
+      if (entryError) {
+        console.error('Error fetching content entry:', entryError);
+        return { data: null, error: entryError };
+      }
+
+      const { data: platformData, error: platformError } = await supabase
+        .from('content_platforms')
+        .select('*')
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform)
+        .single();
+
+      if (platformError) {
+        console.error('Error fetching platform content:', platformError);
+        return { data: null, error: platformError };
+      }
+
+      const response = await fetch(publishContentURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content_entry: entryData,
+          content_platform: platformData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error publishing content:', errorData);
+        throw new Error(`Failed to publish content: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Error in publishContent:', error);
       return { data: null, error };
     }
   },
@@ -265,7 +280,6 @@ export const contentService = {
       const result = await response.json();
       const imageURL = result.imageURL;
 
-      // Save the generated image URL to the database
       const { data, error } = await supabase
         .from('content_platforms')
         .update({ image_url: imageURL })
@@ -280,6 +294,28 @@ export const contentService = {
       return { data: { imageURL }, error: null };
     } catch (error) {
       console.error('Error in generateImageForPlatform:', error);
+      return { data: null, error };
+    }
+  },
+
+  uploadCustomImage: async (entryId: string, imageUrl: string) => {
+    try {
+      const [contentEntryId, platform] = entryId.split('__');
+
+      const { data, error } = await supabase
+        .from('content_platforms')
+        .update({ image_url: imageUrl })
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform);
+
+      if (error) {
+        console.error('Error uploading custom image:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Unexpected error uploading custom image:', error);
       return { data: null, error };
     }
   },
@@ -344,7 +380,6 @@ export const contentService = {
 
       const result = await response.json();
 
-      // Save slide images to database using the specific platform ID
       await contentService.saveSlideImages(platformId, result[0].slideImages);
 
       return { data: result, error: null };
@@ -356,21 +391,20 @@ export const contentService = {
 
   saveSlideImages: async (platformId: string, slideImages: string[]) => {
     try {
-      // Delete existing slide images for this platform
       const { error: deleteError } = await supabase
         .from('slide_images')
         .delete()
-        .eq('platform_id', platformId);
+        .eq('content_platform_id', platformId);
 
       if (deleteError) {
         console.error('Error deleting existing slide images:', deleteError);
         return { data: null, error: deleteError };
       }
 
-      // Insert new slide images
-      const slidesToInsert = slideImages.map(image_url => ({
-        platform_id: platformId,
+      const slidesToInsert = slideImages.map((image_url, index) => ({
+        content_platform_id: platformId,
         image_url: image_url,
+        position: index
       }));
 
       const { data, error } = await supabase
@@ -394,7 +428,8 @@ export const contentService = {
       const { data, error } = await supabase
         .from('slide_images')
         .select('*')
-        .eq('platform_id', platformId);
+        .eq('content_platform_id', platformId)
+        .order('position');
 
       if (error) {
         console.error('Error fetching slide images:', error);
@@ -408,89 +443,6 @@ export const contentService = {
     }
   },
 
-  publishContent: async (entryId: string, platform: string) => {
-    try {
-      const publishContentURL = process.env.NEXT_PUBLIC_PUBLISH_CONTENT_URL;
-
-      if (!publishContentURL) {
-        throw new Error('Publish content URL is not defined in environment variables.');
-      }
-
-      const [contentEntryId, _platform] = entryId.split('__');
-
-      const { data: entryData, error: entryError } = await supabase
-        .from('content_entries')
-        .select('*')
-        .eq('id', contentEntryId)
-        .single();
-
-      if (entryError) {
-        console.error('Error fetching content entry:', entryError);
-        return { data: null, error: entryError };
-      }
-
-      const { data: platformData, error: platformError } = await supabase
-        .from('content_platforms')
-        .select('*')
-        .eq('content_entry_id', contentEntryId)
-        .eq('platform', platform)
-        .single();
-
-      if (platformError) {
-        console.error('Error fetching platform content:', platformError);
-        return { data: null, error: platformError };
-      }
-
-      const response = await fetch(publishContentURL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content_entry: entryData,
-          content_platform: platformData,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error publishing content:', errorData);
-        throw new Error(`Failed to publish content: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return { data: result, error: null };
-    } catch (error) {
-      console.error('Error in publishContent:', error);
-      return { data: null, error };
-    }
-  },
-
-  updatePlatformSchedule: async (entryId: string, scheduledAt: string) => {
-    try {
-      // Determine the platform from the entryId
-      const [contentEntryId, platform] = entryId.split('__');
-
-      // Update the scheduled_at in content_platforms table
-      const { data, error } = await supabase
-        .from('content_platforms')
-        .update({ scheduled_at: scheduledAt })
-        .eq('content_entry_id', contentEntryId)
-        .eq('platform', platform);
-
-      if (error) {
-        console.error('Error updating platform schedule:', error);
-        return { data: null, error };
-      }
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Unexpected error updating platform schedule:', error);
-      return { data: null, error };
-    }
-  },
-
-  // Get scheduled content from content_platforms table
   getScheduledContent: async () => {
     try {
       const { data, error } = await supabase

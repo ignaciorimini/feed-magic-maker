@@ -17,7 +17,7 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
       case 'wordpress':
         return Globe;
       case 'twitter':
-        return Globe; // Using Globe icon for Twitter since we don't have a Twitter icon in lucide-react
+        return Globe;
       default:
         return Globe;
     }

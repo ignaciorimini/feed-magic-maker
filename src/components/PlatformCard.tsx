@@ -369,7 +369,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             </div>
             
             <div className="flex items-center space-x-2">
-              {status && <StatusBadge status={status} />}
+              {status && <StatusBadge platform={platform} status={status} />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
