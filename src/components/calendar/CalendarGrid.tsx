@@ -1,8 +1,9 @@
 
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ContentEditModal from '../ContentEditModal';
 
@@ -43,11 +44,15 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     entries.forEach(entry => {
       Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
         const typedContent = content as any;
-        if (typedContent && typeof typedContent === 'object' && typedContent.publishDate) {
+        
+        // Check for scheduled dates in both publishDate and scheduled_at fields
+        const scheduledDate = typedContent?.publishDate || typedContent?.scheduled_at;
+        
+        if (scheduledDate) {
           allScheduledContent.push({
             id: `${entry.id}-${platform}`,
             topic: entry.topic,
-            publishDate: typedContent.publishDate,
+            publishDate: scheduledDate,
             platform: platform,
             status: entry.status?.[platform] || 'pending',
             type: entry.type || 'Simple Post',
@@ -152,6 +157,10 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
             <CardTitle className="flex items-center space-x-2">
               <CalendarIcon className="w-5 h-5" />
               <span>Calendario de Publicaciones</span>
+              <Badge variant="secondary" className="ml-2">
+                <Clock className="w-3 h-3 mr-1" />
+                {scheduledContent.length} programadas
+              </Badge>
             </CardTitle>
             <div className="flex items-center space-x-2">
               <Button
@@ -238,7 +247,7 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
           content={selectedContent.content}
           contentType={selectedContent.entry.type}
           onSave={onUpdateContent ? (content) => onUpdateContent(selectedContent.entry.id, selectedContent.platform, content) : async () => {}}
-          entryId={selectedContent.entry.id}
+          entryId={`${selectedContent.entry.id}__${selectedContent.platform}`}
           topic={selectedContent.entry.topic}
           description={selectedContent.entry.description}
           slideImages={selectedContent.entry.slideImages}
@@ -252,3 +261,4 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
 };
 
 export default CalendarGrid;
+

@@ -61,6 +61,7 @@ const Index = () => {
                 uploadedImages: platform.uploadedImages || [],
                 contentType: platform.content_type || 'article',
                 published_url: platform.published_url, // Add published_url from content_platforms
+                publishDate: platform.scheduled_at, // Add scheduled date
                 wordpressPost: {
                   title: wpPost.title || '',
                   description: wpPost.description || '',
@@ -78,7 +79,8 @@ const Index = () => {
                 slideImages: platform.slideImages || [],
                 uploadedImages: platform.uploadedImages || [],
                 contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple'),
-                published_url: platform.published_url // Add published_url from content_platforms
+                published_url: platform.published_url, // Add published_url from content_platforms
+                publishDate: platform.scheduled_at // Add scheduled date
               };
             }
             

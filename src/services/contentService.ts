@@ -1,5 +1,3 @@
-
-
 import { supabase } from '@/integrations/supabase/client';
 
 type PlatformType = 'instagram' | 'linkedin' | 'twitter' | 'wordpress';
@@ -246,6 +244,36 @@ class ContentService {
       return { error: null };
     } catch (error) {
       console.error('Error in deleteContentEntry:', error);
+      return { error };
+    }
+  }
+
+  async updatePlatformSchedule(platformId: string, scheduledDate: string) {
+    console.log('=== UPDATING PLATFORM SCHEDULE ===');
+    console.log('Platform ID:', platformId);
+    console.log('Scheduled Date:', scheduledDate);
+
+    try {
+      // Extract the actual platform ID from composite ID if needed
+      const actualPlatformId = await this.getPlatformIdFromComposite(platformId);
+      
+      const { error } = await supabase
+        .from('content_platforms')
+        .update({ 
+          scheduled_at: scheduledDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', actualPlatformId);
+
+      if (error) {
+        console.error('Error updating platform schedule:', error);
+        throw error;
+      }
+
+      console.log('Platform schedule updated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Error in updatePlatformSchedule:', error);
       return { error };
     }
   }
@@ -842,4 +870,3 @@ class ContentService {
 }
 
 export const contentService = new ContentService();
-

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image } from 'lucide-react';
+import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock } from 'lucide-react';
 import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
@@ -66,15 +66,59 @@ const ContentEditModal = ({
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<string>(content.publishDate || '');
 
   useEffect(() => {
     setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
+    setScheduledDate(content.publishDate || '');
   }, [content, slideImages, imageUrl]);
 
-  const handleSave = () => {
-    onSave(editedContent);
+  const handleSave = async () => {
+    const contentToSave = {
+      ...editedContent,
+      publishDate: scheduledDate
+    };
+
+    // If a scheduled date is set, also save it to the database
+    if (scheduledDate) {
+      try {
+        const { error } = await contentService.updatePlatformSchedule(entryId, scheduledDate);
+        if (error) {
+          console.error('Error updating schedule:', error);
+          toast({
+            title: "Error al programar",
+            description: "No se pudo guardar la fecha programada.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error updating schedule:', error);
+        toast({
+          title: "Error al programar",
+          description: "Hubo un problema al guardar la fecha programada.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    await onSave(contentToSave);
+    
+    if (scheduledDate) {
+      toast({
+        title: "Contenido programado",
+        description: `El contenido se publicará el ${new Date(scheduledDate).toLocaleString('es-ES')}`,
+      });
+    } else {
+      toast({
+        title: "Contenido guardado",
+        description: "Los cambios han sido guardados exitosamente.",
+      });
+    }
+    
     onClose();
   };
 
@@ -331,6 +375,12 @@ const ContentEditModal = ({
             <DialogTitle className="flex items-center space-x-2">
               <span>Editar contenido - {platform}</span>
               <Badge variant="outline">{contentType}</Badge>
+              {scheduledDate && (
+                <Badge variant="secondary" className="ml-2">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Programado
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -653,13 +703,18 @@ const ContentEditModal = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="publishDate">O programar para una fecha futura:</Label>
+                  <Label htmlFor="scheduledDate">Programar para una fecha futura:</Label>
                   <Input
-                    id="publishDate"
+                    id="scheduledDate"
                     type="datetime-local"
-                    value={editedContent.publishDate || ''}
-                    onChange={(e) => setEditedContent({ ...editedContent, publishDate: e.target.value })}
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
                   />
+                  {scheduledDate && (
+                    <p className="text-sm text-gray-600">
+                      Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -671,7 +726,7 @@ const ContentEditModal = ({
               </Button>
               <Button onClick={handleSave} className="flex-1">
                 <Save className="mr-2 h-4 w-4" />
-                Guardar Cambios
+                {scheduledDate ? 'Programar Publicación' : 'Guardar Cambios'}
               </Button>
             </div>
           </div>
