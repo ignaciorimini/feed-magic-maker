@@ -22,6 +22,7 @@ interface PlatformPreviewProps {
     slug?: string;
     slidesURL?: string;
     platformId?: string;
+    scheduled_at?: string;
   };
   status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
@@ -77,7 +78,8 @@ const PlatformPreview = ({
     description: content.description,
     slug: content.slug,
     slidesURL: content.slidesURL,
-    platformId: content.platformId || platformId
+    platformId: content.platformId || platformId,
+    scheduled_at: content.scheduled_at
   };
 
   useEffect(() => {
@@ -392,6 +394,7 @@ const PlatformPreview = ({
 
           <PublishInfo
             publishDate={safeContent.publishDate}
+            scheduledAt={safeContent.scheduled_at}
             status={status}
             publishedLink={publishedLink}
             entryId={entryId}
