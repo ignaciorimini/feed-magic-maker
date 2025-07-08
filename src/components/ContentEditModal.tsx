@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,14 @@ const ContentEditModal = ({
     // Formatear la fecha programada para el input
     if (content.scheduled_at || content.publishDate) {
       const dateToFormat = content.scheduled_at || content.publishDate;
-      setScheduledDate(formatForInput(dateToFormat));
+      try {
+        const formattedDate = formatForInput(dateToFormat);
+        console.log('Setting scheduled date:', formattedDate);
+        setScheduledDate(formattedDate);
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        setScheduledDate('');
+      }
     } else {
       setScheduledDate('');
     }
@@ -147,6 +155,16 @@ const ContentEditModal = ({
           variant: "destructive",
         });
         return;
+      }
+    } else {
+      // Si no hay fecha programada, limpiar el campo en la base de datos
+      try {
+        const { error } = await contentService.updatePlatformSchedule(entryId, '');
+        if (error) {
+          console.error('Error clearing schedule:', error);
+        }
+      } catch (error) {
+        console.error('Error clearing schedule:', error);
       }
     }
 
@@ -396,6 +414,7 @@ const ContentEditModal = ({
   const isSlidePost = contentType === 'Slide Post';
   const hasImage = currentImageUrl && currentImageUrl !== "/placeholder.svg";
   const hasScheduledDate = scheduledDate && scheduledDate.length > 0;
+  const hasSlides = downloadedSlides && downloadedSlides.length > 0;
 
   return (
     <>
@@ -543,8 +562,8 @@ const ContentEditModal = ({
                   </div>
                 )}
 
-                {/* Slides carousel */}
-                {downloadedSlides.length > 0 && (
+                {/* Slides carousel - Mostrar las slides si existen */}
+                {hasSlides && (
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Slides descargadas ({downloadedSlides.length} imágenes)</Label>
                     <div className="relative bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
@@ -771,7 +790,10 @@ const ContentEditModal = ({
                       id="scheduledDate"
                       type="datetime-local"
                       value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
+                      onChange={(e) => {
+                        console.log('Date input changed:', e.target.value);
+                        setScheduledDate(e.target.value);
+                      }}
                       min={getMinDateTime()}
                       className="text-base font-medium"
                     />
