@@ -1,4 +1,3 @@
-
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,52 +38,74 @@ const DashboardContent = ({
   const platformCards = entries.flatMap(entry => {
     const cards = [];
     
-    // Only create cards for platforms that actually have content in this entry
+    // Check both platformContent and platforms array for compatibility
+    const platformSources = [];
+    
+    // Add from platformContent (legacy structure)
     if (entry.platformContent) {
       Object.keys(entry.platformContent).forEach(platform => {
-        const platformKey = platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-        const platformContent = entry.platformContent[platformKey];
-        
-        // For WordPress, check if we have content or title (WordPress posts)
-        // For other platforms, check if we have text or images
-        const hasContent = platformKey === 'wordpress' 
-          ? (platformContent && (platformContent.title || platformContent.content || platformContent.text))
-          : (platformContent && (platformContent.text || (platformContent.images && platformContent.images.length > 0)));
-        
-        if (hasContent) {
-          // Get slide images for this platform from the entry data
-          const platformSlideImages = entry.platforms?.find(p => p.platform === platformKey)?.slide_images || [];
-          
-          // Convert content_type to display format
-          let displayType = entry.type;
-          if (platformContent.contentType === 'simple') {
-            displayType = 'Simple Post';
-          } else if (platformContent.contentType === 'slide') {
-            displayType = 'Slide Post';
-          } else if (platformContent.contentType === 'article') {
-            displayType = 'Article';
-          }
-          
-          cards.push({
-            ...entry,
-            platform: platformKey,
-            id: `${entry.id}__${platform}`, // Use __ separator to avoid UUID conflicts
-            // Override the type with the platform-specific content type for display
-            type: displayType,
-            // Keep the original content type for logic
-            contentType: platformContent.contentType || 'simple',
-            // Add slide images from database
-            slideImages: platformSlideImages.sort((a, b) => a.position - b.position).map(img => img.image_url)
+        const platformContent = entry.platformContent[platform];
+        if (platformContent && (platformContent.text || platformContent.title || (platformContent.images && platformContent.images.length > 0))) {
+          platformSources.push({
+            platform,
+            content: platformContent,
+            scheduled_at: platformContent.scheduled_at || platformContent.publishDate,
+            source: 'platformContent'
           });
         }
       });
     }
     
+    // Add from platforms array (new structure)
+    if (entry.platforms && Array.isArray(entry.platforms)) {
+      entry.platforms.forEach(platform => {
+        if (platform.text || platform.title || platform.image_url) {
+          platformSources.push({
+            platform: platform.platform,
+            content: platform,
+            scheduled_at: platform.scheduled_at,
+            source: 'platforms'
+          });
+        }
+      });
+    }
+    
+    // Create cards from all sources
+    platformSources.forEach(source => {
+      const platformKey = source.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+      const platformContent = source.content;
+      
+      // Convert content_type to display format
+      let displayType = entry.type;
+      if (platformContent.contentType === 'simple' || platformContent.content_type === 'simple') {
+        displayType = 'Simple Post';
+      } else if (platformContent.contentType === 'slide' || platformContent.content_type === 'slide') {
+        displayType = 'Slide Post';
+      } else if (platformContent.contentType === 'article' || platformContent.content_type === 'article') {
+        displayType = 'Article';
+      }
+      
+      // Get slide images for this platform
+      const slideImages = source.source === 'platforms' 
+        ? (platformContent.slide_images || []).sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url)
+        : [];
+      
+      cards.push({
+        ...entry,
+        platform: platformKey,
+        id: `${entry.id}__${source.platform}`,
+        type: displayType,
+        contentType: platformContent.contentType || platformContent.content_type || 'simple',
+        slideImages: slideImages,
+        scheduledAt: source.scheduled_at, // Add scheduled date to the card
+        platformData: platformContent // Add platform data for easy access
+      });
+    });
+    
     return cards;
   });
 
   const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
-    // Extract the original entry ID and get the topic
     const originalEntryId = entryId.split('__')[0];
     const entry = entries.find(e => e.id === originalEntryId);
     
@@ -104,7 +125,6 @@ const DashboardContent = ({
   };
 
   const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
-    // Extract the original entry ID using the new separator
     const originalEntryId = entryId.split('__')[0];
     console.log('=== UPDATE STATUS DEBUG ===');
     console.log('Entry ID received:', entryId);
@@ -112,17 +132,13 @@ const DashboardContent = ({
     console.log('Original ID length:', originalEntryId.length);
     console.log('Platform:', platform, 'Status:', newStatus);
     
-    // Validate extracted ID is a complete UUID
     if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
       console.error('Invalid extracted entry ID format:', originalEntryId);
       return;
     }
-    
-    // Status updates would need to be handled by the parent component
   };
 
   const handleUpdateLink = async (entryId: string, platform: string, link: string) => {
-    // Extract the original entry ID using the new separator
     const originalEntryId = entryId.split('__')[0];
     console.log('=== UPDATE LINK DEBUG ===');
     console.log('Entry ID received:', entryId);
@@ -130,22 +146,17 @@ const DashboardContent = ({
     console.log('Original ID length:', originalEntryId.length);
     console.log('Platform:', platform, 'Link:', link);
     
-    // Validate extracted ID is a complete UUID
     if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
       console.error('Invalid extracted entry ID format:', originalEntryId);
       return;
     }
-    
-    // Link updates would need to be handled by the parent component
   };
 
-  // Handle platform deletion instead of entry deletion
   const handleDeletePlatform = (platformId: string, platform: string) => {
     console.log('=== DELETE PLATFORM DEBUG ===');
     console.log('Platform ID received:', platformId);
     console.log('Platform:', platform);
     
-    // Validate platform ID format
     if (!platformId || !platformId.includes('__')) {
       console.error('Invalid platform ID format:', platformId);
       return;
@@ -156,7 +167,6 @@ const DashboardContent = ({
   };
 
   const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
-    // Extract the original entry ID using the new separator
     const originalEntryId = entryId.split('__')[0];
     console.log('=== UPDATE IMAGE DEBUG ===');
     console.log('Entry ID received:', entryId);
@@ -164,13 +174,11 @@ const DashboardContent = ({
     console.log('Original ID length:', originalEntryId.length);
     console.log('Image URL:', imageUrl);
     
-    // Validate extracted ID is a complete UUID
     if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
       console.error('Invalid extracted entry ID format:', originalEntryId);
       return Promise.resolve();
     }
     
-    // Image updates would need to be handled by the parent component
     return Promise.resolve();
   };
 
@@ -251,7 +259,7 @@ const DashboardContent = ({
                 }}
                 onUpdateImage={onUpdateImage}
                 onReloadEntries={onReloadEntries}
-                onStatsUpdate={onReloadEntries} // Use onReloadEntries to refresh stats
+                onStatsUpdate={onReloadEntries}
               />
             ))}
           </div>

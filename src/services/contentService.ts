@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -206,9 +205,11 @@ export const contentService = {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 
+      const updateData = scheduledAt ? { scheduled_at: scheduledAt } : { scheduled_at: null };
+
       const { error } = await supabase
         .from('content_platforms')
-        .update({ scheduled_at: scheduledAt })
+        .update(updateData)
         .eq('content_entry_id', contentEntryId)
         .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 

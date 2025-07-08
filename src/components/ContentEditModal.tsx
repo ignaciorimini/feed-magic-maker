@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import ImagePreviewModal from './ImagePreviewModal';
 import MediaImageSelector from './MediaImageSelector';
 import { Switch } from '@/components/ui/switch';
 import PublishButton from './PublishButton';
+import { useTimezone } from '@/hooks/useTimezone';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -56,6 +56,7 @@ const ContentEditModal = ({
   onUpdateImage,
   onGenerateImage
 }: ContentEditModalProps) => {
+  const { formatForDisplay, formatForInput, getMinDateTime, localToUtc } = useTimezone();
   const [editedContent, setEditedContent] = useState(content);
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || content.slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -68,26 +69,67 @@ const ContentEditModal = ({
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState<string>(content.scheduled_at || content.publishDate || '');
+  const [scheduledDate, setScheduledDate] = useState<string>('');
 
   useEffect(() => {
     setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
-    setScheduledDate(content.scheduled_at || content.publishDate || '');
-  }, [content, slideImages, imageUrl]);
+    
+    // Formatear la fecha programada para el input
+    if (content.scheduled_at || content.publishDate) {
+      const dateToFormat = content.scheduled_at || content.publishDate;
+      setScheduledDate(formatForInput(dateToFormat));
+    } else {
+      setScheduledDate('');
+    }
+  }, [content, slideImages, imageUrl, formatForInput]);
+
+  const handleCancelScheduling = async () => {
+    try {
+      // Eliminar la programación de la base de datos
+      const { error } = await contentService.updatePlatformSchedule(entryId, '');
+      
+      if (error) {
+        console.error('Error canceling schedule:', error);
+        toast({
+          title: "Error al cancelar programación",
+          description: "No se pudo cancelar la programación.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setScheduledDate('');
+      
+      toast({
+        title: "Programación cancelada",
+        description: "La publicación ya no está programada.",
+      });
+      
+      onClose();
+    } catch (error) {
+      console.error('Error canceling schedule:', error);
+      toast({
+        title: "Error al cancelar programación",
+        description: "Hubo un problema al cancelar la programación.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSave = async () => {
     const contentToSave = {
       ...editedContent,
-      scheduled_at: scheduledDate,
-      publishDate: scheduledDate // Keep both for backward compatibility
+      scheduled_at: scheduledDate ? localToUtc(new Date(scheduledDate)) : null,
+      publishDate: scheduledDate ? localToUtc(new Date(scheduledDate)) : null
     };
 
-    // If a scheduled date is set, also save it to the database
+    // Si hay una fecha programada, actualizarla en la base de datos
     if (scheduledDate) {
       try {
-        const { error } = await contentService.updatePlatformSchedule(entryId, scheduledDate);
+        const utcDate = localToUtc(new Date(scheduledDate));
+        const { error } = await contentService.updatePlatformSchedule(entryId, utcDate);
         if (error) {
           console.error('Error updating schedule:', error);
           toast({
@@ -113,7 +155,7 @@ const ContentEditModal = ({
     if (scheduledDate) {
       toast({
         title: "Contenido programado",
-        description: `El contenido se publicará el ${new Date(scheduledDate).toLocaleString('es-ES')}`,
+        description: `El contenido se publicará el ${formatForDisplay(localToUtc(new Date(scheduledDate)))}`,
       });
     } else {
       toast({
@@ -153,7 +195,6 @@ const ContentEditModal = ({
         const newSlideImages = data[0].slideImages;
         setDownloadedSlides(newSlideImages);
         
-        // Save slide images to database using the specific platform ID
         await contentService.saveSlideImages(entryId, newSlideImages);
         
         toast({
@@ -161,7 +202,6 @@ const ContentEditModal = ({
           description: `Se descargaron ${newSlideImages.length} imágenes de las slides.`,
         });
         
-        // Close modal and reload to show updated slides
         onClose();
         window.location.reload();
       }
@@ -189,13 +229,6 @@ const ContentEditModal = ({
 
     setIsGeneratingImage(true);
     try {
-      console.log("=== GENERATING IMAGE FROM MODAL ===");
-      console.log("Entry ID:", entryId);
-      console.log("Platform:", platform);
-      console.log("Topic:", topic);
-      console.log("Description:", description);
-      
-      // Use the same approach as PlatformCard - call generateImageForPlatform service
       const { data, error } = await contentService.generateImageForPlatform(
         entryId, 
         platform, 
@@ -211,9 +244,6 @@ const ContentEditModal = ({
           variant: "destructive",
         });
       } else {
-        console.log('Image generated successfully:', data);
-        
-        // Update local state with the new image URL
         if (data && data.imageURL) {
           setCurrentImageUrl(data.imageURL);
         }
@@ -225,7 +255,6 @@ const ContentEditModal = ({
         
         setShowImageOptions(false);
         
-        // Force reload of entries to ensure consistency
         if (onUpdateImage && data && data.imageURL) {
           await onUpdateImage(entryId, data.imageURL);
         }
@@ -253,9 +282,6 @@ const ContentEditModal = ({
     }
 
     try {
-      console.log('=== REMOVING IMAGE FROM MODAL ===');
-      console.log('Entry ID:', entryId);
-      
       await onUpdateImage(entryId, null);
       setCurrentImageUrl(null);
       setShowImageOptions(false);
@@ -369,6 +395,7 @@ const ContentEditModal = ({
 
   const isSlidePost = contentType === 'Slide Post';
   const hasImage = currentImageUrl && currentImageUrl !== "/placeholder.svg";
+  const hasScheduledDate = scheduledDate && scheduledDate.length > 0;
 
   return (
     <>
@@ -378,7 +405,7 @@ const ContentEditModal = ({
             <DialogTitle className="flex items-center space-x-2">
               <span>Editar contenido - {platform}</span>
               <Badge variant="outline">{contentType}</Badge>
-              {scheduledDate && (
+              {hasScheduledDate && (
                 <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
                   <Clock className="w-3 h-3 mr-1" />
                   Programado
@@ -389,7 +416,7 @@ const ContentEditModal = ({
 
           <div className="space-y-4">
             {/* Scheduled Date - Prominent Display */}
-            {scheduledDate && (
+            {hasScheduledDate && (
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -399,21 +426,14 @@ const ContentEditModal = ({
                     <div>
                       <h3 className="text-lg font-semibold text-blue-900">Publicación Programada</h3>
                       <p className="text-blue-700 font-medium">
-                        {new Date(scheduledDate).toLocaleString('es-ES', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {formatForDisplay(localToUtc(new Date(scheduledDate)))}
                       </p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setScheduledDate('')}
+                    onClick={handleCancelScheduling}
                     className="text-blue-700 border-blue-300 hover:bg-blue-200"
                   >
                     Cancelar programación
@@ -752,13 +772,14 @@ const ContentEditModal = ({
                       type="datetime-local"
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
+                      min={getMinDateTime()}
                       className="text-base font-medium"
                     />
-                    {scheduledDate && (
+                    {hasScheduledDate && (
                       <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                         <p className="text-sm text-blue-700 font-medium">
                           <Clock className="w-4 h-4 inline mr-1" />
-                          Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
+                          Se publicará el {formatForDisplay(localToUtc(new Date(scheduledDate)))}
                         </p>
                       </div>
                     )}
@@ -774,7 +795,7 @@ const ContentEditModal = ({
               </Button>
               <Button onClick={handleSave} className="flex-1">
                 <Save className="mr-2 h-4 w-4" />
-                {scheduledDate ? 'Programar Publicación' : 'Guardar Cambios'}
+                {hasScheduledDate ? 'Programar Publicación' : 'Guardar Cambios'}
               </Button>
             </div>
           </div>
