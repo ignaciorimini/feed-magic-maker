@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -355,18 +356,36 @@ export const contentService = {
 
   generateImageForPlatform: async (entryId: string, platform: string, topic: string, description: string) => {
     try {
-      const generateImageUrl = process.env.NEXT_PUBLIC_IMAGE_GENERATION_URL;
-
-      if (!generateImageUrl) {
-        throw new Error('Image generation URL is not defined in environment variables.');
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const response = await fetch(generateImageUrl, {
+      // Get the user's webhook URL from their profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        throw new Error('Failed to fetch user profile');
+      }
+
+      if (!profile?.webhook_url) {
+        throw new Error('Webhook URL is not configured in your profile. Please set up your webhook URL in profile settings.');
+      }
+
+      const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'generate_image',
           topic: topic,
           description: description,
         }),
@@ -380,6 +399,10 @@ export const contentService = {
 
       const result = await response.json();
       const imageURL = result.imageURL;
+
+      if (!imageURL) {
+        throw new Error('No image URL returned from webhook');
+      }
 
       const [contentEntryId, platformName] = entryId.split('__');
 
