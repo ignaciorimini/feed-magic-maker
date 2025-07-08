@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -208,6 +209,16 @@ const PlatformPreview = ({
     }
   };
 
+  // Create a wrapper function for PlatformHeader that doesn't need parameters
+  const handleGenerateImageForHeader = () => {
+    handleGenerateImage(
+      safeContent.platformId || '',
+      platform,
+      topic || '',
+      safeContent.description || ''
+    );
+  };
+
   const handleUploadImage = async (platformId: string, file: File) => {
     if (!platformId) {
       toast({
@@ -348,7 +359,7 @@ const PlatformPreview = ({
             publishedLink={publishedLink}
             onEdit={() => setShowEditModal(true)}
             onDownloadSlides={handleDownloadSlides}
-            onGenerateImage={handleGenerateImage}
+            onGenerateImage={handleGenerateImageForHeader}
           />
         </CardHeader>
         
