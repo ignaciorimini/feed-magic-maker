@@ -76,27 +76,14 @@ const ContentEditModal = ({
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
     
-    // Fix: Better handling of scheduled date formatting
-    const dateToFormat = content.scheduled_at || content.publishDate;
-    if (dateToFormat) {
-      try {
-        // Ensure the date is properly formatted for datetime-local input
-        const inputFormattedDate = formatForInput(dateToFormat);
-        setScheduledDate(inputFormattedDate);
-      } catch (error) {
-        console.error('Error formatting date:', error);
-        setScheduledDate('');
-      }
+    // Formatear la fecha programada para el input
+    if (content.scheduled_at || content.publishDate) {
+      const dateToFormat = content.scheduled_at || content.publishDate;
+      setScheduledDate(formatForInput(dateToFormat));
     } else {
       setScheduledDate('');
     }
   }, [content, slideImages, imageUrl, formatForInput]);
-
-  const handleScheduledDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    console.log('Date input changed:', newValue);
-    setScheduledDate(newValue);
-  };
 
   const handleCancelScheduling = async () => {
     try {
@@ -556,7 +543,7 @@ const ContentEditModal = ({
                   </div>
                 )}
 
-                {/* Fix: Better handling of slide images display */}
+                {/* Slides carousel */}
                 {downloadedSlides.length > 0 && (
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Slides descargadas ({downloadedSlides.length} imágenes)</Label>
@@ -784,7 +771,7 @@ const ContentEditModal = ({
                       id="scheduledDate"
                       type="datetime-local"
                       value={scheduledDate}
-                      onChange={handleScheduledDateChange}
+                      onChange={(e) => setScheduledDate(e.target.value)}
                       min={getMinDateTime()}
                       className="text-base font-medium"
                     />
