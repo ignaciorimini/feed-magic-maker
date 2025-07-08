@@ -248,7 +248,7 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
                           <div
                             key={contentIndex}
                             onClick={() => handleContentClick(content)}
-                            className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-shadow"
+                            className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-all hover:scale-105"
                           >
                             <div className={`px-2 py-1 rounded text-xs border ${
                               platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100'

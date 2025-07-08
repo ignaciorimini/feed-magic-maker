@@ -1,9 +1,11 @@
+
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import StatsOverview from '@/components/StatsOverview';
 import PlatformCard from '@/components/PlatformCard';
+import ScheduledBadge from '@/components/ScheduledBadge';
 
 interface DashboardContentProps {
   entries: any[];
@@ -244,23 +246,33 @@ const DashboardContent = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {platformCards.map((platformEntry) => (
-              <PlatformCard
-                key={platformEntry.id}
-                entry={platformEntry}
-                platform={platformEntry.platform}
-                onUpdateContent={onUpdateContent}
-                onDeleteEntry={onDeletePlatform}
-                onDownloadSlides={onDownloadSlides}
-                onUpdateStatus={(entryId, platform, newStatus) => {
-                  // Handle status updates here if needed
-                }}
-                onUpdateLink={(entryId, platform, link) => {
-                  // Handle link updates here if needed
-                }}
-                onUpdateImage={onUpdateImage}
-                onReloadEntries={onReloadEntries}
-                onStatsUpdate={onReloadEntries}
-              />
+              <div key={platformEntry.id} className="relative">
+                <PlatformCard
+                  entry={platformEntry}
+                  platform={platformEntry.platform}
+                  onUpdateContent={onUpdateContent}
+                  onDeleteEntry={onDeletePlatform}
+                  onDownloadSlides={onDownloadSlides}
+                  onUpdateStatus={(entryId, platform, newStatus) => {
+                    // Handle status updates here if needed
+                  }}
+                  onUpdateLink={(entryId, platform, link) => {
+                    // Handle link updates here if needed
+                  }}
+                  onUpdateImage={onUpdateImage}
+                  onReloadEntries={onReloadEntries}
+                  onStatsUpdate={onReloadEntries}
+                />
+                {/* Show scheduled badge if content is scheduled */}
+                {platformEntry.scheduledAt && (
+                  <div className="absolute top-2 right-2">
+                    <ScheduledBadge 
+                      scheduledAt={platformEntry.scheduledAt} 
+                      size="sm"
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}

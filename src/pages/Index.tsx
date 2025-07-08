@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,9 +15,19 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('content');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  
+  // Cache to prevent unnecessary refetches
+  const lastFetchTime = useRef<number>(0);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  const loadEntries = async () => {
+  const loadEntries = async (forceRefresh: boolean = false) => {
     if (!user) return;
+    
+    // Check cache unless forced refresh
+    const now = Date.now();
+    if (!forceRefresh && entries.length > 0 && (now - lastFetchTime.current) < CACHE_DURATION) {
+      return;
+    }
     
     setLoading(true);
     try {
@@ -60,8 +70,9 @@ const Index = () => {
                 slideImages: platform.slideImages || [],
                 uploadedImages: platform.uploadedImages || [],
                 contentType: platform.content_type || 'article',
-                published_url: platform.published_url, // Add published_url from content_platforms
-                publishDate: platform.scheduled_at, // Add scheduled date
+                published_url: platform.published_url,
+                publishDate: platform.scheduled_at,
+                scheduled_at: platform.scheduled_at, // Add for StatusBadge
                 wordpressPost: {
                   title: wpPost.title || '',
                   description: wpPost.description || '',
@@ -79,8 +90,9 @@ const Index = () => {
                 slideImages: platform.slideImages || [],
                 uploadedImages: platform.uploadedImages || [],
                 contentType: platform.content_type || (platformKey === 'wordpress' ? 'article' : 'simple'),
-                published_url: platform.published_url, // Add published_url from content_platforms
-                publishDate: platform.scheduled_at // Add scheduled date
+                published_url: platform.published_url,
+                publishDate: platform.scheduled_at,
+                scheduled_at: platform.scheduled_at // Add for StatusBadge
               };
             }
             
@@ -101,13 +113,14 @@ const Index = () => {
             createdDate: new Date(entry.created_date).toLocaleDateString(),
             status,
             platformContent,
-            imageUrl: entryImageUrl, // Set the entry-level image URL
-            slideImages: [] // This will be populated from platforms if needed
+            imageUrl: entryImageUrl,
+            slideImages: []
           };
         });
 
         console.log('Transformed entries:', transformedEntries);
         setEntries(transformedEntries);
+        lastFetchTime.current = now;
       }
     } catch (error) {
       console.error('Unexpected error loading entries:', error);
@@ -125,15 +138,27 @@ const Index = () => {
     loadEntries();
   }, [user]);
 
+  // Listen for visibility changes to prevent unnecessary refetches
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Only reload if the page has been hidden for more than cache duration
+      if (!document.hidden && entries.length > 0) {
+        const now = Date.now();
+        if ((now - lastFetchTime.current) > CACHE_DURATION) {
+          loadEntries(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [entries.length]);
+
   const handleNewContent = async (formData: any) => {
     try {
       console.log("=== CREATING NEW CONTENT ===");
       console.log("Form data:", formData);
-      console.log("Selected platforms:", formData.selectedPlatforms);
-      console.log("Generated content:", formData.generatedContent);
-      console.log("Platform types:", formData.platformTypes);
 
-      // Create the content entry in the database
       const { data, error } = await contentService.createContentEntry({
         topic: formData.topic,
         description: formData.description,
@@ -150,7 +175,7 @@ const Index = () => {
 
       console.log("Content entry created successfully:", data);
 
-      await loadEntries();
+      await loadEntries(true); // Force refresh after creating new content
       setShowNewContent(false);
       
       toast({
@@ -180,7 +205,7 @@ const Index = () => {
         throw error;
       }
 
-      await loadEntries();
+      await loadEntries(true); // Force refresh after update
       
       toast({
         title: "Contenido actualizado",
@@ -201,7 +226,6 @@ const Index = () => {
       console.log('=== HANDLING DELETE PLATFORM ===');
       console.log('Platform ID received:', platformId);
       
-      // Validate that we have a proper platform ID format
       if (!platformId || !platformId.includes('__')) {
         console.error('Invalid platform ID format for deletion:', platformId);
         toast({
@@ -222,7 +246,7 @@ const Index = () => {
       }
 
       console.log('✅ Platform deleted successfully');
-      await loadEntries();
+      await loadEntries(true); // Force refresh after deletion
       
       toast({
         title: "Plataforma eliminada",
@@ -240,10 +264,7 @@ const Index = () => {
 
   const handleDownloadSlides = async (platformId: string, slidesURL: string) => {
     try {
-      // Extract the original entry ID if it contains the separator
       const originalEntryId = platformId.includes('__') ? platformId.split('__')[0] : platformId;
-      
-      // Find the entry to get the topic
       const entry = entries.find(e => e.id === originalEntryId);
       const topic = entry?.topic || 'slides';
       
@@ -279,8 +300,7 @@ const Index = () => {
         throw error;
       }
 
-      // Reload entries to get the updated image
-      await loadEntries();
+      await loadEntries(true); // Force refresh after image generation
       
       toast({
         title: "¡Imagen generada exitosamente!",
@@ -302,10 +322,8 @@ const Index = () => {
       console.log('Platform ID:', platformId);
       console.log('Image URL:', imageUrl);
       
-      // Get the actual platform ID from the composite ID
       const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
       
-      // Update only the specific platform with the new image URL
       const { error } = await supabase
         .from('content_platforms')
         .update({ image_url: imageUrl })
@@ -316,8 +334,7 @@ const Index = () => {
         throw new Error('Failed to update platform image');
       }
 
-      // Reload entries to reflect the changes
-      await loadEntries();
+      await loadEntries(true); // Force refresh after image update
       
       if (imageUrl) {
         toast({
@@ -372,12 +389,12 @@ const Index = () => {
           loading={loading}
           onNewContent={() => setShowNewContent(true)}
           onUpdateContent={handleUpdateContent}
-          onDeletePlatform={handleDeletePlatform} // Changed from onDeleteEntry
+          onDeletePlatform={handleDeletePlatform}
           onDownloadSlides={handleDownloadSlides}
           onGenerateImage={handleGenerateImage}
-          onUploadImage={() => {}} // Not used anymore  
-          onDeleteImage={() => {}} // Not used anymore
-          onReloadEntries={loadEntries}
+          onUploadImage={() => {}}
+          onDeleteImage={() => {}}
+          onReloadEntries={() => loadEntries(true)}
           onUpdateImage={handleUpdateImage}
         />
       </div>
