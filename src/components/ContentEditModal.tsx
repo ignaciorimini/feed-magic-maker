@@ -76,18 +76,28 @@ const ContentEditModal = ({
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
     
-    // Formatear la fecha programada para el input
-    if (content.scheduled_at || content.publishDate) {
-      const dateToFormat = content.scheduled_at || content.publishDate;
-      setScheduledDate(formatForInput(dateToFormat));
+    // Initialize scheduled date properly
+    const existingDate = content.scheduled_at || content.publishDate;
+    if (existingDate && existingDate !== '') {
+      // Convert to local time and format for datetime-local input
+      const date = new Date(existingDate);
+      const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+      const formattedDate = localDate.toISOString().slice(0, 16);
+      setScheduledDate(formattedDate);
     } else {
       setScheduledDate('');
     }
-  }, [content, slideImages, imageUrl, formatForInput]);
+  }, [content, slideImages, imageUrl]);
+
+  const handleScheduledDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setScheduledDate(newValue);
+    console.log('Scheduled date changed to:', newValue);
+  };
 
   const handleCancelScheduling = async () => {
     try {
-      // Eliminar la programación de la base de datos
+      // Remove scheduling from the database
       const { error } = await contentService.updatePlatformSchedule(entryId, '');
       
       if (error) {
@@ -119,16 +129,15 @@ const ContentEditModal = ({
   };
 
   const handleSave = async () => {
-    const contentToSave = {
-      ...editedContent,
-      scheduled_at: scheduledDate ? localToUtc(new Date(scheduledDate)) : null,
-      publishDate: scheduledDate ? localToUtc(new Date(scheduledDate)) : null
-    };
+    let contentToSave = { ...editedContent };
 
-    // Si hay una fecha programada, actualizarla en la base de datos
-    if (scheduledDate) {
+    // Handle scheduled date if provided
+    if (scheduledDate && scheduledDate.trim() !== '') {
       try {
-        const utcDate = localToUtc(new Date(scheduledDate));
+        const localDate = new Date(scheduledDate);
+        const utcDate = localDate.toISOString();
+        
+        // Update the schedule in the database
         const { error } = await contentService.updatePlatformSchedule(entryId, utcDate);
         if (error) {
           console.error('Error updating schedule:', error);
@@ -139,11 +148,17 @@ const ContentEditModal = ({
           });
           return;
         }
+        
+        // Add schedule info to content
+        contentToSave.scheduled_at = utcDate;
+        contentToSave.publishDate = utcDate;
+        
+        console.log('Scheduled date saved:', utcDate);
       } catch (error) {
-        console.error('Error updating schedule:', error);
+        console.error('Error processing scheduled date:', error);
         toast({
           title: "Error al programar",
-          description: "Hubo un problema al guardar la fecha programada.",
+          description: "Fecha inválida. Por favor, verifica el formato.",
           variant: "destructive",
         });
         return;
@@ -152,10 +167,11 @@ const ContentEditModal = ({
 
     await onSave(contentToSave);
     
-    if (scheduledDate) {
+    if (scheduledDate && scheduledDate.trim() !== '') {
+      const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
       toast({
         title: "Contenido programado",
-        description: `El contenido se publicará el ${formatForDisplay(localToUtc(new Date(scheduledDate)))}`,
+        description: `El contenido se publicará el ${displayDate}`,
       });
     } else {
       toast({
@@ -426,7 +442,7 @@ const ContentEditModal = ({
                     <div>
                       <h3 className="text-lg font-semibold text-blue-900">Publicación Programada</h3>
                       <p className="text-blue-700 font-medium">
-                        {formatForDisplay(localToUtc(new Date(scheduledDate)))}
+                        {formatForDisplay(new Date(scheduledDate).toISOString())}
                       </p>
                     </div>
                   </div>
@@ -442,7 +458,7 @@ const ContentEditModal = ({
               </div>
             )}
 
-            {/* Información del Contenido */}
+            {/* Topic and Description Info */}
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Tema</Label>
@@ -489,7 +505,7 @@ const ContentEditModal = ({
               </div>
             )}
 
-            {/* Contenido del Post */}
+            {/* Content Text */}
             <div className="space-y-2">
               <Label htmlFor="text">
                 {platform === 'wordpress' ? 'Contenido (Markdown)' : 'Texto del contenido'}
@@ -504,7 +520,7 @@ const ContentEditModal = ({
               />
             </div>
 
-            {/* Sección específica para Slide Posts */}
+            {/* Slide Posts Section */}
             {isSlidePost && (
               <div className="space-y-4">
                 {content.slidesURL && (
@@ -597,7 +613,7 @@ const ContentEditModal = ({
               </div>
             )}
 
-            {/* Sección para Simple Posts - Imagen Principal */}
+            {/* Simple Posts - Main Image Section */}
             {!isSlidePost && (
               <div className="space-y-2">
                 <Label>Imagen principal</Label>
@@ -736,7 +752,7 @@ const ContentEditModal = ({
               </div>
             )}
 
-            {/* Configuración de Publicación */}
+            {/* Publishing Configuration */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center space-x-2">
                 <Switch
@@ -771,7 +787,7 @@ const ContentEditModal = ({
                       id="scheduledDate"
                       type="datetime-local"
                       value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
+                      onChange={handleScheduledDateChange}
                       min={getMinDateTime()}
                       className="text-base font-medium"
                     />
@@ -779,7 +795,7 @@ const ContentEditModal = ({
                       <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                         <p className="text-sm text-blue-700 font-medium">
                           <Clock className="w-4 h-4 inline mr-1" />
-                          Se publicará el {formatForDisplay(localToUtc(new Date(scheduledDate)))}
+                          Se publicará el {formatForDisplay(new Date(scheduledDate).toISOString())}
                         </p>
                       </div>
                     )}
