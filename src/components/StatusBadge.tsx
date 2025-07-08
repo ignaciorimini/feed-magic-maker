@@ -1,13 +1,14 @@
 
-import { Instagram, Linkedin, Globe, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Instagram, Linkedin, Globe, Clock, CheckCircle, XCircle, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StatusBadgeProps {
   platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
   status: 'published' | 'pending' | 'error';
+  scheduledAt?: string | null;
 }
 
-const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
+const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
       case 'instagram':
@@ -23,7 +24,16 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
     }
   };
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = (status: string, scheduledAt?: string | null) => {
+    // If content is scheduled (has scheduledAt and it's in the future), show "Programado"
+    if (scheduledAt && new Date(scheduledAt) > new Date()) {
+      return {
+        icon: Calendar,
+        color: 'bg-blue-100 text-blue-700 border-blue-200',
+        label: 'Programado'
+      };
+    }
+    
     switch (status) {
       case 'published':
         return {
@@ -52,7 +62,7 @@ const StatusBadge = ({ platform, status }: StatusBadgeProps) => {
     }
   };
 
-  const statusConfig = getStatusConfig(status);
+  const statusConfig = getStatusConfig(status, scheduledAt);
   const StatusIcon = statusConfig.icon;
 
   return (
