@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import ContentForm from '@/components/ContentForm';
 import PlatformPreview from '@/components/PlatformPreview';
 import { useAuth } from '@/hooks/useAuth';
 import { contentService } from '@/services/contentService';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 const DashboardContent = () => {
@@ -84,7 +85,12 @@ const DashboardContent = () => {
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
-      const { error } = await contentService.deleteContentEntry(entryId);
+      // Delete the content entry and its related platforms
+      const { error } = await supabase
+        .from('content_entries')
+        .delete()
+        .eq('id', entryId);
+      
       if (error) {
         throw error;
       }
@@ -95,7 +101,7 @@ const DashboardContent = () => {
       });
       
       // Invalidate query to refetch data
-      queryClient.invalidateQueries(['content-entries', user?.id]);
+      queryClient.invalidateQueries({ queryKey: ['content-entries', user?.id] });
     } catch (error) {
       console.error('Error deleting entry:', error);
       toast({
@@ -114,7 +120,7 @@ const DashboardContent = () => {
 
   const handleUpdateContent = useCallback(async (entryId: string, platform: string, content: any) => {
     try {
-      const { error } = await contentService.updatePlatformContent(entryId, platform, content);
+      const { error } = await contentService.updatePlatformContent(entryId, content);
       if (error) {
         throw error;
       }
@@ -242,7 +248,7 @@ const DashboardContent = () => {
                       }}
                       status={platform.status || 'pending'}
                       contentType={entry.type}
-                      onUpdateContent={handleUpdateContent}
+                      onUpdateContent={(content) => handleUpdateContent(entry.id, platform.platform, content)}
                       entryId={entry.id}
                       platformId={platform.id}
                       topic={entry.topic}

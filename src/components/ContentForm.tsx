@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sparkles, Plus, Loader2, Wand2, Stars } from 'lucide-react';
-import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 
 interface ContentFormProps {
@@ -63,15 +62,28 @@ const ContentForm = ({ onContentGenerated }: ContentFormProps) => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await contentService.generateContent({
-        topic: topic.trim(),
-        description: description.trim(),
-        contentType,
-        platforms
+      // Call external webhook for content generation
+      const webhookUrl = process.env.NEXT_PUBLIC_CONTENT_GENERATION_WEBHOOK;
+      
+      if (!webhookUrl) {
+        throw new Error('Webhook URL not configured');
+      }
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          description: description.trim(),
+          contentType,
+          platforms
+        }),
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to generate content');
       }
 
       toast({
@@ -180,22 +192,25 @@ const ContentForm = ({ onContentGenerated }: ContentFormProps) => {
           <Button
             type="submit"
             disabled={isLoading || !topic.trim() || platforms.length === 0}
-            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 hover:from-purple-700 hover:via-purple-800 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] border-0"
+            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] border-0 relative overflow-hidden group"
           >
-            {isLoading ? (
-              <div className="flex items-center space-x-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Generando contenido...</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <div className="relative">
-                  <Stars className="w-5 h-5" />
-                  <Sparkles className="w-3 h-3 absolute -top-1 -right-1 animate-pulse" />
-                </div>
-                <span>Generar contenido</span>
-              </div>
-            )}
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 via-violet-500/20 to-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10 flex items-center justify-center space-x-2">
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Generando contenido...</span>
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Stars className="w-5 h-5" />
+                    <Sparkles className="w-3 h-3 absolute -top-1 -right-1 animate-pulse" />
+                  </div>
+                  <span>Generar contenido</span>
+                </>
+              )}
+            </div>
           </Button>
         </form>
       </CardContent>
