@@ -17,7 +17,7 @@ interface PlatformHeaderProps {
   publishedLink?: string;
   onEdit: () => void;
   onDownloadSlides: () => void;
-  onGenerateImage: () => void;
+  onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
 }
 
 const PlatformHeader = ({
@@ -61,7 +61,7 @@ const PlatformHeader = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onGenerateImage}
+              onClick={() => onGenerateImage(platformId, platform, topic, description)}
               disabled={isGeneratingImage}
               className="h-7 w-7 p-0"
               title="Generar imagen"

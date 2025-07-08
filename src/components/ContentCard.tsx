@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2, Clock } from 'lucide-react';
+import { Calendar, FileText, Presentation, ExternalLink, Edit, MoreVertical, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import StatusBadge from './StatusBadge';
 import PlatformPreview from './PlatformPreview';
 import PublishingSettings from './PublishingSettings';
-import { formatDateInUserTimezone } from '@/utils/timezoneUtils';
 
 interface ContentCardProps {
   entry: {
@@ -29,14 +28,12 @@ interface ContentCardProps {
         images: string[];
         publishDate?: string;
         slidesURL?: string;
-        scheduled_at?: string;
       };
       linkedin: {
         text: string;
         images: string[];
         publishDate?: string;
         slidesURL?: string;
-        scheduled_at?: string;
       };
       wordpress: {
         text: string;
@@ -46,7 +43,6 @@ interface ContentCardProps {
         description?: string;
         slug?: string;
         slidesURL?: string;
-        scheduled_at?: string;
       };
     };
     slideImages?: string[];
@@ -156,21 +152,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
     }
   };
 
-  // Get the earliest scheduled date from all platforms
-  const getEarliestScheduledDate = () => {
-    const scheduledDates = availablePlatforms
-      .map(platform => localEntry.platformContent[platform as keyof typeof localEntry.platformContent]?.scheduled_at)
-      .filter(Boolean);
-    
-    if (scheduledDates.length === 0) return null;
-    
-    return scheduledDates.reduce((earliest, current) => {
-      return new Date(current!) < new Date(earliest!) ? current : earliest;
-    });
-  };
-
-  const earliestScheduledDate = getEarliestScheduledDate();
-
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
       <div className="flex flex-col lg:flex-row">
@@ -186,23 +167,9 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                   <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight">
                     {localEntry.topic}
                   </h3>
-                  <div className="flex flex-wrap items-center gap-1 mt-1">
-                    <Badge variant="outline" className="text-xs">
-                      {localEntry.type}
-                    </Badge>
-                    {/* Show scheduled date badge if any platform is scheduled */}
-                    {earliestScheduledDate && (
-                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 border-blue-200">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {formatDateInUserTimezone(earliestScheduledDate, {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </Badge>
-                    )}
-                  </div>
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {localEntry.type}
+                  </Badge>
                 </div>
               </div>
               
@@ -223,29 +190,6 @@ const ContentCard = ({ entry, selectedPlatforms, onUpdateContent, onUpdatePublis
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-
-            {/* Prominent scheduled date display */}
-            {earliestScheduledDate && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border border-blue-200 dark:border-blue-600">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <div>
-                    <p className="text-xs font-medium text-blue-800 dark:text-blue-200">
-                      Programado para publicar
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      {formatDateInUserTimezone(earliestScheduledDate, {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </CardHeader>
 
           <CardContent className="p-0 space-y-3">

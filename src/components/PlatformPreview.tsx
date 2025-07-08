@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { Instagram, Linkedin, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -22,7 +23,6 @@ interface PlatformPreviewProps {
     slug?: string;
     slidesURL?: string;
     platformId?: string;
-    scheduled_at?: string;
   };
   status: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
   contentType: string;
@@ -78,8 +78,7 @@ const PlatformPreview = ({
     description: content.description,
     slug: content.slug,
     slidesURL: content.slidesURL,
-    platformId: content.platformId || platformId,
-    scheduled_at: content.scheduled_at
+    platformId: content.platformId || platformId
   };
 
   useEffect(() => {
@@ -165,8 +164,8 @@ const PlatformPreview = ({
     }
   };
 
-  const handleGenerateImage = async (platformId: string, platform: string, topic: string, description: string) => {
-    if (!user || !platformId || !topic) {
+  const handleGenerateImage = async () => {
+    if (!user || !safeContent.platformId || !topic) {
       toast({
         title: "Error",
         description: "No se puede generar la imagen en este momento.",
@@ -178,10 +177,10 @@ const PlatformPreview = ({
     setIsGeneratingImage(true);
     try {
       const { data, error } = await contentService.generateImageForPlatform(
-        platformId,
+        safeContent.platformId,
         platform,
         topic,
-        description
+        safeContent.description || ''
       );
       
       if (error) {
@@ -207,16 +206,6 @@ const PlatformPreview = ({
     } finally {
       setIsGeneratingImage(false);
     }
-  };
-
-  // Create a wrapper function for PlatformHeader that doesn't need parameters
-  const handleGenerateImageForHeader = () => {
-    handleGenerateImage(
-      safeContent.platformId || '',
-      platform,
-      topic || '',
-      safeContent.description || ''
-    );
   };
 
   const handleUploadImage = async (platformId: string, file: File) => {
@@ -359,7 +348,7 @@ const PlatformPreview = ({
             publishedLink={publishedLink}
             onEdit={() => setShowEditModal(true)}
             onDownloadSlides={handleDownloadSlides}
-            onGenerateImage={handleGenerateImageForHeader}
+            onGenerateImage={handleGenerateImage}
           />
         </CardHeader>
         
@@ -404,7 +393,6 @@ const PlatformPreview = ({
 
           <PublishInfo
             publishDate={safeContent.publishDate}
-            scheduledAt={safeContent.scheduled_at}
             status={status}
             publishedLink={publishedLink}
             entryId={entryId}
@@ -434,3 +422,4 @@ const PlatformPreview = ({
 };
 
 export default PlatformPreview;
+

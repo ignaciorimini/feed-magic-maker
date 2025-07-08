@@ -51,10 +51,6 @@ const ImagePreview = ({
     }
   };
 
-  const handleGenerateImage = () => {
-    onGenerateImage(platformId, platform, topic, description);
-  };
-
   const allImages = [
     ...(previewImage && !imageError ? [previewImage] : []),
     ...uploadedImages
@@ -124,7 +120,7 @@ const ImagePreview = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleGenerateImage}
+              onClick={() => onGenerateImage(platformId, platform, topic, description)}
               disabled={isGeneratingImage}
               className="h-7 px-2 text-xs"
             >
@@ -171,7 +167,7 @@ const ImagePreview = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleGenerateImage}
+            onClick={() => onGenerateImage(platformId, platform, topic, description)}
             disabled={isGeneratingImage}
             className="h-7 px-2 text-xs"
           >
