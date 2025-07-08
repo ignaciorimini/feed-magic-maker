@@ -362,19 +362,9 @@ const Index = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="container mx-auto px-4 py-8">
           <ContentForm 
-            onContentGenerated={() => {
-              setShowNewContent(false);
-              loadEntries(true);
-            }}
+            onSubmit={handleNewContent}
+            onCancel={() => setShowNewContent(false)}
           />
-          <div className="mt-4">
-            <button
-              onClick={() => setShowNewContent(false)}
-              className="text-gray-600 hover:text-gray-800"
-            >
-              ← Volver al dashboard
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -393,7 +383,20 @@ const Index = () => {
           onSignOut={() => {}}
           userEmail={user?.email}
         />
-        <DashboardContent />
+        <DashboardContent
+          entries={entries}
+          selectedPlatforms={selectedPlatforms}
+          loading={loading}
+          onNewContent={() => setShowNewContent(true)}
+          onUpdateContent={handleUpdateContent}
+          onDeletePlatform={handleDeletePlatform}
+          onDownloadSlides={handleDownloadSlides}
+          onGenerateImage={handleGenerateImage}
+          onUploadImage={() => {}}
+          onDeleteImage={() => {}}
+          onReloadEntries={() => loadEntries(true)}
+          onUpdateImage={handleUpdateImage}
+        />
       </div>
     </div>
   );

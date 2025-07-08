@@ -1,272 +1,282 @@
 
-import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import ContentForm from '@/components/ContentForm';
-import PlatformPreview from '@/components/PlatformPreview';
-import { useAuth } from '@/hooks/useAuth';
-import { contentService } from '@/services/contentService';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import StatsOverview from '@/components/StatsOverview';
+import PlatformCard from '@/components/PlatformCard';
+import ScheduledBadge from '@/components/ScheduledBadge';
 
-const DashboardContent = () => {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [lastFetch, setLastFetch] = useState<number>(Date.now());
+interface DashboardContentProps {
+  entries: any[];
+  selectedPlatforms: string[];
+  loading: boolean;
+  onNewContent: () => void;
+  onUpdateContent: (entryId: string, platform: string, content: any) => Promise<void>;
+  onDeletePlatform: (platformId: string) => void;
+  onDownloadSlides: (entryId: string, slidesURL: string) => void;
+  onGenerateImage: (platformId: string, platform: string, topic: string, description: string) => void;
+  onUploadImage: (platformId: string, file: File) => void;
+  onDeleteImage: (platformId: string, imageUrl: string, isUploaded: boolean) => void;
+  onReloadEntries?: () => void;
+  onUpdateImage: (entryId: string, imageUrl: string | null) => Promise<void>;
+}
 
-  const { data: entries = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['content-entries', user?.id, lastFetch],
-    queryFn: async () => {
-      if (!user?.id) {
-        throw new Error('User not found');
-      }
-      
-      console.log('Fetching content entries...');
-      
-      // Fetch content entries with platforms and slide images
-      const { data: entriesData, error: entriesError } = await supabase
-        .from('content_entries')
-        .select(`
-          *,
-          platforms:content_platforms(
-            id,
+const DashboardContent = ({
+  entries,
+  selectedPlatforms,
+  loading,
+  onNewContent,
+  onUpdateContent,
+  onDeletePlatform,
+  onDownloadSlides,
+  onGenerateImage,
+  onUploadImage,
+  onDeleteImage,
+  onReloadEntries,
+  onUpdateImage
+}: DashboardContentProps) => {
+  // Transform entries to create individual platform cards only for platforms that have content
+  const platformCards = entries.flatMap(entry => {
+    const cards = [];
+    
+    // Check both platformContent and platforms array for compatibility
+    const platformSources = [];
+    
+    // Add from platformContent (legacy structure)
+    if (entry.platformContent) {
+      Object.keys(entry.platformContent).forEach(platform => {
+        const platformContent = entry.platformContent[platform];
+        if (platformContent && (platformContent.text || platformContent.title || (platformContent.images && platformContent.images.length > 0))) {
+          platformSources.push({
             platform,
-            status,
-            text,
-            image_url,
-            slides_url,
-            scheduled_at,
-            published_url,
-            slide_images:slide_images(
-              image_url,
-              position
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (entriesError) {
-        console.error('Error fetching entries:', entriesError);
-        throw entriesError;
+            content: platformContent,
+            scheduled_at: platformContent.scheduled_at || platformContent.publishDate,
+            source: 'platformContent'
+          });
+        }
+      });
+    }
+    
+    // Add from platforms array (new structure)
+    if (entry.platforms && Array.isArray(entry.platforms)) {
+      entry.platforms.forEach(platform => {
+        if (platform.text || platform.title || platform.image_url) {
+          platformSources.push({
+            platform: platform.platform,
+            content: platform,
+            scheduled_at: platform.scheduled_at,
+            source: 'platforms'
+          });
+        }
+      });
+    }
+    
+    // Create cards from all sources
+    platformSources.forEach(source => {
+      const platformKey = source.platform as 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
+      const platformContent = source.content;
+      
+      // Convert content_type to display format
+      let displayType = entry.type;
+      if (platformContent.contentType === 'simple' || platformContent.content_type === 'simple') {
+        displayType = 'Simple Post';
+      } else if (platformContent.contentType === 'slide' || platformContent.content_type === 'slide') {
+        displayType = 'Slide Post';
+      } else if (platformContent.contentType === 'article' || platformContent.content_type === 'article') {
+        displayType = 'Article';
       }
-
-      console.log('Raw entries data:', entriesData);
-
-      // Transform the data to include slide images properly
-      const transformedEntries = entriesData?.map(entry => {
-        const platforms = entry.platforms?.map((platform: any) => {
-          // Sort slide images by position
-          const slideImages = platform.slide_images?.sort((a: any, b: any) => a.position - b.position);
-          
-          return {
-            ...platform,
-            slideImages: slideImages?.map((img: any) => img.image_url) || []
-          };
-        }) || [];
-
-        return {
-          ...entry,
-          platforms
-        };
-      }) || [];
-
-      console.log('Transformed entries:', transformedEntries);
-      return transformedEntries;
-    },
-    enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchInterval: false,
+      
+      // Get slide images for this platform
+      const slideImages = source.source === 'platforms' 
+        ? (platformContent.slide_images || []).sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url)
+        : [];
+      
+      cards.push({
+        ...entry,
+        platform: platformKey,
+        id: `${entry.id}__${source.platform}`,
+        type: displayType,
+        contentType: platformContent.contentType || platformContent.content_type || 'simple',
+        slideImages: slideImages,
+        scheduledAt: source.scheduled_at, // Add scheduled date to the card
+        platformData: platformContent // Add platform data for easy access
+      });
+    });
+    
+    return cards;
   });
 
-  const handleDeleteEntry = async (entryId: string) => {
-    try {
-      // Delete the content entry and its related platforms
-      const { error } = await supabase
-        .from('content_entries')
-        .delete()
-        .eq('id', entryId);
-      
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Contenido eliminado",
-        description: "La entrada ha sido eliminada exitosamente.",
-      });
-      
-      // Invalidate query to refetch data
-      queryClient.invalidateQueries({ queryKey: ['content-entries', user?.id] });
-    } catch (error) {
-      console.error('Error deleting entry:', error);
-      toast({
-        title: "Error al eliminar",
-        description: "Hubo un problema al eliminar la entrada.",
-        variant: "destructive",
-      });
+  const handleDownloadSlides = async (entryId: string, slidesURL: string) => {
+    const originalEntryId = entryId.split('__')[0];
+    const entry = entries.find(e => e.id === originalEntryId);
+    
+    if (!entry) {
+      console.error('Entry not found for slides download');
+      return;
+    }
+
+    console.log('=== DASHBOARD DOWNLOAD SLIDES ===');
+    console.log('Entry ID:', entryId);
+    console.log('Slides URL:', slidesURL);
+    console.log('Topic:', entry.topic);
+    
+    if (onDownloadSlides) {
+      onDownloadSlides(entryId, slidesURL);
     }
   };
 
-  const handleContentGenerated = useCallback(() => {
-    console.log('Content generated, refetching...');
-    setLastFetch(Date.now());
-    refetch();
-  }, [refetch]);
-
-  const handleUpdateContent = useCallback(async (entryId: string, platform: string, content: any) => {
-    try {
-      const { error } = await contentService.updatePlatformContent(entryId, content);
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Contenido actualizado",
-        description: "Los cambios han sido guardados exitosamente.",
-      });
-      
-      // Trigger refetch
-      setLastFetch(Date.now());
-      refetch();
-    } catch (error) {
-      console.error('Error updating content:', error);
-      toast({
-        title: "Error al actualizar",
-        description: "Hubo un problema al guardar los cambios.",
-        variant: "destructive",
-      });
+  const handleUpdateStatus = async (entryId: string, platform: string, newStatus: 'published' | 'pending' | 'error') => {
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE STATUS DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Status:', newStatus);
+    
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
     }
-  }, [refetch]);
+  };
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <ContentForm onContentGenerated={handleContentGenerated} />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="w-full">
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-32 bg-gray-200 rounded"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const handleUpdateLink = async (entryId: string, platform: string, link: string) => {
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE LINK DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Platform:', platform, 'Link:', link);
+    
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return;
+    }
+  };
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <ContentForm onContentGenerated={handleContentGenerated} />
-        </div>
-        
-        <div className="text-center py-12">
-          <p className="text-red-600 mb-4">Error al cargar el contenido: {error.message}</p>
-          <Button onClick={() => refetch()} variant="outline">
-            Reintentar
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleDeletePlatform = (platformId: string, platform: string) => {
+    console.log('=== DELETE PLATFORM DEBUG ===');
+    console.log('Platform ID received:', platformId);
+    console.log('Platform:', platform);
+    
+    if (!platformId || !platformId.includes('__')) {
+      console.error('Invalid platform ID format:', platformId);
+      return;
+    }
+    
+    console.log('✅ Passing platform ID to delete function:', platformId);
+    onDeletePlatform(platformId);
+  };
+
+  const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
+    const originalEntryId = entryId.split('__')[0];
+    console.log('=== UPDATE IMAGE DEBUG ===');
+    console.log('Entry ID received:', entryId);
+    console.log('Extracted original entry ID:', originalEntryId);
+    console.log('Original ID length:', originalEntryId.length);
+    console.log('Image URL:', imageUrl);
+    
+    if (!originalEntryId || originalEntryId.length !== 36 || !originalEntryId.includes('-')) {
+      console.error('Invalid extracted entry ID format:', originalEntryId);
+      return Promise.resolve();
+    }
+    
+    return Promise.resolve();
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <ContentForm onContentGenerated={handleContentGenerated} />
+    <div className="space-y-6 sm:space-y-8">
+      {/* Prominent Generate Content Button */}
+      <div className="text-center">
+        <Button 
+          onClick={onNewContent}
+          size="lg"
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+        >
+          <Plus className="w-6 h-6 mr-3" />
+          Generar Contenido
+        </Button>
+        <p className="text-sm text-gray-600 mt-2">
+          Crea contenido automático para todas tus redes sociales
+        </p>
       </div>
 
-      {entries.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg mb-4">
-            Aún no tienes contenido generado
-          </p>
-          <p className="text-gray-400">
-            Usa el formulario de arriba para crear tu primer contenido
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {entries.map((entry: any) => (
-            <div key={entry.id} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    {entry.topic}
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Creado el {new Date(entry.created_at).toLocaleDateString('es-ES')}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline">{entry.type}</Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteEntry(entry.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
+      <div>
+        <StatsOverview entries={entries} selectedPlatforms={selectedPlatforms} />
+      </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {entry.platforms?.map((platform: any) => {
-                  console.log('Rendering platform:', platform.platform, 'with slideImages:', platform.slideImages);
-                  
-                  return (
-                    <PlatformPreview
-                      key={`${entry.id}-${platform.platform}`}
-                      platform={platform.platform}
-                      content={{
-                        text: platform.text || '',
-                        images: platform.image_url ? [platform.image_url] : [],
-                        publishDate: platform.scheduled_at,
-                        title: platform.title,
-                        description: platform.description,
-                        slug: platform.slug,
-                        slidesURL: platform.slides_url,
-                        platformId: platform.id
-                      }}
-                      status={platform.status || 'pending'}
-                      contentType={entry.type}
-                      onUpdateContent={(content) => handleUpdateContent(entry.id, platform.platform, content)}
-                      entryId={entry.id}
-                      platformId={platform.id}
-                      topic={entry.topic}
-                      slideImages={platform.slideImages || []}
-                      publishedLink={platform.published_url}
-                      onStatusChange={(newStatus) => console.log('Status changed:', newStatus)}
-                      onLinkUpdate={(link) => console.log('Link updated:', link)}
-                      onDeleteEntry={() => handleDeleteEntry(entry.id)}
-                      onDownloadSlides={() => console.log('Download slides')}
-                      onUpdateImage={() => console.log('Update image')}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Contenido Creado</h2>
+            <p className="text-sm sm:text-base text-gray-600">Gestiona tu contenido por red social</p>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs sm:text-sm">
+              {platformCards.length} tarjetas
+            </Badge>
+          </div>
         </div>
-      )}
+
+        {loading ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
+            <p className="text-gray-600">Cargando contenido...</p>
+          </div>
+        ) : platformCards.length === 0 ? (
+          <Card className="text-center py-12 bg-white/60 backdrop-blur-sm border-dashed border-2 border-gray-300">
+            <CardContent className="pt-6">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No hay contenido aún
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Comienza creando tu primer contenido para redes sociales
+              </p>
+              <Button 
+                onClick={onNewContent}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Crear Contenido
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {platformCards.map((platformEntry) => (
+              <div key={platformEntry.id} className="relative">
+                <PlatformCard
+                  entry={platformEntry}
+                  platform={platformEntry.platform}
+                  onUpdateContent={onUpdateContent}
+                  onDeleteEntry={onDeletePlatform}
+                  onDownloadSlides={onDownloadSlides}
+                  onUpdateStatus={(entryId, platform, newStatus) => {
+                    // Handle status updates here if needed
+                  }}
+                  onUpdateLink={(entryId, platform, link) => {
+                    // Handle link updates here if needed
+                  }}
+                  onUpdateImage={onUpdateImage}
+                  onReloadEntries={onReloadEntries}
+                  onStatsUpdate={onReloadEntries}
+                />
+                {/* Show scheduled badge if content is scheduled */}
+                {platformEntry.scheduledAt && (
+                  <div className="absolute top-2 right-2">
+                    <ScheduledBadge 
+                      scheduledAt={platformEntry.scheduledAt} 
+                      size="sm"
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
