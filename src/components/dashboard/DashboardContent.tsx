@@ -1,4 +1,3 @@
-
 import { FileText, Plus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,10 +86,17 @@ const DashboardContent = ({
         displayType = 'Article';
       }
       
-      // Get slide images for this platform
-      const slideImages = source.source === 'platforms' 
-        ? (platformContent.slide_images || []).sort((a: any, b: any) => a.position - b.position).map((img: any) => img.image_url)
-        : [];
+      // Fix: Get slide images for this platform from the correct source
+      let slideImages = [];
+      if (source.source === 'platforms' && platformContent.slide_images) {
+        // New structure: slide_images array with position and image_url
+        slideImages = platformContent.slide_images
+          .sort((a: any, b: any) => a.position - b.position)
+          .map((img: any) => img.image_url);
+      } else if (source.source === 'platformContent' && platformContent.slideImages) {
+        // Legacy structure: direct slideImages array
+        slideImages = platformContent.slideImages;
+      }
       
       cards.push({
         ...entry,
@@ -99,8 +105,8 @@ const DashboardContent = ({
         type: displayType,
         contentType: platformContent.contentType || platformContent.content_type || 'simple',
         slideImages: slideImages,
-        scheduledAt: source.scheduled_at, // Add scheduled date to the card
-        platformData: platformContent // Add platform data for easy access
+        scheduledAt: source.scheduled_at,
+        platformData: platformContent
       });
     });
     
