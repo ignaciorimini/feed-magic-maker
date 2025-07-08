@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Clock, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ContentEditModal from '../ContentEditModal';
-import { formatDateInUserTimezone, formatTimeOnly } from '@/utils/timezoneUtils';
 
 interface ScheduledContent {
   id: string;
@@ -43,52 +42,29 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     const allScheduledContent: ScheduledContent[] = [];
     
     entries.forEach(entry => {
-      // Check if entry has platforms array (new structure)
-      if (entry.platforms && Array.isArray(entry.platforms)) {
-        entry.platforms.forEach((platformData: any) => {
-          if (platformData.scheduled_at) {
-            allScheduledContent.push({
-              id: `${entry.id}-${platformData.platform}`,
-              topic: entry.topic,
-              publishDate: platformData.scheduled_at,
-              platform: platformData.platform,
-              status: platformData.status || 'pending',
-              type: entry.type || 'Simple Post',
-              publishedLink: platformData.published_url,
-              description: entry.description,
-              platformContent: platformData,
-              slideImages: entry.slideImages,
-              imageUrl: platformData.image_url,
-              isScheduled: true
-            });
-          }
-        });
-      } else {
-        // Legacy structure - check platformContent
-        Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
-          const typedContent = content as any;
-          
-          // Check for scheduled dates in both scheduled_at and publishDate fields
-          const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
-          
-          if (scheduledDate) {
-            allScheduledContent.push({
-              id: `${entry.id}-${platform}`,
-              topic: entry.topic,
-              publishDate: scheduledDate,
-              platform: platform,
-              status: entry.status?.[platform] || 'pending',
-              type: entry.type || 'Simple Post',
-              publishedLink: entry.publishedLinks?.[platform],
-              description: entry.description,
-              platformContent: typedContent,
-              slideImages: entry.slideImages,
-              imageUrl: typedContent.image_url || entry.imageUrl,
-              isScheduled: true
-            });
-          }
-        });
-      }
+      Object.entries(entry.platformContent || {}).forEach(([platform, content]) => {
+        const typedContent = content as any;
+        
+        // Check for scheduled dates in both scheduled_at and publishDate fields
+        const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
+        
+        if (scheduledDate) {
+          allScheduledContent.push({
+            id: `${entry.id}-${platform}`,
+            topic: entry.topic,
+            publishDate: scheduledDate,
+            platform: platform,
+            status: entry.status?.[platform] || 'pending',
+            type: entry.type || 'Simple Post',
+            publishedLink: entry.publishedLinks?.[platform],
+            description: entry.description,
+            platformContent: typedContent,
+            slideImages: entry.slideImages,
+            imageUrl: typedContent.image_url || entry.imageUrl,
+            isScheduled: true
+          });
+        }
+      });
     });
     
     console.log('Loaded scheduled content:', allScheduledContent);
@@ -120,19 +96,10 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
 
   const getContentForDay = (date: Date) => {
     if (!date) return [];
-    
-    // Get the date string in user's timezone
-    const userDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const dateStr = userDate.toISOString().split('T')[0];
-    
-    return scheduledContent.filter(content => {
-      // Convert scheduled date to user's timezone for comparison
-      const scheduledDate = new Date(content.publishDate);
-      const scheduledDateStr = new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), scheduledDate.getDate())
-        .toISOString().split('T')[0];
-      
-      return scheduledDateStr === dateStr;
-    });
+    const dateStr = date.toISOString().split('T')[0];
+    return scheduledContent.filter(content => 
+      content.publishDate.startsWith(dateStr)
+    );
   };
 
   const handleContentClick = (content: ScheduledContent) => {
@@ -160,6 +127,13 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
         newDate.setMonth(prev.getMonth() + 1);
       }
       return newDate;
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -255,7 +229,7 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
                                 <span className="font-medium truncate">{content.topic}</span>
                               </div>
                               <div className="text-xs opacity-75 flex items-center justify-between">
-                                <span>{formatTimeOnly(content.publishDate)}</span>
+                                <span>{formatTime(content.publishDate)}</span>
                                 <span className="capitalize">{content.platform}</span>
                               </div>
                             </div>

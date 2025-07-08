@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -185,7 +186,7 @@ export const contentService = {
           image_url: content.image_url,
           slides_url: content.slidesURL,
           content_type: content.contentType,
-          scheduled_at: content.scheduledAt || content.scheduled_at
+          scheduled_at: content.scheduledAt
         })
         .eq('id', entryId);
 
@@ -205,12 +206,9 @@ export const contentService = {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 
-      // If scheduledAt is empty, set to null to clear the schedule
-      const scheduledValue = scheduledAt === '' ? null : scheduledAt;
-
       const { error } = await supabase
         .from('content_platforms')
-        .update({ scheduled_at: scheduledValue })
+        .update({ scheduled_at: scheduledAt })
         .eq('content_entry_id', contentEntryId)
         .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 
@@ -402,7 +400,7 @@ export const contentService = {
     }
   },
 
-  deleteImageFromPlatform: async (entryId: string) => {
+  deleteImageFromPlatform: async (entryId: string, imageUrl?: string, isUploaded?: boolean) => {
     try {
       const [contentEntryId, platform] = entryId.split('__');
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,6 @@ import ImagePreviewModal from './ImagePreviewModal';
 import MediaImageSelector from './MediaImageSelector';
 import { Switch } from '@/components/ui/switch';
 import PublishButton from './PublishButton';
-import { formatDateInUserTimezone, convertToUTC, convertFromUTC, getMinDateTimeForInput } from '@/utils/timezoneUtils';
 
 interface ContentEditModalProps {
   isOpen: boolean;
@@ -68,61 +68,26 @@ const ContentEditModal = ({
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(imageUrl || null);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState<string>('');
+  const [scheduledDate, setScheduledDate] = useState<string>(content.scheduled_at || content.publishDate || '');
 
   useEffect(() => {
     setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
-    
-    // Convert UTC scheduled date to local timezone for display in input
-    if (content.scheduled_at) {
-      setScheduledDate(convertFromUTC(content.scheduled_at));
-    } else {
-      setScheduledDate('');
-    }
+    setScheduledDate(content.scheduled_at || content.publishDate || '');
   }, [content, slideImages, imageUrl]);
-
-  const handleCancelScheduling = async () => {
-    try {
-      const { error } = await contentService.updatePlatformSchedule(entryId, '');
-      if (error) {
-        console.error('Error canceling schedule:', error);
-        toast({
-          title: "Error al cancelar programación",
-          description: "No se pudo cancelar la programación.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setScheduledDate('');
-      
-      toast({
-        title: "Programación cancelada",
-        description: "La programación de publicación ha sido cancelada.",
-      });
-    } catch (error) {
-      console.error('Error canceling schedule:', error);
-      toast({
-        title: "Error al cancelar programación",
-        description: "Hubo un problema al cancelar la programación.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSave = async () => {
     const contentToSave = {
       ...editedContent,
-      scheduled_at: scheduledDate ? convertToUTC(scheduledDate) : null,
-      publishDate: scheduledDate ? convertToUTC(scheduledDate) : null // Keep both for backward compatibility
+      scheduled_at: scheduledDate,
+      publishDate: scheduledDate // Keep both for backward compatibility
     };
 
     // If a scheduled date is set, also save it to the database
     if (scheduledDate) {
       try {
-        const { error } = await contentService.updatePlatformSchedule(entryId, convertToUTC(scheduledDate));
+        const { error } = await contentService.updatePlatformSchedule(entryId, scheduledDate);
         if (error) {
           console.error('Error updating schedule:', error);
           toast({
@@ -141,13 +106,6 @@ const ContentEditModal = ({
         });
         return;
       }
-    } else {
-      // Clear the scheduled date if empty
-      try {
-        await contentService.updatePlatformSchedule(entryId, '');
-      } catch (error) {
-        console.error('Error clearing schedule:', error);
-      }
     }
 
     await onSave(contentToSave);
@@ -155,7 +113,7 @@ const ContentEditModal = ({
     if (scheduledDate) {
       toast({
         title: "Contenido programado",
-        description: `El contenido se publicará el ${formatDateInUserTimezone(convertToUTC(scheduledDate))}`,
+        description: `El contenido se publicará el ${new Date(scheduledDate).toLocaleString('es-ES')}`,
       });
     } else {
       toast({
@@ -441,7 +399,7 @@ const ContentEditModal = ({
                     <div>
                       <h3 className="text-lg font-semibold text-blue-900">Publicación Programada</h3>
                       <p className="text-blue-700 font-medium">
-                        {formatDateInUserTimezone(convertToUTC(scheduledDate), {
+                        {new Date(scheduledDate).toLocaleString('es-ES', {
                           weekday: 'long',
                           year: 'numeric',
                           month: 'long',
@@ -455,7 +413,7 @@ const ContentEditModal = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleCancelScheduling}
+                    onClick={() => setScheduledDate('')}
                     className="text-blue-700 border-blue-300 hover:bg-blue-200"
                   >
                     Cancelar programación
@@ -794,14 +752,13 @@ const ContentEditModal = ({
                       type="datetime-local"
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
-                      min={getMinDateTimeForInput()}
                       className="text-base font-medium"
                     />
                     {scheduledDate && (
                       <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                         <p className="text-sm text-blue-700 font-medium">
                           <Clock className="w-4 h-4 inline mr-1" />
-                          Se publicará el {formatDateInUserTimezone(convertToUTC(scheduledDate))}
+                          Se publicará el {new Date(scheduledDate).toLocaleString('es-ES')}
                         </p>
                       </div>
                     )}
