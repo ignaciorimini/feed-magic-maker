@@ -389,8 +389,14 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             </div>
             
             <div className="flex items-center space-x-2">
-              {/* Show "Programado" if scheduled, otherwise show regular status */}
-              {status && <StatusBadge platform={platform} status={status} scheduledAt={isScheduled ? scheduledDate : null} />}
+              {/* Show only one status badge - "Programado" takes priority over "Pendiente" */}
+              {status && (
+                <StatusBadge 
+                  platform={platform} 
+                  status={isScheduled ? 'scheduled' : status} 
+                  scheduledAt={scheduledDate} 
+                />
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
