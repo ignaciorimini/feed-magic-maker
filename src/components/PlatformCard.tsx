@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -350,11 +351,30 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
     }
   };
 
+  // Check if content is scheduled
+  const isScheduled = scheduledDate && new Date(scheduledDate) > new Date();
+
   return (
     <>
       <Card className={`bg-gradient-to-br ${config.bgGradient} ${config.borderColor} border-2 hover:shadow-xl transition-all duration-300 group flex flex-col h-full`}>
         {/* Header */}
         <CardHeader className="p-4 pb-2 flex-shrink-0">
+          {/* Compact scheduled info at the top - only if scheduled */}
+          {isScheduled && (
+            <div className="mb-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 flex items-center space-x-1">
+              <Clock className="w-3 h-3" />
+              <span>
+                {new Date(scheduledDate).toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: '2-digit'
+                })} - {new Date(scheduledDate).toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+          )}
+
           {/* Platform and Status in same flexbox - Status aligned right */}
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center space-x-2">
@@ -369,7 +389,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
             </div>
             
             <div className="flex items-center space-x-2">
-              {status && <StatusBadge platform={platform} status={status} />}
+              {/* Show "Programado" if scheduled, otherwise show regular status */}
+              {status && <StatusBadge platform={platform} status={status} scheduledAt={isScheduled ? scheduledDate : null} />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -404,46 +425,12 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
               <Badge variant="outline" className="text-xs">
                 {localEntry.type}
               </Badge>
-              {/* Show scheduled date prominently if content is scheduled */}
-              {scheduledDate && (
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 border-blue-200">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {new Date(scheduledDate).toLocaleDateString('es-ES', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </Badge>
-              )}
             </div>
           </div>
         </CardHeader>
 
         {/* Content */}
         <CardContent className="p-4 pt-2 flex-1 flex flex-col space-y-3">
-          {/* Show scheduled date prominently at the top if exists */}
-          {scheduledDate && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">Programado para publicar</p>
-                  <p className="text-sm text-blue-700">
-                    {new Date(scheduledDate).toLocaleString('es-ES', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Description */}
           <p className="text-xs text-gray-600 line-clamp-2">
             {truncateText(localEntry.description, 80)}

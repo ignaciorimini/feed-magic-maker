@@ -25,7 +25,8 @@ const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
   };
 
   const getStatusConfig = (status: string, isScheduled: boolean) => {
-    if (isScheduled && (status === 'pending' || status === 'scheduled')) {
+    // If content is scheduled, show "Programado" regardless of status
+    if (isScheduled) {
       return {
         icon: Calendar,
         color: 'bg-blue-100 text-blue-700 border-blue-200',
