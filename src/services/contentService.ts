@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -271,27 +270,48 @@ export const contentService = {
     }
   },
 
-  updatePlatformStatus: async (platformId: string, status: string, publishedUrl?: string) => {
+  updatePlatformStatus: async (platformId: string, status: 'published' | 'pending' | 'error', publishedUrl?: string) => {
     try {
-      const updateData: any = { status };
-      if (publishedUrl) {
-        updateData.published_url = publishedUrl;
+      console.log('=== UPDATING PLATFORM STATUS ===');
+      console.log('Platform ID:', platformId);
+      console.log('Status:', status);
+      console.log('Published URL:', publishedUrl);
+
+      // Extract the actual platform ID from composite ID if needed
+      const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
+      
+      const updateData: any = {
+        status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Set published_at if status is published
+      if (status === 'published') {
         updateData.published_at = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      // Set published_url if provided
+      if (publishedUrl) {
+        updateData.published_url = publishedUrl;
+      }
+
+      const { data, error } = await supabase
         .from('content_platforms')
         .update(updateData)
-        .eq('id', platformId);
+        .eq('id', actualPlatformId)
+        .select()
+        .single();
 
       if (error) {
         console.error('Error updating platform status:', error);
-        return { data: null, error };
+        throw error;
       }
 
-      return { data: null, error: null };
+      console.log('✅ Platform status updated successfully:', data);
+      return { data, error: null };
+
     } catch (error) {
-      console.error('Unexpected error updating platform status:', error);
+      console.error('Error in updatePlatformStatus:', error);
       return { data: null, error };
     }
   },

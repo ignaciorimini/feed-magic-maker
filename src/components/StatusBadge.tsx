@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface StatusBadgeProps {
   platform: 'instagram' | 'linkedin' | 'wordpress' | 'twitter';
-  status: 'published' | 'pending' | 'error';
+  status: 'published' | 'pending' | 'scheduled' | 'error';
   scheduledAt?: string | null;
 }
 
@@ -25,7 +25,7 @@ const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
   };
 
   const getStatusConfig = (status: string, isScheduled: boolean) => {
-    if (isScheduled && status === 'pending') {
+    if (isScheduled && (status === 'pending' || status === 'scheduled')) {
       return {
         icon: Calendar,
         color: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -39,6 +39,12 @@ const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
           icon: CheckCircle,
           color: 'bg-green-100 text-green-700 border-green-200',
           label: 'Publicado'
+        };
+      case 'scheduled':
+        return {
+          icon: Calendar,
+          color: 'bg-blue-100 text-blue-700 border-blue-200',
+          label: 'Programado'
         };
       case 'pending':
         return {

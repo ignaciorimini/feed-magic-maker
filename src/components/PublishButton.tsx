@@ -41,7 +41,7 @@ const PublishButton = ({
                           (platform === 'wordpress' && data?.status === 'wordpressPublished');
       
       if (isPublished) {
-        // Update the status in the database
+        // Update the status in the database using the new method
         await contentService.updatePlatformStatus(platformId, 'published', data.link);
         
         // Update the UI immediately
@@ -61,9 +61,12 @@ const PublishButton = ({
           description: `El contenido ha sido publicado en ${platform}.`,
         });
       } else {
+        // Content is scheduled/queued for publishing by N8N
+        onStatusChange('scheduled');
+        
         toast({
-          title: "Publicación en proceso",
-          description: `El contenido se está procesando para ${platform}.`,
+          title: "Contenido programado para publicación",
+          description: `El contenido será publicado automáticamente por N8N. El estado se actualizará cuando se complete la publicación.`,
         });
       }
     } catch (error) {
@@ -93,6 +96,8 @@ const PublishButton = ({
         </>
       ) : currentStatus === 'published' ? (
         'Publicado'
+      ) : currentStatus === 'scheduled' ? (
+        'Programado'
       ) : (
         <>
           <Send className="w-3 h-3 mr-2" />
