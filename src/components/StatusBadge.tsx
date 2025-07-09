@@ -25,12 +25,10 @@ const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
   };
 
   const getStatusConfig = (status: string, isScheduled: boolean) => {
+    // If content is scheduled for future, don't show this badge at all
+    // It will be handled by the "Programado" badge in PlatformCard
     if (isScheduled && (status === 'pending' || status === 'scheduled')) {
-      return {
-        icon: Calendar,
-        color: 'bg-blue-100 text-blue-700 border-blue-200',
-        label: 'Programado'
-      };
+      return null;
     }
 
     switch (status) {
@@ -69,6 +67,12 @@ const StatusBadge = ({ platform, status, scheduledAt }: StatusBadgeProps) => {
 
   const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
   const statusConfig = getStatusConfig(status, !!isScheduled);
+  
+  // Don't render if statusConfig is null (scheduled content)
+  if (!statusConfig) {
+    return null;
+  }
+  
   const StatusIcon = statusConfig.icon;
 
   return (

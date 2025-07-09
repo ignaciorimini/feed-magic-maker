@@ -47,18 +47,25 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
       // Verificar en los platforms array si existe
       if (entry.platforms && Array.isArray(entry.platforms)) {
         entry.platforms.forEach((platform: any) => {
-          if (platform.scheduled_at) {
+          // Include both scheduled content AND published content
+          const dateToShow = platform.scheduled_at || platform.published_at;
+          
+          if (dateToShow) {
+            const isPublished = platform.status === 'published' && platform.published_at;
+            const isScheduled = platform.scheduled_at && new Date(platform.scheduled_at) > new Date();
+            
             allScheduledContent.push({
               id: `${entry.id}-${platform.platform}`,
               topic: entry.topic,
-              publishDate: platform.scheduled_at,
+              publishDate: dateToShow,
               platform: platform.platform,
               status: platform.status || 'pending',
               type: entry.type || 'Simple Post',
               description: entry.description,
               platformContent: platform,
               imageUrl: platform.image_url,
-              isScheduled: true
+              isScheduled: isScheduled,
+              isPublished: isPublished
             });
           }
         });
@@ -70,28 +77,34 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
           const typedContent = content as any;
           
           const scheduledDate = typedContent?.scheduled_at || typedContent?.publishDate;
+          const publishedDate = typedContent?.published_at;
+          const dateToShow = scheduledDate || publishedDate;
           
-          if (scheduledDate) {
+          if (dateToShow) {
+            const isPublished = typedContent?.status === 'published' && publishedDate;
+            const isScheduled = scheduledDate && new Date(scheduledDate) > new Date();
+            
             allScheduledContent.push({
               id: `${entry.id}-${platform}`,
               topic: entry.topic,
-              publishDate: scheduledDate,
+              publishDate: dateToShow,
               platform: platform,
-              status: entry.status?.[platform] || 'pending',
+              status: entry.status?.[platform] || typedContent?.status || 'pending',
               type: entry.type || 'Simple Post',
               publishedLink: entry.publishedLinks?.[platform],
               description: entry.description,
               platformContent: typedContent,
               slideImages: entry.slideImages,
               imageUrl: typedContent.image_url || entry.imageUrl,
-              isScheduled: true
+              isScheduled: isScheduled,
+              isPublished: isPublished
             });
           }
         });
       }
     });
     
-    console.log('Loaded scheduled content:', allScheduledContent);
+    console.log('Loaded scheduled and published content:', allScheduledContent);
     setScheduledContent(allScheduledContent);
   };
 
@@ -122,8 +135,8 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     if (!date) return [];
     
     return scheduledContent.filter(content => {
-      const scheduledDate = utcToLocal(content.publishDate);
-      const contentDay = scheduledDate.toDateString();
+      const contentDate = utcToLocal(content.publishDate);
+      const contentDay = contentDate.toDateString();
       const targetDay = date.toDateString();
       
       return contentDay === targetDay;
@@ -173,6 +186,26 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
     twitter: 'bg-gray-900 text-white border-gray-700'
   };
 
+  const getStatusColor = (content: ScheduledContent) => {
+    if (content.isPublished) {
+      return 'bg-green-100 text-green-800 border-green-200';
+    }
+    if (content.isScheduled) {
+      return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+    return platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100';
+  };
+
+  const getStatusLabel = (content: ScheduledContent) => {
+    if (content.isPublished) {
+      return 'Publicado';
+    }
+    if (content.isScheduled) {
+      return 'Programado';
+    }
+    return 'Pendiente';
+  };
+
   const days = getDaysInMonth(currentDate);
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -190,7 +223,7 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
               <span>Calendario de Publicaciones</span>
               <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
                 <CalendarDays className="w-3 h-3 mr-1" />
-                {scheduledContent.length} programadas
+                {scheduledContent.length} contenidos
               </Badge>
             </CardTitle>
             <div className="flex items-center space-x-2">
@@ -250,16 +283,17 @@ const CalendarGrid = ({ entries = [], onUpdateContent, onUpdateImage, onGenerate
                             onClick={() => handleContentClick(content)}
                             className="cursor-pointer p-1 rounded text-xs hover:shadow-md transition-all hover:scale-105"
                           >
-                            <div className={`px-2 py-1 rounded text-xs border ${
-                              platformColors[content.platform as keyof typeof platformColors] || 'bg-gray-100'
-                            }`}>
+                            <div className={`px-2 py-1 rounded text-xs border ${getStatusColor(content)}`}>
                               <div className="flex items-center space-x-1 mb-1">
                                 <CalendarDays className="w-3 h-3" />
                                 <span className="font-medium truncate">{content.topic}</span>
                               </div>
                               <div className="text-xs opacity-75 flex items-center justify-between">
                                 <span>{formatTime(content.publishDate)}</span>
-                                <span className="capitalize">{content.platform}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="capitalize">{content.platform}</span>
+                                  <span className="font-medium">({getStatusLabel(content)})</span>
+                                </div>
                               </div>
                             </div>
                           </div>
