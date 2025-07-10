@@ -61,7 +61,7 @@ const SlidePreview = ({
       )}
 
       {/* Slides Carousel */}
-      {hasSlideImages && slideImages && (
+      {hasSlideImages && slideImages && slideImages.length > 0 && (
         <div className="space-y-2">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Slides ({slideImages.length} imágenes)

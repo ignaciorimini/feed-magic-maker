@@ -610,6 +610,7 @@ export const contentService = {
       }
 
       const result = await response.json();
+      console.log('Slides downloaded successfully:', result);
       return { data: result, error: null };
     } catch (error) {
       console.error('Error in downloadSlidesWithUserWebhook:', error);
@@ -661,6 +662,16 @@ export const contentService = {
       }
 
       const result = await response.json();
+      console.log('Slides downloaded successfully:', result);
+      
+      // Save the slide images to the database if they exist in the response
+      if (Array.isArray(result) && result.length > 0 && result[0].slideImages && Array.isArray(result[0].slideImages)) {
+        const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
+        if (actualPlatformId) {
+          await contentService.saveSlideImages(actualPlatformId, result[0].slideImages);
+        }
+      }
+      
       return { data: result, error: null };
     } catch (error) {
       console.error('Error in downloadSlidesForPlatform:', error);
@@ -670,6 +681,8 @@ export const contentService = {
 
   saveSlideImages: async (platformId: string, slideImages: string[]) => {
     try {
+      console.log('Saving slide images for platform:', platformId, 'Images:', slideImages);
+      
       const { error: deleteError } = await supabase
         .from('slide_images')
         .delete()
@@ -695,6 +708,7 @@ export const contentService = {
         return { data: null, error };
       }
 
+      console.log('Slide images saved successfully:', data);
       return { data, error: null };
     } catch (error) {
       console.error('Unexpected error saving slide images:', error);
@@ -704,10 +718,16 @@ export const contentService = {
 
   getSlideImages: async (platformId: string) => {
     try {
+      // Get the actual platform ID if it's a composite ID
+      const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
+      const idToUse = actualPlatformId || platformId;
+      
+      console.log('Getting slide images for platform ID:', idToUse);
+      
       const { data, error } = await supabase
         .from('slide_images')
         .select('*')
-        .eq('content_platform_id', platformId)
+        .eq('content_platform_id', idToUse)
         .order('position');
 
       if (error) {

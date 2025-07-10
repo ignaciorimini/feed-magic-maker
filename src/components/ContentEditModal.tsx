@@ -201,7 +201,7 @@ const ContentEditModal = ({
 
     setIsDownloading(true);
     try {
-      const { data, error } = await contentService.downloadSlidesWithUserWebhook(content.slidesURL, topic);
+      const { data, error } = await contentService.downloadSlidesForPlatform(entryId, content.slidesURL, topic);
       
       if (error) {
         throw error;
@@ -211,11 +211,17 @@ const ContentEditModal = ({
         const newSlideImages = data[0].slideImages;
         setDownloadedSlides(newSlideImages);
         
-        await contentService.saveSlideImages(entryId, newSlideImages);
-        
         toast({
           title: "¡Slides descargadas exitosamente!",
           description: `Se descargaron ${newSlideImages.length} imágenes de las slides.`,
+        });
+        
+        onClose();
+        window.location.reload();
+      } else {
+        toast({
+          title: "Descarga completada",
+          description: "Las slides han sido procesadas exitosamente.",
         });
         
         onClose();
