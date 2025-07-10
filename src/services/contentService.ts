@@ -24,6 +24,11 @@ export const contentService = {
             content_type,
             published_url,
             scheduled_at,
+            slide_images(
+              id,
+              image_url,
+              position
+            ),
             wordpress_post:wordpress_posts(
               title,
               description,
@@ -153,6 +158,11 @@ export const contentService = {
             content_type,
             published_url,
             scheduled_at,
+            slide_images(
+              id,
+              image_url,
+              position
+            ),
             wordpress_post:wordpress_posts(
               title,
               description,
@@ -651,9 +661,6 @@ export const contentService = {
       }
 
       const result = await response.json();
-
-      await contentService.saveSlideImages(platformId, result[0].slideImages);
-
       return { data: result, error: null };
     } catch (error) {
       console.error('Error in downloadSlidesForPlatform:', error);
