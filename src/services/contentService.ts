@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -558,13 +557,30 @@ export const contentService = {
 
   downloadSlidesWithUserWebhook: async (slidesURL: string, topic: string) => {
     try {
-      const slidesToImagesURL = process.env.NEXT_PUBLIC_SLIDES_TO_IMAGES_URL;
-
-      if (!slidesToImagesURL) {
-        throw new Error('Slides to images URL is not defined in environment variables.');
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const response = await fetch(slidesToImagesURL, {
+      // Get the user's webhook URL from their profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        throw new Error('Failed to fetch user profile');
+      }
+
+      if (!profile?.webhook_url) {
+        throw new Error('Webhook URL is not configured in your profile. Please set up your webhook URL in profile settings.');
+      }
+
+      const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -591,13 +607,30 @@ export const contentService = {
 
   downloadSlidesForPlatform: async (platformId: string, slidesURL: string, topic: string) => {
     try {
-      const slidesToImagesURL = process.env.NEXT_PUBLIC_SLIDES_TO_IMAGES_URL;
-
-      if (!slidesToImagesURL) {
-        throw new Error('Slides to images URL is not defined in environment variables.');
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const response = await fetch(slidesToImagesURL, {
+      // Get the user's webhook URL from their profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('webhook_url')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        throw new Error('Failed to fetch user profile');
+      }
+
+      if (!profile?.webhook_url) {
+        throw new Error('Webhook URL is not configured in your profile. Please set up your webhook URL in profile settings.');
+      }
+
+      const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
