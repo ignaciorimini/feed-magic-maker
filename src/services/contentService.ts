@@ -319,6 +319,10 @@ export const contentService = {
 
   publishContent: async (platformId: string, platform: string) => {
     try {
+      console.log('=== STARTING PUBLISH CONTENT ===');
+      console.log('Platform ID:', platformId);
+      console.log('Platform:', platform);
+
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -342,8 +346,11 @@ export const contentService = {
         throw new Error('Webhook URL is not configured in your profile. Please set up your webhook URL in profile settings.');
       }
 
+      console.log('Webhook URL found:', profile.webhook_url);
+
       const [contentEntryId] = platformId.split('__');
 
+      // Get content entry data
       const { data: entryData, error: entryError } = await supabase
         .from('content_entries')
         .select('*')
@@ -352,21 +359,37 @@ export const contentService = {
 
       if (entryError) {
         console.error('Error fetching content entry:', entryError);
-        return { data: null, error: entryError };
+        throw new Error('Failed to fetch content entry');
       }
 
+      // Get platform data
       const { data: platformData, error: platformError } = await supabase
         .from('content_platforms')
-        .select('*')
+        .select(`
+          *,
+          wordpress_post:wordpress_posts(
+            title,
+            description,
+            slug,
+            content
+          )
+        `)
         .eq('content_entry_id', contentEntryId)
         .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress')
         .single();
 
       if (platformError) {
         console.error('Error fetching platform content:', platformError);
-        return { data: null, error: platformError };
+        throw new Error('Failed to fetch platform content');
       }
 
+      console.log('Sending data to webhook:', {
+        action: 'publish_content',
+        content_entry: entryData,
+        content_platform: platformData,
+      });
+
+      // Send request to N8N webhook
       const response = await fetch(profile.webhook_url, {
         method: 'POST',
         headers: {
@@ -379,14 +402,40 @@ export const contentService = {
         }),
       });
 
+      console.log('Webhook response status:', response.status);
+      console.log('Webhook response headers:', response.headers);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error publishing content:', errorData);
-        throw new Error(`Failed to publish content: ${response.statusText}`);
+        console.error('Webhook response not OK:', response.status, response.statusText);
+        throw new Error(`Failed to publish content: ${response.status} ${response.statusText}`);
       }
 
-      const result = await response.json();
+      // Handle different response types
+      let result;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          result = await response.json();
+          console.log('JSON response received:', result);
+        } catch (jsonError) {
+          console.warn('Failed to parse JSON response:', jsonError);
+          // If JSON parsing fails, treat as success but with empty result
+          result = { status: 'success', message: 'Content sent to N8N successfully' };
+        }
+      } else {
+        // Handle non-JSON responses (text, HTML, etc.)
+        const textResponse = await response.text();
+        console.log('Non-JSON response received:', textResponse);
+        result = { 
+          status: 'success', 
+          message: 'Content sent to N8N successfully',
+          response: textResponse 
+        };
+      }
+
       return { data: result, error: null };
+
     } catch (error) {
       console.error('Error in publishContent:', error);
       return { data: null, error };
