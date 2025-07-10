@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -319,27 +318,10 @@ export const contentService = {
 
   publishContent: async (platformId: string, platform: string) => {
     try {
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      const publishContentURL = process.env.NEXT_PUBLIC_PUBLISH_CONTENT_URL;
 
-      // Get the user's webhook URL from their profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('webhook_url')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        throw new Error('Failed to fetch user profile');
-      }
-
-      if (!profile?.webhook_url) {
-        throw new Error('Webhook URL is not configured in your profile. Please set up your webhook URL in profile settings.');
+      if (!publishContentURL) {
+        throw new Error('Publish content URL is not defined in environment variables.');
       }
 
       const [contentEntryId] = platformId.split('__');
@@ -367,13 +349,12 @@ export const contentService = {
         return { data: null, error: platformError };
       }
 
-      const response = await fetch(profile.webhook_url, {
+      const response = await fetch(publishContentURL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'publish_content',
           content_entry: entryData,
           content_platform: platformData,
         }),
