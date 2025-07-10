@@ -652,10 +652,7 @@ export const contentService = {
 
       const result = await response.json();
 
-      // Save the slide images to the database automatically
-      if (result && Array.isArray(result) && result.length > 0 && result[0].slideImages) {
-        await contentService.saveSlideImages(platformId, result[0].slideImages);
-      }
+      await contentService.saveSlideImages(platformId, result[0].slideImages);
 
       return { data: result, error: null };
     } catch (error) {
