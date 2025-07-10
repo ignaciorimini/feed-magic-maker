@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -586,6 +587,7 @@ export const contentService = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'download_slides',
           slidesURL: slidesURL,
           topic: topic,
         }),
@@ -636,6 +638,7 @@ export const contentService = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'download_slides',
           slidesURL: slidesURL,
           topic: topic,
         }),
