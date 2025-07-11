@@ -165,22 +165,39 @@ const ContentEditModal = ({
       }
     }
 
-    await onSave(contentToSave);
+    // Add platform information to help identify the content type
+    contentToSave.platform = platform;
     
-    if (scheduledDate && scheduledDate.trim() !== '') {
-      const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
+    console.log('=== SAVING CONTENT FROM MODAL ===');
+    console.log('Entry ID:', entryId);
+    console.log('Platform:', platform);
+    console.log('Content to save:', contentToSave);
+    
+    try {
+      await onSave(contentToSave);
+      
+      if (scheduledDate && scheduledDate.trim() !== '') {
+        const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
+        toast({
+          title: "Contenido programado",
+          description: `El contenido se publicará el ${displayDate}`,
+        });
+      } else {
+        toast({
+          title: "Contenido guardado",
+          description: "Los cambios han sido guardados exitosamente.",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Error saving content:', error);
       toast({
-        title: "Contenido programado",
-        description: `El contenido se publicará el ${displayDate}`,
-      });
-    } else {
-      toast({
-        title: "Contenido guardado",
-        description: "Los cambios han sido guardados exitosamente.",
+        title: "Error al guardar",
+        description: "No se pudieron guardar los cambios.",
+        variant: "destructive",
       });
     }
-    
-    onClose();
   };
 
   const handleImageClick = (images: string[], index: number) => {

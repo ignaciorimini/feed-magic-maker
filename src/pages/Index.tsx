@@ -199,13 +199,17 @@ const Index = () => {
       console.log('Platform:', platform);
       console.log('Content to update:', content);
       
+      // Call the update service
       const { error } = await contentService.updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
       }
 
-      await loadEntries(true); // Force refresh after update
+      console.log('Content updated successfully, refreshing entries...');
+      
+      // Force refresh after update to show changes immediately
+      await loadEntries(true);
       
       toast({
         title: "Contenido actualizado",
