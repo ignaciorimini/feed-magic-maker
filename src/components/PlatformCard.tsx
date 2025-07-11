@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Edit, ExternalLink, Download, MoreVertical, Trash2, ImageIcon, Sparkles, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -21,11 +22,11 @@ interface PlatformCardProps {
     type: string;
     contentType?: string;
     createdDate: string;
-    status?: {
-      instagram?: 'published' | 'pending' | 'error';
-      linkedin?: 'published' | 'pending' | 'error';
-      wordpress?: 'published' | 'pending' | 'error';
-      twitter?: 'published' | 'pending' | 'error';
+    status: {
+      instagram: 'published' | 'pending' | 'error';
+      linkedin: 'published' | 'pending' | 'error';
+      wordpress: 'published' | 'pending' | 'error';
+      twitter: 'published' | 'pending' | 'error';
     };
     platformContent: {
       instagram: any;
@@ -131,10 +132,8 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   };
 
   const config = platformConfig[platform];
-  const content = localEntry.platformContent?.[platform];
-  
-  // Safe access to status with fallback to 'pending'
-  const status = localEntry.status?.[platform] || 'pending';
+  const content = localEntry.platformContent[platform];
+  const status = localEntry.status[platform];
   
   // Get scheduled date from the content
   const scheduledDate = content?.scheduled_at;
@@ -143,7 +142,7 @@ const PlatformCard = ({ entry, platform, onUpdateContent, onDeleteEntry, onDownl
   const publishedLink = content?.published_url || localEntry.publishedLinks?.[platform];
 
   // Only show the card if this platform has content or a status (not null)
-  if (!content && !localEntry.status?.[platform]) {
+  if (!content && status === null) {
     return null;
   }
 

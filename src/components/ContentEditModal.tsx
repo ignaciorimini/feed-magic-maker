@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock, CalendarDays } from 'lucide-react';
-import { updatePlatformSchedule, downloadSlidesForPlatform, generateImageForPlatform, publishContent } from '@/services/contentService';
+import { contentService } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
 import MediaImageSelector from './MediaImageSelector';
@@ -29,7 +29,6 @@ interface ContentEditModalProps {
     slug?: string;
     slidesURL?: string;
     slideImages?: string[];
-    platform?: string;
   };
   contentType: string;
   onSave: (content: any) => Promise<void>;
@@ -58,7 +57,7 @@ const ContentEditModal = ({
   onGenerateImage
 }: ContentEditModalProps) => {
   const { formatForDisplay, formatForInput, getMinDateTime, localToUtc } = useTimezone();
-  const [editedContent, setEditedContent] = useState({ ...content, platform });
+  const [editedContent, setEditedContent] = useState(content);
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || content.slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -73,7 +72,7 @@ const ContentEditModal = ({
   const [scheduledDate, setScheduledDate] = useState<string>('');
 
   useEffect(() => {
-    setEditedContent({...content, platform});
+    setEditedContent(content);
     setDownloadedSlides(slideImages || content.slideImages || []);
     setCurrentImageUrl(imageUrl || null);
     
@@ -88,7 +87,7 @@ const ContentEditModal = ({
     } else {
       setScheduledDate('');
     }
-  }, [content, slideImages, imageUrl, platform]);
+  }, [content, slideImages, imageUrl]);
 
   const handleScheduledDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -99,7 +98,7 @@ const ContentEditModal = ({
   const handleCancelScheduling = async () => {
     try {
       // Remove scheduling from the database
-      const { error } = await updatePlatformSchedule(entryId, '');
+      const { error } = await contentService.updatePlatformSchedule(entryId, '');
       
       if (error) {
         console.error('Error canceling schedule:', error);
@@ -139,7 +138,7 @@ const ContentEditModal = ({
         const utcDate = localDate.toISOString();
         
         // Update the schedule in the database
-        const { error } = await updatePlatformSchedule(entryId, utcDate);
+        const { error } = await contentService.updatePlatformSchedule(entryId, utcDate);
         if (error) {
           console.error('Error updating schedule:', error);
           toast({
@@ -166,39 +165,22 @@ const ContentEditModal = ({
       }
     }
 
-    // Add platform information to help identify the content type
-    contentToSave.platform = platform;
+    await onSave(contentToSave);
     
-    console.log('=== SAVING CONTENT FROM MODAL ===');
-    console.log('Entry ID:', entryId);
-    console.log('Platform:', platform);
-    console.log('Content to save:', contentToSave);
-    
-    try {
-      await onSave(contentToSave);
-      
-      if (scheduledDate && scheduledDate.trim() !== '') {
-        const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
-        toast({
-          title: "Contenido programado",
-          description: `El contenido se publicará el ${displayDate}`,
-        });
-      } else {
-        toast({
-          title: "Contenido guardado",
-          description: "Los cambios han sido guardados exitosamente.",
-        });
-      }
-      
-      onClose();
-    } catch (error) {
-      console.error('Error saving content:', error);
+    if (scheduledDate && scheduledDate.trim() !== '') {
+      const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
       toast({
-        title: "Error al guardar",
-        description: "No se pudieron guardar los cambios.",
-        variant: "destructive",
+        title: "Contenido programado",
+        description: `El contenido se publicará el ${displayDate}`,
+      });
+    } else {
+      toast({
+        title: "Contenido guardado",
+        description: "Los cambios han sido guardados exitosamente.",
       });
     }
+    
+    onClose();
   };
 
   const handleImageClick = (images: string[], index: number) => {
@@ -219,7 +201,7 @@ const ContentEditModal = ({
 
     setIsDownloading(true);
     try {
-      const { data, error } = await downloadSlidesForPlatform(entryId, content.slidesURL, topic);
+      const { data, error } = await contentService.downloadSlidesForPlatform(entryId, content.slidesURL, topic);
       
       if (error) {
         throw error;
@@ -269,7 +251,7 @@ const ContentEditModal = ({
 
     setIsGeneratingImage(true);
     try {
-      const { data, error } = await generateImageForPlatform(
+      const { data, error } = await contentService.generateImageForPlatform(
         entryId, 
         platform, 
         topic, 
@@ -408,7 +390,7 @@ const ContentEditModal = ({
     try {
       await onSave(editedContent);
 
-      const { data, error } = await publishContent(entryId, platform);
+      const { data, error } = await contentService.publishContent(entryId, platform);
 
       if (error) {
         throw error;
