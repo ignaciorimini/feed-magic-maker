@@ -3,6 +3,8 @@ import { PostgrestResponse } from '@supabase/supabase-js';
 
 export const createContentEntry = async (content: any) => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const { data, error } = await supabase
       .from('content_entries')
       .insert([
@@ -10,7 +12,7 @@ export const createContentEntry = async (content: any) => {
           topic: content.topic,
           description: content.description,
           type: content.type,
-          user_id: supabase.auth.user()?.id,
+          user_id: user?.id,
         },
       ])
       .select()
@@ -28,11 +30,12 @@ export const createContentEntry = async (content: any) => {
     const newEntry = data[0];
 
     // Create platform entries
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     const platformsToCreate = content.selectedPlatforms.map((platform: string) => ({
       content_entry_id: newEntry.id,
       platform: platform,
       text: content.generatedContent[platform],
-      user_id: supabase.auth.user()?.id,
+      user_id: currentUser?.id,
       content_type: content.platformTypes[platform] || 'simple'
     }));
 
@@ -51,6 +54,27 @@ export const createContentEntry = async (content: any) => {
       return { data: null, error: platformsError };
     }
 
+    // Create WordPress posts for WordPress platforms
+    if (platformsData) {
+      for (const platformData of platformsData) {
+        if (platformData.platform === 'wordpress') {
+          const { error: wpError } = await supabase
+            .from('wordpress_posts')
+            .insert({
+              content_platform_id: platformData.id,
+              title: content.generatedContent.wordpress_title || 'Untitled',
+              description: content.generatedContent.wordpress_description || '',
+              slug: content.generatedContent.wordpress_slug || 'untitled',
+              content: content.generatedContent.wordpress || content.generatedContent[platformData.platform] || ''
+            });
+
+          if (wpError) {
+            console.error("Error creating WordPress post:", wpError);
+          }
+        }
+      }
+    }
+
     return { data: newEntry, error: null };
   } catch (error: any) {
     console.error("Unexpected error creating content entry:", error);
@@ -60,8 +84,8 @@ export const createContentEntry = async (content: any) => {
 
 export const getUserContentEntries = async () => {
     try {
-      const userId = supabase.auth.user()?.id;
-      if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         console.error("No user ID found.");
         return { data: [], error: { message: "No user ID found." } };
       }
@@ -75,7 +99,7 @@ export const getUserContentEntries = async () => {
             wordpress_post:wordpress_posts(*)
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .order('created_date', { ascending: false });
   
       if (error) {
@@ -297,11 +321,23 @@ export const downloadSlidesForPlatform = async (entryId: string, slidesURL: stri
     console.log('Slides URL:', slidesURL);
     console.log('Topic:', topic);
 
-    const webhookURL = process.env.NEXT_PUBLIC_SLIDES_WEBHOOK_URL;
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: userProfile, error: userError } = await supabase
+      .from('profiles')
+      .select('webhook_url')
+      .eq('id', user?.id)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user profile:', userError);
+      return { data: null, error: userError };
+    }
+
+    const webhookURL = userProfile?.webhook_url;
 
     if (!webhookURL) {
-      console.error('Slides webhook URL is not defined in environment variables.');
-      return { data: null, error: { message: 'Slides webhook URL is not defined.' } };
+      console.error('User webhook URL is not defined in profile.');
+      return { data: null, error: { message: 'User webhook URL is not defined.' } };
     }
 
     const response = await fetch(webhookURL, {
@@ -313,6 +349,7 @@ export const downloadSlidesForPlatform = async (entryId: string, slidesURL: stri
         entry_id: entryId,
         slides_url: slidesURL,
         topic: topic,
+        user_id: user?.id,
       }),
     });
 
@@ -338,10 +375,11 @@ export const downloadSlidesWithUserWebhook = async (slidesURL: string, topic: st
     console.log('Slides URL:', slidesURL);
     console.log('Topic:', topic);
 
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: userProfile, error: userError } = await supabase
       .from('profiles')
-      .select('slides_webhook_url')
-      .eq('id', supabase.auth.user()?.id)
+      .select('webhook_url')
+      .eq('id', user?.id)
       .single();
 
     if (userError) {
@@ -349,11 +387,11 @@ export const downloadSlidesWithUserWebhook = async (slidesURL: string, topic: st
       return { data: null, error: userError };
     }
 
-    const webhookURL = userProfile?.slides_webhook_url;
+    const webhookURL = userProfile?.webhook_url;
 
     if (!webhookURL) {
-      console.error('User slides webhook URL is not defined in profile.');
-      return { data: null, error: { message: 'User slides webhook URL is not defined.' } };
+      console.error('User webhook URL is not defined in profile.');
+      return { data: null, error: { message: 'User webhook URL is not defined.' } };
     }
 
     const response = await fetch(webhookURL, {
@@ -364,7 +402,7 @@ export const downloadSlidesWithUserWebhook = async (slidesURL: string, topic: st
       body: JSON.stringify({
         slides_url: slidesURL,
         topic: topic,
-        user_id: supabase.auth.user()?.id,
+        user_id: user?.id,
       }),
     });
 
@@ -392,10 +430,11 @@ export const generateImageForPlatform = async (entryId: string, platform: string
     console.log('Topic:', topic);
     console.log('Description:', description);
 
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: userProfile, error: userError } = await supabase
       .from('profiles')
-      .select('image_generation_webhook_url')
-      .eq('id', supabase.auth.user()?.id)
+      .select('webhook_url')
+      .eq('id', user?.id)
       .single();
 
     if (userError) {
@@ -403,11 +442,11 @@ export const generateImageForPlatform = async (entryId: string, platform: string
       return { data: null, error: userError };
     }
 
-    const webhookURL = userProfile?.image_generation_webhook_url;
+    const webhookURL = userProfile?.webhook_url;
 
     if (!webhookURL) {
-      console.error('Image generation webhook URL is not defined in user profile.');
-      return { data: null, error: { message: 'Image generation webhook URL is not defined.' } };
+      console.error('Webhook URL is not defined in user profile.');
+      return { data: null, error: { message: 'Webhook URL is not defined.' } };
     }
 
     const response = await fetch(webhookURL, {
@@ -420,7 +459,7 @@ export const generateImageForPlatform = async (entryId: string, platform: string
         platform: platform,
         topic: topic,
         description: description,
-        user_id: supabase.auth.user()?.id,
+        user_id: user?.id,
       }),
     });
 
@@ -446,10 +485,11 @@ export const publishContent = async (entryId: string, platform: string) => {
     console.log('Entry ID:', entryId);
     console.log('Platform:', platform);
 
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: userProfile, error: userError } = await supabase
       .from('profiles')
-      .select('publish_webhook_url')
-      .eq('id', supabase.auth.user()?.id)
+      .select('webhook_url')
+      .eq('id', user?.id)
       .single();
 
     if (userError) {
@@ -457,7 +497,7 @@ export const publishContent = async (entryId: string, platform: string) => {
       return { data: null, error: userError };
     }
 
-    const webhookURL = userProfile?.publish_webhook_url;
+    const webhookURL = userProfile?.webhook_url;
 
     if (!webhookURL) {
       console.error('Publish webhook URL is not defined in user profile.');
@@ -472,7 +512,7 @@ export const publishContent = async (entryId: string, platform: string) => {
       body: JSON.stringify({
         entry_id: entryId,
         platform: platform,
-        user_id: supabase.auth.user()?.id,
+        user_id: user?.id,
       }),
     });
 
@@ -488,6 +528,60 @@ export const publishContent = async (entryId: string, platform: string) => {
     return { data: responseData, error: null };
   } catch (error: any) {
     console.error('Unexpected error in publishContent:', error);
+    return { data: null, error: { message: error.message || 'Unexpected error' } };
+  }
+};
+
+export const saveSlideImages = async (entryId: string, slideImages: string[]) => {
+  try {
+    console.log('=== SAVING SLIDE IMAGES ===');
+    console.log('Entry ID:', entryId);
+    console.log('Slide Images:', slideImages);
+
+    // Get the platform record for this entry
+    const { data: platformData, error: platformError } = await supabase
+      .from('content_platforms')
+      .select('id')
+      .eq('content_entry_id', entryId)
+      .single();
+
+    if (platformError) {
+      console.error('Error fetching platform data:', platformError);
+      return { data: null, error: platformError };
+    }
+
+    // Delete existing slide images for this platform
+    const { error: deleteError } = await supabase
+      .from('slide_images')
+      .delete()
+      .eq('content_platform_id', platformData.id);
+
+    if (deleteError) {
+      console.error('Error deleting existing slide images:', deleteError);
+      return { data: null, error: deleteError };
+    }
+
+    // Insert new slide images
+    const slideImageRecords = slideImages.map((imageUrl, index) => ({
+      content_platform_id: platformData.id,
+      image_url: imageUrl,
+      position: index + 1
+    }));
+
+    const { data, error } = await supabase
+      .from('slide_images')
+      .insert(slideImageRecords)
+      .select();
+
+    if (error) {
+      console.error('Error saving slide images:', error);
+      return { data: null, error };
+    }
+
+    console.log('Slide images saved successfully:', data);
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Unexpected error saving slide images:', error);
     return { data: null, error: { message: error.message || 'Unexpected error' } };
   }
 };

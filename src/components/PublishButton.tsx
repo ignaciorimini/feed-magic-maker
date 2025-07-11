@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { contentService } from '@/services/contentService';
+import { publishContent } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 
 interface PublishButtonProps {
@@ -34,7 +34,7 @@ const PublishButton = ({
       console.log('Platform:', platform);
       console.log('Current Status:', currentStatus);
 
-      const { data, error } = await contentService.publishContent(platformId, platform);
+      const { data, error } = await publishContent(platformId, platform);
       
       if (error) {
         console.error('Publish content error:', error);
@@ -52,7 +52,6 @@ const PublishButton = ({
         
         if (isPublished && data.link) {
           // Content was published immediately with a link
-          await contentService.updatePlatformStatus(platformId, 'published', data.link);
           onStatusChange('published');
           
           if (onLinkUpdate) {

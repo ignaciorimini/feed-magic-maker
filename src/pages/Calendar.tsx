@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { contentService } from '@/services/contentService';
+import { getUserContentEntries, updatePlatformContent, generateImageForPlatform, uploadCustomImage } from '@/services/contentService';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import { toast } from '@/hooks/use-toast';
 
@@ -21,40 +20,17 @@ const Calendar = () => {
       setLoading(true);
       
       // Load both regular entries and scheduled content
-      const [entriesResult, scheduledResult] = await Promise.all([
-        contentService.getUserContentEntries(),
-        contentService.getScheduledContent()
+      const [entriesResult] = await Promise.all([
+        getUserContentEntries()
       ]);
       
       if (entriesResult.error) {
         throw entriesResult.error;
       }
       
-      if (scheduledResult.error) {
-        console.error('Error loading scheduled content:', scheduledResult.error);
-        // Don't throw here, just log the error and continue with regular entries
-      }
-      
       const allEntries = entriesResult.data || [];
-      const scheduledContent = scheduledResult.data || [];
       
-      // Merge scheduled content into entries structure
-      const entriesWithScheduled = allEntries.map(entry => {
-        const entryScheduledContent = scheduledContent.filter(sc => sc.content_entry_id === entry.id);
-        
-        // Add scheduled_at information to platformContent
-        if (entryScheduledContent.length > 0) {
-          entryScheduledContent.forEach(sc => {
-            if (entry.platformContent && entry.platformContent[sc.platform]) {
-              entry.platformContent[sc.platform].scheduled_at = sc.scheduled_at;
-            }
-          });
-        }
-        
-        return entry;
-      });
-      
-      setEntries(entriesWithScheduled);
+      setEntries(allEntries);
     } catch (error) {
       console.error('Error loading entries:', error);
       toast({
@@ -69,7 +45,7 @@ const Calendar = () => {
 
   const handleUpdateContent = async (entryId: string, platform: string, content: any) => {
     try {
-      const { error } = await contentService.updatePlatformContent(entryId, content);
+      const { error } = await updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
@@ -93,7 +69,7 @@ const Calendar = () => {
 
   const handleUpdateImage = async (entryId: string, imageUrl: string | null) => {
     try {
-      const { error } = await contentService.uploadCustomImage(entryId, imageUrl || '');
+      const { error } = await uploadCustomImage(entryId, imageUrl || '');
       
       if (error) {
         throw error;
@@ -117,7 +93,7 @@ const Calendar = () => {
 
   const handleGenerateImage = async (entryId: string, platform: string, topic: string, description: string) => {
     try {
-      const { error } = await contentService.generateImageForPlatform(entryId, platform, topic, description);
+      const { error } = await generateImageForPlatform(entryId, platform, topic, description);
       
       if (error) {
         throw error;
