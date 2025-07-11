@@ -613,6 +613,30 @@ export const saveSlideImages = async (entryId: string, slideImages: string[]) =>
   }
 };
 
+export const getSlideImages = async (platformId: string) => {
+  try {
+    console.log('=== GETTING SLIDE IMAGES ===');
+    console.log('Platform ID:', platformId);
+
+    const { data, error } = await supabase
+      .from('slide_images')
+      .select('*')
+      .eq('content_platform_id', platformId)
+      .order('position', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching slide images:', error);
+      return { data: null, error };
+    }
+
+    console.log('Slide images fetched successfully:', data);
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Unexpected error in getSlideImages:', error);
+    return { data: null, error: { message: error.message || 'Unexpected error' } };
+  }
+};
+
 // Export a service object for backward compatibility
 export const contentService = {
   createContentEntry,
@@ -626,6 +650,7 @@ export const contentService = {
   publishContent,
   uploadCustomImage,
   saveSlideImages,
+  getSlideImages,
   deleteImageFromPlatform: async (platformId: string, imageUrl: string, isUploaded: boolean) => {
     // Placeholder implementation
     return { data: null, error: null };

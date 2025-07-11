@@ -6,19 +6,43 @@ import { publishContent } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 
 interface PublishButtonProps {
-  entryId: string;
+  entryId?: string;
+  platformId?: string; // Add platformId as optional
   platform: string;
+  currentStatus?: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published';
+  contentType?: string;
+  onStatusChange?: (newStatus: 'pending' | 'generated' | 'edited' | 'scheduled' | 'published') => void;
+  onLinkUpdate?: (link: string) => void;
+  onStatsUpdate?: () => void;
   onPublish?: () => void;
   disabled?: boolean;
 }
 
-const PublishButton = ({ entryId, platform, onPublish, disabled }: PublishButtonProps) => {
+const PublishButton = ({ 
+  entryId, 
+  platformId, 
+  platform, 
+  currentStatus,
+  contentType,
+  onStatusChange,
+  onLinkUpdate,
+  onStatsUpdate,
+  onPublish, 
+  disabled 
+}: PublishButtonProps) => {
   const [isPublishing, setIsPublishing] = useState(false);
 
   const handlePublish = async () => {
     setIsPublishing(true);
     try {
-      const { data, error } = await publishContent(entryId, platform);
+      // Use platformId if available, otherwise fallback to entryId
+      const idToUse = platformId || entryId;
+      
+      if (!idToUse) {
+        throw new Error('No entry ID or platform ID provided');
+      }
+
+      const { data, error } = await publishContent(idToUse, platform);
 
       if (error) {
         throw error;
@@ -31,6 +55,10 @@ const PublishButton = ({ entryId, platform, onPublish, disabled }: PublishButton
 
       if (onPublish) {
         onPublish();
+      }
+
+      if (onStatsUpdate) {
+        onStatsUpdate();
       }
 
       // Reload page after a short delay to show updated status
