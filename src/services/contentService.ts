@@ -92,13 +92,44 @@ export const contentService = {
         });
       }
 
-      const { error: platformError } = await supabase
+      const { data: platformData, error: platformError } = await supabase
         .from('content_platforms')
-        .insert(platformInserts);
+        .insert(platformInserts)
+        .select();
 
       if (platformError) {
         console.error('Error creating platform content:', platformError);
         return { data: null, error: platformError };
+      }
+
+      // Create WordPress posts for WordPress platforms
+      console.log('Checking for WordPress platforms to create posts...');
+      for (const platformRecord of platformData) {
+        if (platformRecord.platform === 'wordpress') {
+          console.log('Creating WordPress post for platform:', platformRecord.id);
+          
+          const platform = entryData.selectedPlatforms.find(p => p === 'wordpress');
+          const wordpressContent = entryData.generatedContent[platform];
+          
+          if (wordpressContent) {
+            const { error: wpError } = await supabase
+              .from('wordpress_posts')
+              .insert({
+                content_platform_id: platformRecord.id,
+                title: wordpressContent.title || entryData.topic,
+                description: wordpressContent.description || entryData.description,
+                slug: wordpressContent.slug || entryData.topic.toLowerCase().replace(/\s+/g, '-'),
+                content: wordpressContent.content || ''
+              });
+
+            if (wpError) {
+              console.error('Error creating WordPress post:', wpError);
+              // Don't fail the entire operation, but log the error
+            } else {
+              console.log('WordPress post created successfully for platform:', platformRecord.id);
+            }
+          }
+        }
       }
 
       return { data: entry, error: null };
