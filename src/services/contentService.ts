@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const contentService = {
@@ -218,24 +217,80 @@ export const contentService = {
     }
   },
 
-  updatePlatformContent: async (entryId: string, content: any) => {
+  updatePlatformContent: async (platformId: string, content: any) => {
     try {
-      const { error } = await supabase
-        .from('content_platforms')
-        .update({
-          text: content.text,
-          image_url: content.image_url,
-          slides_url: content.slidesURL,
-          content_type: content.contentType,
-          scheduled_at: content.scheduledAt
-        })
-        .eq('id', entryId);
+      console.log('=== UPDATE PLATFORM CONTENT ===');
+      console.log('Platform ID:', platformId);
+      console.log('Content to update:', content);
 
-      if (error) {
-        console.error('Error updating platform content:', error);
-        return { data: null, error };
+      // Get the actual platform ID from composite ID if needed
+      const actualPlatformId = await contentService.getPlatformIdFromComposite(platformId);
+      const idToUse = actualPlatformId || platformId;
+
+      console.log('Using platform ID:', idToUse);
+
+      // First, get the platform to check if it's WordPress
+      const { data: platformData, error: platformError } = await supabase
+        .from('content_platforms')
+        .select('platform')
+        .eq('id', idToUse)
+        .single();
+
+      if (platformError) {
+        console.error('Error fetching platform:', platformError);
+        return { data: null, error: platformError };
       }
 
+      // Update the content_platforms table
+      const platformUpdate: any = {
+        text: content.text || '',
+        image_url: content.image_url || null,
+        slides_url: content.slidesURL || null,
+        content_type: content.contentType || 'simple',
+        updated_at: new Date().toISOString()
+      };
+
+      if (content.scheduled_at) {
+        platformUpdate.scheduled_at = content.scheduled_at;
+      }
+
+      const { error: updateError } = await supabase
+        .from('content_platforms')
+        .update(platformUpdate)
+        .eq('id', idToUse);
+
+      if (updateError) {
+        console.error('Error updating platform content:', updateError);
+        return { data: null, error: updateError };
+      }
+
+      // If it's WordPress, also update the WordPress post
+      if (platformData.platform === 'wordpress') {
+        console.log('Updating WordPress post...');
+        
+        const wordpressUpdate: any = {
+          updated_at: new Date().toISOString()
+        };
+
+        if (content.title) wordpressUpdate.title = content.title;
+        if (content.description) wordpressUpdate.description = content.description;
+        if (content.slug) wordpressUpdate.slug = content.slug;
+        if (content.text) wordpressUpdate.content = content.text;
+
+        const { error: wpError } = await supabase
+          .from('wordpress_posts')
+          .update(wordpressUpdate)
+          .eq('content_platform_id', idToUse);
+
+        if (wpError) {
+          console.error('Error updating WordPress post:', wpError);
+          return { data: null, error: wpError };
+        }
+
+        console.log('WordPress post updated successfully');
+      }
+
+      console.log('Platform content updated successfully');
       return { data: null, error: null };
     } catch (error) {
       console.error('Unexpected error updating platform content:', error);

@@ -199,13 +199,15 @@ const Index = () => {
       console.log('Platform:', platform);
       console.log('Content to update:', content);
       
+      // The entryId is already in the correct format (composite ID like "uuid__platform")
       const { error } = await contentService.updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
       }
 
-      await loadEntries(true); // Force refresh after update
+      // Force refresh after successful update
+      await loadEntries(true);
       
       toast({
         title: "Contenido actualizado",

@@ -129,58 +129,75 @@ const ContentEditModal = ({
   };
 
   const handleSave = async () => {
-    let contentToSave = { ...editedContent };
+    try {
+      console.log('=== SAVING CONTENT ===');
+      console.log('Entry ID:', entryId);
+      console.log('Platform:', platform);
+      console.log('Edited content:', editedContent);
+      console.log('Scheduled date:', scheduledDate);
 
-    // Handle scheduled date if provided
-    if (scheduledDate && scheduledDate.trim() !== '') {
-      try {
-        const localDate = new Date(scheduledDate);
-        const utcDate = localDate.toISOString();
-        
-        // Update the schedule in the database
-        const { error } = await contentService.updatePlatformSchedule(entryId, utcDate);
-        if (error) {
-          console.error('Error updating schedule:', error);
+      let contentToSave = { ...editedContent };
+
+      // Handle scheduled date if provided
+      if (scheduledDate && scheduledDate.trim() !== '') {
+        try {
+          const localDate = new Date(scheduledDate);
+          const utcDate = localDate.toISOString();
+          
+          // Update the schedule in the database
+          const { error } = await contentService.updatePlatformSchedule(entryId, utcDate);
+          if (error) {
+            console.error('Error updating schedule:', error);
+            toast({
+              title: "Error al programar",
+              description: "No se pudo guardar la fecha programada.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Add schedule info to content
+          contentToSave.scheduled_at = utcDate;
+          contentToSave.publishDate = utcDate;
+          
+          console.log('Scheduled date saved:', utcDate);
+        } catch (error) {
+          console.error('Error processing scheduled date:', error);
           toast({
             title: "Error al programar",
-            description: "No se pudo guardar la fecha programada.",
+            description: "Fecha inválida. Por favor, verifica el formato.",
             variant: "destructive",
           });
           return;
         }
-        
-        // Add schedule info to content
-        contentToSave.scheduled_at = utcDate;
-        contentToSave.publishDate = utcDate;
-        
-        console.log('Scheduled date saved:', utcDate);
-      } catch (error) {
-        console.error('Error processing scheduled date:', error);
-        toast({
-          title: "Error al programar",
-          description: "Fecha inválida. Por favor, verifica el formato.",
-          variant: "destructive",
-        });
-        return;
       }
-    }
 
-    await onSave(contentToSave);
-    
-    if (scheduledDate && scheduledDate.trim() !== '') {
-      const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
+      // Call the onSave callback with the platform and content
+      console.log('Calling onSave with:', { entryId, platform, contentToSave });
+      await onSave(contentToSave);
+      
+      if (scheduledDate && scheduledDate.trim() !== '') {
+        const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
+        toast({
+          title: "Contenido programado",
+          description: `El contenido se publicará el ${displayDate}`,
+        });
+      } else {
+        toast({
+          title: "Contenido guardado",
+          description: "Los cambios han sido guardados exitosamente.",
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Error saving content:', error);
       toast({
-        title: "Contenido programado",
-        description: `El contenido se publicará el ${displayDate}`,
-      });
-    } else {
-      toast({
-        title: "Contenido guardado",
-        description: "Los cambios han sido guardados exitosamente.",
+        title: "Error al guardar",
+        description: "Hubo un problema al guardar los cambios.",
+        variant: "destructive",
       });
     }
-    
-    onClose();
   };
 
   const handleImageClick = (images: string[], index: number) => {
