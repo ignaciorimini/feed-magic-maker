@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getUserContentEntries, updatePlatformContent } from '@/services/contentService';
 import DashboardContent from '@/components/dashboard/DashboardContent';
@@ -47,7 +48,6 @@ const Index = () => {
       entries={entries} 
       loading={loading} 
       onUpdateContent={handleUpdateContent}
-      onRefresh={loadEntries}
     />
   );
 };

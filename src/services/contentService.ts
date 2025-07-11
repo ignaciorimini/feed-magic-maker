@@ -172,7 +172,7 @@ export const updatePlatformContent = async (entryId: string, content: any) => {
     console.log('Platform content updated successfully');
     
     // Handle WordPress-specific updates
-    if (platform === 'wordpress' && (content.title || content.description || content.slug || content.content)) {
+    if (platform === 'wordpress' && (content.title || content.description || content.slug || content.text)) {
       console.log('Updating WordPress post data...');
       
       // Check if WordPress post exists
@@ -194,7 +194,7 @@ export const updatePlatformContent = async (entryId: string, content: any) => {
       if (content.title !== undefined) wpUpdate.title = content.title;
       if (content.description !== undefined) wpUpdate.description = content.description;
       if (content.slug !== undefined) wpUpdate.slug = content.slug;
-      if (content.content !== undefined) wpUpdate.content = content.content;
+      if (content.text !== undefined) wpUpdate.content = content.text;
       
       if (existingWpPost) {
         // Update existing WordPress post
@@ -218,7 +218,7 @@ export const updatePlatformContent = async (entryId: string, content: any) => {
             title: content.title || 'Untitled',
             description: content.description || '',
             slug: content.slug || 'untitled',
-            content: content.content || '',
+            content: content.text || '',
             ...wpUpdate
           });
         
@@ -532,6 +532,33 @@ export const publishContent = async (entryId: string, platform: string) => {
   }
 };
 
+export const uploadCustomImage = async (entryId: string, imageUrl: string) => {
+  try {
+    console.log('=== UPLOADING CUSTOM IMAGE ===');
+    console.log('Entry ID:', entryId);
+    console.log('Image URL:', imageUrl);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Update the image_url in content_platforms
+    const { data, error } = await supabase
+      .from('content_platforms')
+      .update({ image_url: imageUrl })
+      .eq('content_entry_id', entryId);
+
+    if (error) {
+      console.error('Error updating image URL:', error);
+      return { data: null, error };
+    }
+
+    console.log('Custom image uploaded successfully');
+    return { data: { success: true }, error: null };
+  } catch (error: any) {
+    console.error('Unexpected error in uploadCustomImage:', error);
+    return { data: null, error: { message: error.message || 'Unexpected error' } };
+  }
+};
+
 export const saveSlideImages = async (entryId: string, slideImages: string[]) => {
   try {
     console.log('=== SAVING SLIDE IMAGES ===');
@@ -583,5 +610,24 @@ export const saveSlideImages = async (entryId: string, slideImages: string[]) =>
   } catch (error: any) {
     console.error('Unexpected error saving slide images:', error);
     return { data: null, error: { message: error.message || 'Unexpected error' } };
+  }
+};
+
+// Export a service object for backward compatibility
+export const contentService = {
+  createContentEntry,
+  getUserContentEntries,
+  updatePlatformContent,
+  deletePlatform,
+  updatePlatformSchedule,
+  downloadSlidesForPlatform,
+  downloadSlidesWithUserWebhook,
+  generateImageForPlatform,
+  publishContent,
+  uploadCustomImage,
+  saveSlideImages,
+  deleteImageFromPlatform: async (platformId: string, imageUrl: string, isUploaded: boolean) => {
+    // Placeholder implementation
+    return { data: null, error: null };
   }
 };

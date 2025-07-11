@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Download, Save, Send, Loader2, Sparkles, X, Upload, Plus, AlertCircle, ExternalLink, Image, Clock, CalendarDays } from 'lucide-react';
-import { updatePlatformSchedule, downloadSlidesForPlatform, generateImageForPlatform } from '@/services/contentService';
+import { updatePlatformSchedule, downloadSlidesForPlatform, generateImageForPlatform, publishContent } from '@/services/contentService';
 import { toast } from '@/hooks/use-toast';
 import ImagePreviewModal from './ImagePreviewModal';
 import MediaImageSelector from './MediaImageSelector';
@@ -58,7 +58,7 @@ const ContentEditModal = ({
   onGenerateImage
 }: ContentEditModalProps) => {
   const { formatForDisplay, formatForInput, getMinDateTime, localToUtc } = useTimezone();
-  const [editedContent, setEditedContent] = useState(content);
+  const [editedContent, setEditedContent] = useState({ ...content, platform });
   const [downloadedSlides, setDownloadedSlides] = useState<string[]>(slideImages || content.slideImages || []);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -408,7 +408,7 @@ const ContentEditModal = ({
     try {
       await onSave(editedContent);
 
-      const { data, error } = await contentService.publishContent(entryId, platform);
+      const { data, error } = await publishContent(entryId, platform);
 
       if (error) {
         throw error;
