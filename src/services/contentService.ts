@@ -218,24 +218,68 @@ export const contentService = {
     }
   },
 
-  updatePlatformContent: async (entryId: string, content: any) => {
+  updatePlatformContent: async (entryId: string, platform: string, content: any) => {
     try {
+      console.log('Updating platform content:', {
+        entryId,
+        platform,
+        content
+      });
+
+      // Extract content entry ID from composite ID
+      const [contentEntryId] = entryId.split('__');
+      
+      // Update content_platforms table
       const { error } = await supabase
         .from('content_platforms')
         .update({
           text: content.text,
-          image_url: content.image_url,
-          slides_url: content.slidesURL,
-          content_type: content.contentType,
-          scheduled_at: content.scheduledAt
+          image_url: content.image_url || content.imageUrl,
+          slides_url: content.slidesURL || content.slides_url,
+          content_type: content.contentType || content.content_type,
+          scheduled_at: content.scheduled_at || content.scheduledAt
         })
-        .eq('id', entryId);
+        .eq('content_entry_id', contentEntryId)
+        .eq('platform', platform as 'instagram' | 'linkedin' | 'twitter' | 'wordpress');
 
       if (error) {
         console.error('Error updating platform content:', error);
         return { data: null, error };
       }
 
+      // If it's WordPress, also update the wordpress_posts table
+      if (platform === 'wordpress') {
+        console.log('Updating WordPress post data...');
+        
+        // Get the platform ID first
+        const { data: platformData } = await supabase
+          .from('content_platforms')
+          .select('id')
+          .eq('content_entry_id', contentEntryId)
+          .eq('platform', 'wordpress')
+          .single();
+
+        if (platformData) {
+          const { error: wpError } = await supabase
+            .from('wordpress_posts')
+            .update({
+              title: content.title || '',
+              description: content.description || '',
+              slug: content.slug || '',
+              content: content.text || ''
+            })
+            .eq('content_platform_id', platformData.id);
+
+          if (wpError) {
+            console.error('Error updating WordPress post:', wpError);
+            return { data: null, error: wpError };
+          }
+          
+          console.log('WordPress post updated successfully');
+        }
+      }
+
+      console.log('Platform content updated successfully');
       return { data: null, error: null };
     } catch (error) {
       console.error('Unexpected error updating platform content:', error);
