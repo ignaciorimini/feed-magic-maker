@@ -31,7 +31,7 @@ interface ContentEditModalProps {
     slideImages?: string[];
   };
   contentType: string;
-  onSave: (entryId: string, platform: string, content: any) => Promise<void>;
+  onSave: (content: any) => Promise<void>;
   entryId: string;
   topic?: string;
   description?: string;
@@ -165,8 +165,7 @@ const ContentEditModal = ({
       }
     }
 
-    // Pass the platform to onSave so it can be used for proper updates
-    await onSave(entryId, platform, contentToSave);
+    await onSave(contentToSave);
     
     if (scheduledDate && scheduledDate.trim() !== '') {
       const displayDate = formatForDisplay(new Date(scheduledDate).toISOString());
@@ -389,7 +388,7 @@ const ContentEditModal = ({
   const handlePublishAndSave = async () => {
     setIsPublishing(true);
     try {
-      await onSave(entryId, platform, editedContent);
+      await onSave(editedContent);
 
       const { data, error } = await contentService.publishContent(entryId, platform);
 

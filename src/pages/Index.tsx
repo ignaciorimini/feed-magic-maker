@@ -199,7 +199,7 @@ const Index = () => {
       console.log('Platform:', platform);
       console.log('Content to update:', content);
       
-      const { error } = await contentService.updatePlatformContent(entryId, platform, content);
+      const { error } = await contentService.updatePlatformContent(entryId, content);
       
       if (error) {
         throw error;
